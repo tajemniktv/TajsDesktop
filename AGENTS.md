@@ -211,17 +211,14 @@ custom Plasma sessions and sudo's empty/stale environment without requiring
 manual DBus variable forwarding (issue #85). Keep OLED retirement fail-closed
 when the recovered session still cannot reach the user service manager.
 
-## Architecture — Auto-Update on Install
+## Architecture — Fork Update Safety
 
-`./install` checks GitHub releases on every launch.
+`./install` checks the TajsDesktop fork's GitHub releases on launch.
 `MAC_TAHOE_NO_UPDATE_CHECK=true` skips the check; `--check-update`
-checks and exits. When a newer release exists and the repo is a clean
-git checkout, `auto_update_and_reexec` pulls `--ff-only` as the
-invoking user (never root — root-owned objects would wreck the user's
-repo) and re-execs `./install` so the freshly-pulled code performs the
-install. `MAC_TAHOE_UPDATED=1` is the recursion guard. A dirty
-checkout, missing git, or a failed pull falls back to installing the
-current version with a manual `git pull && ./install` hint.
+checks and exits. Installation never runs `git pull` or re-executes newly
+downloaded code. A release notice is informational: review and update the
+fork explicitly before running an installer. Never restore the upstream
+auto-update path in this personal fork.
 
 ## Architecture — Optional Online Rounded Corners
 
