@@ -50,6 +50,7 @@ def test_noop_and_version_update_do_not_imply_setting_reset():
     newer = plan_features({"layout": True}, installed, "1.2.4")
     assert newer["operation"] == "update"
     assert newer["enable"] == newer["disable"] == []
+    assert newer["pending_refresh"] == ["theme_switch"]
 
 
 def test_update_only_refreshes_steps_with_an_asset_phase():
@@ -59,7 +60,7 @@ def test_update_only_refreshes_steps_with_an_asset_phase():
     preview = plan_features(installed.features, installed, "1.2.4",
                             refreshable={"wallpapers"})
     assert preview["refresh_assets"] == ["wallpapers"]
-    assert preview["pending_refresh"] == ["gtk"]
+    assert preview["pending_refresh"] == ["gtk", "theme_switch"]
     assert preview["enable"] == preview["disable"] == []
 
 
@@ -69,6 +70,14 @@ def test_update_does_not_refresh_settings_only_features():
     })
     preview = plan_features(previous.features, previous, "1.2.4")
     assert preview["refresh_assets"] == []
+    assert preview["pending_refresh"] == ["theme_switch"]
+
+
+def test_update_refreshes_core_switcher_only_when_phase_is_available():
+    previous = InstalledState("1.2.3", {"layout": True})
+    preview = plan_features(previous.features, previous, "1.2.4",
+                            refreshable={"theme_switch"})
+    assert preview["refresh_assets"] == ["theme_switch"]
     assert preview["pending_refresh"] == []
 
 

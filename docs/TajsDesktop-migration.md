@@ -58,6 +58,9 @@ Do not remove that guard merely because static tests or native builds pass.
   Asset-only phases exist for the bundled visual packages and compiled Global
   Menu, Dock Task Manager, Kvantum, and Acrylic payloads; an update preview
   lists unsupported refreshes instead of silently replaying install actions.
+  The mandatory theme-switch executable and scheduler are listed as pending
+  until an ownership-aware asset refresh is implemented; they cannot be
+  hidden merely because they are absent from `features.json`.
   Wallpaper discovery now matches the fork-namespaced bundles. Cursor updates
   validate and stage the bundled archive before replacing either installed
   theme, so a broken archive leaves the current cursors intact.

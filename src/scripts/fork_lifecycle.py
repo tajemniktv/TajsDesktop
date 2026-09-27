@@ -104,6 +104,14 @@ def plan_features(desired: Mapping[str, bool],
     pending_refresh = [name for name in unchanged
                        if update and desired.get(name, False) and name not in eligible
                        and name not in SETTINGS_ONLY_FEATURES]
+    # The switcher is a required project component, not a selectable entry
+    # in features.json. Its installed binary and schedules also need an
+    # ownership-aware refresh before an update can be called complete.
+    if update:
+        if "theme_switch" in eligible:
+            refresh.append("theme_switch")
+        else:
+            pending_refresh.append("theme_switch")
     return {
         "operation": "migration-required" if installed is None and foreign_install else
                      "first-install" if installed is None else
