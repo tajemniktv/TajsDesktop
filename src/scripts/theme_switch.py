@@ -426,51 +426,6 @@ def detect_mode_by_system() -> str | None:
     return None
 
 
-_PRC_PANEL_RE = re.compile(
-    r"(\[PlasmaViews\]\[Panel \d+\]\n(?:[^\[]*\n)*)", re.MULTILINE,
-)
-
-
-def patch_dock_transparency() -> bool:
-    """Re-assert panel glass settings after a Global Theme apply.
-
-    Every panel is explicitly translucent so Plasma's Adaptive mode cannot
-    turn the top bar opaque when a window touches it. Non-floating panels also
-    keep applets-only floating. Global Theme applies can drop these view-state
-    keys, so every theme switch restores them. Returns True if the file changed.
-    """
-    prc = _xdg_config() / "plasmashellrc"
-    if not prc.is_file():
-        return False
-    try:
-        text = prc.read_text()
-    except OSError:
-        return False
-
-    def fix(m: "re.Match[str]") -> str:
-        section = m.group(0)
-        if "panelOpacity=" in section:
-            section = re.sub(r"panelOpacity=\d+", "panelOpacity=2", section)
-        else:
-            section = section.rstrip() + "\npanelOpacity=2\n"
-        if "floating=0" in section:
-            if "floatingApplets=" in section:
-                section = re.sub(r"floatingApplets=\d+", "floatingApplets=1",
-                                 section)
-            else:
-                section = section.rstrip() + "\nfloatingApplets=1\n"
-        return section
-
-    new_text = _PRC_PANEL_RE.sub(fix, text)
-    if new_text != text:
-        try:
-            prc.write_text(new_text)
-        except OSError:
-            return False
-        return True
-    return False
-
-
 def _read_portal_color_scheme() -> int | None:
     """The freedesktop appearance ``color-scheme`` as an int (0 no-pref,
     1 prefer-dark, 2 prefer-light), or None if the portal can't be read."""
@@ -1466,9 +1421,6 @@ def _apply_unlocked(mode: str, context: str = "user") -> bool:
         print("theme apply: live cursor apply skipped", file=sys.stderr)
     if not cycle_widget_style_live(widget):
         print("theme apply: widget-style cycle skipped", file=sys.stderr)
-    # Keep the dock translucent so the glass shows through (a theme apply can
-    # drop panelOpacity, painting an opaque black panel over the effect).
-    patch_dock_transparency()
     _qdbus("org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure")
     # After KWin re-scans effects, restore a user's third-party effects and
     # warn if one still cannot load (best-effort when KWin is unavailable).

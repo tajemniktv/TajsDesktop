@@ -6,6 +6,7 @@ logic that keeps the user's pinned taskbar apps alive when --resetLayout
 rebuilds the panel from scratch.
 """
 
+import json
 import pytest
 
 import steps.layout as layout
@@ -369,6 +370,8 @@ def test_first_install_adds_autohide_panels_without_removing_existing(
     captured = _capture_evaluated_script(monkeypatch)
     monkeypatch.setattr(layout, "_discover_is_installed", lambda: False)
     monkeypatch.setattr(layout, "_wait_for_layout_install", lambda: True)
+    snapshots = iter(({}, {101: "a" * 64, 102: "b" * 64}))
+    monkeypatch.setattr(layout, "_panel_snapshots", lambda: next(snapshots))
 
     layout.install()
 
@@ -380,6 +383,7 @@ def test_first_install_adds_autohide_panels_without_removing_existing(
     assert "writeConfig('launchers', 'preferred://filemanager," in script
     assert "applications:steam.desktop,preferred://browser')" in script
     assert marker.is_file()
+    assert set(json.loads(marker.read_text())["panels"]) == {"101", "102"}
     assert appletsrc.read_bytes() == before
     assert prc.read_text() == "[PlasmaViews][Panel 17]\npanelOpacity=0\n"
 
@@ -398,7 +402,7 @@ def test_failed_first_install_does_not_create_marker(monkeypatch, tmp_path):
     assert layout.is_installed() is False
 
 
-def test_uninstall_always_rebuilds_bottom_panel_with_same_pins(
+def test_uninstall_without_ownership_preserves_all_panels(
         monkeypatch, tmp_path):
     monkeypatch.setattr(layout, "HOME", tmp_path)
     _write_appletsrc(tmp_path, _APPLETSRC)
@@ -412,11 +416,7 @@ def test_uninstall_always_rebuilds_bottom_panel_with_same_pins(
 
     layout.uninstall()
 
-    assert calls == [[
-        "preferred://filemanager",
-        "applications:steam.desktop",
-        "preferred://browser",
-    ]]
+    assert calls == []
 
 
 def test_uninstall_leaves_unrelated_custom_layout_untouched(
@@ -437,7 +437,7 @@ def test_uninstall_leaves_unrelated_custom_layout_untouched(
     assert messages == ["Layout already clean"]
 
 
-def test_uninstall_scrubs_only_our_stale_panel_transparency(
+def test_uninstall_preserves_unowned_panel_transparency(
         monkeypatch, tmp_path):
     monkeypatch.setattr(layout, "HOME", tmp_path)
     _write_appletsrc(tmp_path, "plugin=org.example.custom.panel\n")
@@ -459,13 +459,13 @@ def test_uninstall_scrubs_only_our_stale_panel_transparency(
     layout.uninstall()
 
     text = prc.read_text()
-    assert "[PlasmaViews][Panel 1]\nfloating=1\nvisibilityMode=0" in text
+    assert "[PlasmaViews][Panel 1]\nfloating=1\npanelOpacity=2\nfloatingApplets=1" in text
     assert "[PlasmaViews][Panel 2]\nfloating=1\npanelOpacity=1" in text
     assert "floatingApplets=0" in text
-    assert messages == ["Panel transparency reset", "Layout already clean"]
+    assert messages == ["Layout already clean"]
 
 
-def test_uninstall_recognizes_legacy_mac_layout_ids(monkeypatch, tmp_path):
+def test_uninstall_preserves_legacy_mac_layout_ids_without_proof(monkeypatch, tmp_path):
     monkeypatch.setattr(layout, "HOME", tmp_path)
     _write_appletsrc(
         tmp_path,
@@ -484,10 +484,10 @@ def test_uninstall_recognizes_legacy_mac_layout_ids(monkeypatch, tmp_path):
 
     layout.uninstall()
 
-    assert calls == [[]]
+    assert calls == []
 
 
-def test_layout_uninstall_removes_update_marker(monkeypatch, tmp_path):
+def test_layout_uninstall_preserves_legacy_marker_without_proof(monkeypatch, tmp_path):
     monkeypatch.setattr(layout, "HOME", tmp_path)
     monkeypatch.setattr(layout, "ok", lambda message: None)
     monkeypatch.setattr(layout, "_layout_has_any_theme_widget", lambda: True)
@@ -498,4 +498,64 @@ def test_layout_uninstall_removes_update_marker(monkeypatch, tmp_path):
 
     layout.uninstall()
 
-    assert not marker.exists()
+    assert marker.exists()
+
+
+def test_scoped_uninstall_removes_only_unchanged_owned_panel(monkeypatch, tmp_path):
+    monkeypatch.setattr(layout, "HOME", tmp_path)
+    owned = "[Containments][101]\nplugin=org.kde.panel\n[Containments][101][TajsDesktop]\nowner=tajsdesktop\n"
+    foreign = "[Containments][202]\nplugin=org.kde.panel\n[Containments][202][General]\nuserKey=keep\n"
+    _write_appletsrc(tmp_path, owned + foreign)
+    appletsrc = tmp_path / ".config/plasma-org.kde.plasma.desktop-appletsrc"
+    prc = tmp_path / ".config/plasmashellrc"
+    prc.write_text("[PlasmaViews][Panel 101]\nheight=68\n[PlasmaViews][Panel 202]\nheight=42\n")
+    layout._mark_layout_installed(layout._panel_snapshots())
+    scripts = []
+
+    def remove_owned(script):
+        scripts.append(script)
+        appletsrc.write_text(foreign)
+        return True
+
+    monkeypatch.setattr(layout, "_evaluate_layout_script", remove_owned)
+    layout.uninstall()
+
+    assert len(scripts) == 1
+    assert "panelById(ids[i])" in scripts[0]
+    assert "101" in scripts[0] and "202" not in scripts[0]
+    assert appletsrc.read_text() == foreign
+    assert not layout._layout_marker().exists()
+    backups = list((tmp_path / ".local/state/tajsdesktop/panel-backups").glob("*/plasma-org.kde.plasma.desktop-appletsrc"))
+    assert len(backups) == 1 and backups[0].read_text() == owned + foreign
+
+
+def test_scoped_uninstall_preserves_user_modified_panel(monkeypatch, tmp_path):
+    monkeypatch.setattr(layout, "HOME", tmp_path)
+    original = "[Containments][101]\nplugin=org.kde.panel\n[Containments][101][TajsDesktop]\nowner=tajsdesktop\n"
+    _write_appletsrc(tmp_path, original)
+    layout._mark_layout_installed(layout._panel_snapshots())
+    appletsrc = tmp_path / ".config/plasma-org.kde.plasma.desktop-appletsrc"
+    modified = original + "[Containments][101][Applets][303]\nplugin=org.example.user-widget\n"
+    appletsrc.write_text(modified)
+    monkeypatch.setattr(layout, "_evaluate_layout_script", lambda script: pytest.fail("panel was deleted"))
+
+    layout.uninstall()
+
+    assert appletsrc.read_text() == modified
+    assert layout._layout_marker().exists()
+
+
+def test_scoped_uninstall_rejects_panel_with_removed_owner_key(monkeypatch, tmp_path):
+    monkeypatch.setattr(layout, "HOME", tmp_path)
+    original = "[Containments][101]\nplugin=org.kde.panel\n[Containments][101][TajsDesktop]\nowner=tajsdesktop\n"
+    _write_appletsrc(tmp_path, original)
+    layout._mark_layout_installed(layout._panel_snapshots())
+    appletsrc = tmp_path / ".config/plasma-org.kde.plasma.desktop-appletsrc"
+    changed = "[Containments][101]\nplugin=org.kde.panel\n"
+    appletsrc.write_text(changed)
+    monkeypatch.setattr(layout, "_evaluate_layout_script", lambda script: pytest.fail("panel was deleted"))
+
+    layout.uninstall()
+
+    assert appletsrc.read_text() == changed
+    assert layout._layout_marker().exists()

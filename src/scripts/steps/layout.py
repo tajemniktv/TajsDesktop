@@ -1,11 +1,15 @@
 import json
+import hashlib
+import os
 import re
+import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
 from steps._helpers import (
-    DATA_HOME, HOME, have, install_tree, ok, offline, qdbus_call, warn,
+    DATA_HOME, HOME, fail, have, install_tree, ok, offline, qdbus_call, warn,
 )
 from utils import qdbus_cmd, run_user
 
@@ -232,13 +236,64 @@ def _layout_marker() -> Path:
     return HOME / ".local/state/tajsdesktop/layout-installed"
 
 
-def _mark_layout_installed() -> None:
+_CONTAINMENT_RE = re.compile(r"(?m)^\[Containments\]\[(\d+)\](?:\[[^\n]*\])?\n")
+_VIEW_RE = re.compile(r"(?m)^\[PlasmaViews\]\[Panel (\d+)\](?:\[[^\n]*\])?\n")
+
+
+def _sections(text: str, pattern: re.Pattern[str]) -> dict[int, str]:
+    matches = list(pattern.finditer(text))
+    result: dict[int, str] = {}
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        key = int(match.group(1))
+        result[key] = result.get(key, "") + text[match.start():end]
+    return result
+
+
+def _panel_snapshots() -> dict[int, str]:
+    appletsrc = HOME / ".config/plasma-org.kde.plasma.desktop-appletsrc"
+    prc = HOME / ".config/plasmashellrc"
+    if appletsrc.is_symlink() or prc.is_symlink():
+        raise OSError("symlinked Plasma configuration cannot be snapshotted")
+    applets = _sections(appletsrc.read_text(encoding="utf-8"), _CONTAINMENT_RE) if appletsrc.is_file() else {}
+    views = _sections(prc.read_text(encoding="utf-8"), _VIEW_RE) if prc.is_file() else {}
+    result = {}
+    for panel_id, content in applets.items():
+        marker = f"[Containments][{panel_id}][TajsDesktop]\nowner=tajsdesktop"
+        if marker not in content:
+            continue
+        digest = hashlib.sha256((content + "\0" + views.get(panel_id, "")).encode()).hexdigest()
+        result[panel_id] = digest
+    return result
+
+
+def _containment_ids() -> set[int]:
+    appletsrc = HOME / ".config/plasma-org.kde.plasma.desktop-appletsrc"
+    if appletsrc.is_symlink():
+        raise OSError("symlinked Plasma configuration cannot be inspected")
+    if not appletsrc.is_file():
+        return set()
+    return set(_sections(appletsrc.read_text(encoding="utf-8"), _CONTAINMENT_RE))
+
+
+def _mark_layout_installed(snapshots: dict[int, str]) -> None:
     marker = _layout_marker()
+    if marker.parent.is_symlink():
+        raise OSError("layout state directory is a symlink")
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    if marker.is_symlink():
+        raise OSError("layout ownership marker is a symlink")
+    fd, name = tempfile.mkstemp(prefix=".layout-", dir=marker.parent)
     try:
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text("1\n", encoding="utf-8")
-    except OSError:
-        pass
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump({"schema": 1, "panels": {str(k): v for k, v in snapshots.items()}}, stream)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(name, marker)
+    except BaseException:
+        Path(name).unlink(missing_ok=True)
+        raise
 
 
 def _clear_layout_marker() -> None:
@@ -289,6 +344,16 @@ def _wait_for_layout_install(timeout_seconds: float = 5.0) -> bool:
             return True
         time.sleep(0.2)
     return _layout_looks_installed()
+
+
+def _wait_for_owned_snapshots(before: set[int], timeout_seconds: float = 5.0) -> dict[int, str]:
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        created = {key: value for key, value in _panel_snapshots().items()
+                   if key not in before}
+        if created or time.monotonic() >= deadline:
+            return created
+        time.sleep(0.2)
 
 
 # Plasma's JS API doesn't expose panelOpacity / floatingApplets, so they
@@ -374,12 +439,24 @@ def install() -> None:
     if not LAYOUT_SCRIPT.is_file():
         warn("Layout script not found — skipping")
         return
+    try:
+        before = set(_panel_snapshots())
+    except OSError as exc:
+        fail(f"Layout ownership preflight failed: {exc}")
+        return
     pins = _capture_pinned_launchers()
     applied = _evaluate_layout_with_launchers(
         LAYOUT_SCRIPT, pins, MAC_TASKS_ID,
     )
     if applied and _wait_for_layout_install():
-        _mark_layout_installed()
+        try:
+            created = _wait_for_owned_snapshots(before)
+            if not created:
+                raise OSError("new panel ownership markers were not saved by Plasma")
+            _mark_layout_installed(created)
+        except OSError as exc:
+            fail(f"Layout created but ownership snapshot failed: {exc}")
+            return
         ok(f"Layout installed (kept {len(pins)} pinned app(s))" if pins
            else "Layout installed")
     else:
@@ -395,30 +472,79 @@ def is_installed() -> bool:
 
 
 def uninstall() -> None:
-    has_theme_widgets = _layout_has_any_theme_widget()
-    _clear_layout_marker()
-    if _reset_plasmashellrc():
-        ok("Panel transparency reset")
-    if not has_theme_widgets:
-        ok("Layout already clean")
-        return
-    # Always remove the Mac top bar and Dock. Preserve only the applications
-    # the user pinned; Launcher and Trash are widgets and disappear with Dock.
-    pins = _capture_pinned_launchers()
-    if _reset_with_pins(pins):
-        ok(f"Layout reset (kept {len(pins)} pinned app(s))" if pins
-           else "Layout reset")
-        return
-
-    if _reset_layout_builtin():
-        if _restore_pins(pins, DEFAULT_TASKS_ID):
-            ok(f"Layout reset (kept {len(pins)} pinned app(s))" if pins
-               else "Layout reset")
+    marker = _layout_marker()
+    if not marker.exists() and not marker.is_symlink():
+        if _layout_has_any_theme_widget():
+            fail("Layout ownership is unknown; preserving all panels")
         else:
-            warn("Layout reset, but pinned applications could not be restored")
+            ok("Layout already clean")
         return
-    if _layout_looks_reset():
-        warn("Layout reset fallback was not confirmed; pinned applications "
-             "may need to be restored manually")
+    if marker.is_symlink():
+        fail("Symlinked layout ownership marker; preserving all panels")
         return
-    warn("layout reset failed")
+    try:
+        record = json.loads(marker.read_text(encoding="utf-8"))
+        expected = record["panels"]
+        if (record.get("schema") != 1 or not isinstance(expected, dict)
+                or not expected or any(not key.isdigit() or not isinstance(value, str)
+                                        or not re.fullmatch(r"[0-9a-f]{64}", value)
+                                        for key, value in expected.items())):
+            raise ValueError("invalid panel ownership snapshot")
+        current = _panel_snapshots()
+        existing_ids = _containment_ids()
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        fail(f"Layout ownership cannot be verified; preserving all panels ({exc})")
+        return
+    changed = [key for key, digest in expected.items()
+               if int(key) in existing_ids and current.get(int(key)) != digest]
+    if changed:
+        fail("Layout panels changed since installation; preserving all panels: "
+             + ", ".join(changed))
+        return
+    target_ids = sorted(int(key) for key in expected if int(key) in current)
+    if not target_ids:
+        try:
+            marker.unlink()
+        except OSError as exc:
+            fail(f"Could not clear layout ownership state: {exc}")
+            return
+        ok("Layout already removed")
+        return
+    # Keep exact recovery copies before Plasma destroys any containment.
+    backup = marker.parent / "panel-backups" / time.strftime("%Y%m%d-%H%M%S")
+    try:
+        if marker.parent.is_symlink() or backup.parent.is_symlink():
+            raise OSError("symlinked panel backup directory")
+        backup.mkdir(mode=0o700, parents=True, exist_ok=False)
+        for source in (HOME / ".config/plasma-org.kde.plasma.desktop-appletsrc",
+                       HOME / ".config/plasmashellrc"):
+            if source.is_symlink():
+                raise OSError(f"symlinked Plasma configuration: {source}")
+            if source.is_file():
+                shutil.copy2(source, backup / source.name)
+    except OSError as exc:
+        fail(f"Panel backup failed; preserving layout ({exc})")
+        return
+    ids = json.dumps(target_ids)
+    script = (
+        "(function () { var ids = " + ids + "; for (var i = 0; i < ids.length; i++) {"
+        " var panel = panelById(ids[i]); if (!panel) continue;"
+        " panel.currentConfigGroup = ['TajsDesktop'];"
+        " if (panel.readConfig('owner', '') === 'tajsdesktop') panel.remove();"
+        " } })();"
+    )
+    if not _evaluate_layout_script(script):
+        fail(f"Panel removal failed; recovery copies: {backup}")
+        return
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        if not set(target_ids) & _containment_ids():
+            try:
+                marker.unlink()
+            except OSError as exc:
+                fail(f"Panels removed but ownership state remains: {exc}")
+                return
+            ok(f"Removed {len(target_ids)} unchanged TajsDesktop panel(s)")
+            return
+        time.sleep(0.2)
+    fail(f"Panel removal not confirmed; recovery copies: {backup}")

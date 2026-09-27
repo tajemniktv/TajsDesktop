@@ -61,13 +61,21 @@ Do not remove that guard merely because static tests or native builds pass.
   Wallpaper discovery now matches the fork-namespaced bundles. Cursor updates
   validate and stage the bundled archive before replacing either installed
   theme, so a broken archive leaves the current cursors intact.
+- Layout first install adds fork panels without deleting existing KDE/Tahoe
+  panels. Repeat install preserves them. Newly created panels carry a
+  containment ownership key and a versioned snapshot of their Plasma
+  containment and view configuration. Layout disable refuses legacy or
+  modified panels; for unchanged fork-owned panels it backs up both Plasma
+  configuration files, removes only the recorded panel IDs through Plasma's
+  scripting API, and checks that removal persisted. The theme switcher no
+  longer reapplies panel transparency to every user panel.
 
 ## Configuration-write audit in progress
 
 | Area | Existing behavior requiring lifecycle work |
 | --- | --- |
 | Appearance | `apply`, `theme_switch`, `window_decorations`, `kvantum`, `sounds`, and GTK install write live KDE/GSettings choices. Updates must install assets without invoking these selectors. GTK uninstall no longer deletes unrelated GTK4 files or resets GSettings. |
-| Panels and wallpapers | `layout` rebuilds panels and `apply` can reset wallpapers. Neither is safe as a routine update; explicit scoped reset needs a containment-level preview and backup. |
+| Panels and wallpapers | Layout creation and removal are now scoped to newly marked, unchanged fork panels. A user-modified panel is preserved, not silently reset. `apply` can still reset appearance and wallpapers; it must not run on routine update. Explicit scoped panel reset with preview and rollback remains unfinished. |
 | App preferences | Nautilus now initializes only absent MIME/bookmark/CSS/dconf values and preserves edits on uninstall; MIME rollback remains unimplemented without an ownership snapshot. Firefox has its own ownership-aware CSS path. Other app defaults need per-key absence and ownership checks. |
 | Shared/system integration | Rounded Corners and Panel Colorizer use shared IDs; Plymouth touches boot configuration; OLED/theme schedulers manage user services or cron. Foreign ownership must be preserved. |
 | Portal routing | The `portals` step previously overwrote its config and deleted it on uninstall. It now preserves foreign and edited files, but the rest of the broad installer is still blocked. |
@@ -87,10 +95,9 @@ Do not remove that guard merely because static tests or native builds pass.
    or panel IDs as TajsDesktop ownership. External KDE Rounded Corners is a
    shared dependency and must not be removed or reset if another installation
    owns it.
-4. Make layout creation non-destructive on an existing desktop and preserve
-   applet instances, panel geometry, pins, and wallpaper overrides. A reset
-   must show exactly which keys or containments it will change and support
-   rollback.
+4. Finish layout lifecycle: expose a preview and confirmed scoped reset for
+   modified fork panels, preserve user pins and geometry, and verify backup
+   restoration in an isolated KDE VM. Keep unproven legacy panels foreign.
 5. Persist versioned *installed* state only after each successful operation
    and make the preview executable through safe per-feature reconciliation.
    Add explicit, scoped reset actions to the GUI and CLI.

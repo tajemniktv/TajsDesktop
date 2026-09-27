@@ -612,54 +612,6 @@ def test_cycle_widget_style_works_off_main_thread(monkeypatch):
     assert result.get("ok") is True
 
 
-def test_patch_dock_transparency_reasserts_panel_opacity(monkeypatch, tmp_path):
-    """The dock goes black when panelOpacity is dropped (a Global Theme apply
-    from System Settings drops it), because the opaque panel background paints
-    over the Acrylic Glass. patch_dock_transparency must re-assert
-    panelOpacity=2 on every panel and floatingApplets=1 on non-floating —
-    on install, on switch, and on the manual System Settings path. Real run
-    against a real plasmashellrc, no mocking of the patch itself."""
-    import theme_switch
-    cfg = tmp_path / ".config"
-    cfg.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(cfg))
-    prc = cfg / "plasmashellrc"
-    prc.write_text(
-        "[PlasmaViews][Panel 1]\n"
-        "floating=0\n"
-        "shell=org.kde.plasma.desktop\n"
-        "\n"
-        "[PlasmaViews][Panel 2]\n"
-        "alignment=132\n"
-        "floating=1\n"
-        "shell=org.kde.plasma.desktop\n"
-        "\n"
-        "[PlasmaViews][Panel 2][Defaults]\n"
-        "thickness=68\n"
-    )
-
-    assert theme_switch.patch_dock_transparency() is True
-    text = prc.read_text()
-    top_section, dock_section = text.split("[PlasmaViews][Panel 2]", 1)
-    assert "panelOpacity=2" in top_section
-    assert "floatingApplets=1" in top_section
-    assert "panelOpacity=2" in dock_section
-    # The [Defaults] subsection is untouched (regex must not swallow it).
-    assert "[PlasmaViews][Panel 2][Defaults]\nthickness=68" in text
-
-    # Idempotent: a second run makes no further change.
-    assert theme_switch.patch_dock_transparency() is False
-
-
-def test_patch_dock_transparency_no_file_is_safe(monkeypatch, tmp_path):
-    """No plasmashellrc yet (fresh account / CI) → no crash, returns False."""
-    import theme_switch
-    cfg = tmp_path / ".config"
-    cfg.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(cfg))
-    assert theme_switch.patch_dock_transparency() is False
-
-
 # ── main() entry-point invariants ─────────────────────────────────────
 
 
