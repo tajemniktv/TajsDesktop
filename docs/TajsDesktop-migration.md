@@ -22,7 +22,10 @@ Do not remove that guard merely because static tests or native builds pass.
   filename, so a later install or uninstall cannot replace Tahoe's hook.
 - Firefox uses distinct ownership markers and skips profiles containing an
   upstream managed block or shared `chrome` symlink instead of converting or
-  replacing them automatically.
+  replacing them automatically. It also preserves an unrecorded same-named
+  theme directory, refuses to reclaim a payload when its manifest hash is
+  missing, and keeps user-edited payloads plus their recovery record on
+  uninstall. A marker alone does not prove an installed copy is unchanged.
 - Feature choices now save under the invoking user's config home, leaving the
   repository's `features.json` baseline untouched. `./install --plan` and the
   GUI provide a read-only installed-versus-requested delta. The GUI disables

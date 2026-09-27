@@ -256,15 +256,15 @@ def test_upstream_theme_block_is_not_replaced(firefox_home):
     assert json.loads(firefox._manifest_path().read_text())["profiles"] == {}
 
 
-def test_existing_same_named_directory_is_backed_up_and_restored(firefox_home):
+def test_existing_same_named_directory_is_foreign_and_preserved(firefox_home):
     profile = _seed_profile(firefox_home / ".mozilla/firefox")
     collision = profile / "chrome" / firefox.THEME_DIRNAME
     collision.mkdir(parents=True)
     (collision / "mine.txt").write_text("keep me", encoding="utf-8")
 
     firefox.install()
-    assert not (collision / "mine.txt").exists()
-    assert (collision / firefox.OWNERSHIP_MARKER).is_file()
+    assert (collision / "mine.txt").read_text() == "keep me"
+    assert not (collision / firefox.OWNERSHIP_MARKER).exists()
 
     firefox.uninstall()
     assert (collision / "mine.txt").read_text() == "keep me"
@@ -288,13 +288,57 @@ def test_lost_manifest_does_not_make_owned_payload_user_data(firefox_home):
     firefox.install()
     firefox._manifest_path().unlink()
 
+    theme = profile / "chrome" / firefox.THEME_DIRNAME
+    original = firefox._theme_digest(theme)
     firefox.install()
+    assert firefox._theme_digest(theme) == original
     firefox.uninstall()
 
-    assert not (profile / "chrome" / firefox.THEME_DIRNAME).exists()
+    # A marker alone cannot prove the payload was not customized after the
+    # manifest disappeared. Neither reinstall nor removal adopts it.
+    assert theme.exists()
     assert not (profile / "chrome/userChrome.css").exists()
     assert not (profile / "chrome/userContent.css").exists()
     assert not (profile / "user.js").exists()
+
+
+def test_uninstall_without_manifest_preserves_theme_payload(firefox_home):
+    profile = _seed_profile(firefox_home / ".mozilla/firefox")
+    firefox.install()
+    firefox._manifest_path().unlink()
+    theme = profile / "chrome" / firefox.THEME_DIRNAME
+
+    firefox.uninstall()
+
+    assert theme.is_dir()
+
+
+def test_uninstall_preserves_edited_theme_and_recovery_manifest(firefox_home):
+    profile = _seed_profile(firefox_home / ".mozilla/firefox")
+    firefox.install()
+    theme = profile / "chrome" / firefox.THEME_DIRNAME
+    edited = theme / "customChrome.css"
+    edited.write_bytes(edited.read_bytes() + b"\n/* user change */\n")
+
+    firefox.uninstall()
+
+    assert edited.read_bytes().endswith(b"/* user change */\n")
+    assert firefox._manifest_path().is_file()
+
+
+def test_incomplete_manifest_cannot_reclaim_existing_theme(firefox_home):
+    profile = _seed_profile(firefox_home / ".mozilla/firefox")
+    firefox.install()
+    theme = profile / "chrome" / firefox.THEME_DIRNAME
+    edited = theme / "customChrome.css"
+    edited.write_bytes(edited.read_bytes() + b"\n/* user change */\n")
+    manifest = json.loads(firefox._manifest_path().read_text())
+    manifest["profiles"][str(profile)].pop("theme_hash")
+    firefox._manifest_path().write_text(json.dumps(manifest))
+
+    firefox.install()
+
+    assert edited.read_bytes().endswith(b"/* user change */\n")
 
 
 def test_failed_payload_swap_rolls_back_preexisting_directory(

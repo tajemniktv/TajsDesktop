@@ -513,6 +513,11 @@ def _install_profile(profile: Path, manifest: dict[str, object]) -> bool:
             return False
     if not _markers_are_valid(profile):
         return False
+    existing_theme = profile / "chrome" / THEME_DIRNAME
+    if key not in profiles and (existing_theme.exists() or existing_theme.is_symlink()):
+        warn(f"Firefox: {profile.name} has an unrecorded theme directory; "
+             "preserving it for explicit migration")
+        return False
     snapshot = _snapshot_profile(profile, _root_for_profile(profile))
     if snapshot is None:
         return False
@@ -523,10 +528,13 @@ def _install_profile(profile: Path, manifest: dict[str, object]) -> bool:
         record = profiles[key]
         assert isinstance(record, dict)
         existing_theme = profile / "chrome" / THEME_DIRNAME
-        if existing_theme.exists() and record.get("theme_hash"):
-            if (existing_theme.is_symlink() or
-                    _theme_digest(existing_theme) != record["theme_hash"]):
-                warn(f"Firefox: {profile.name} theme was customized; skipped")
+        if existing_theme.exists() or existing_theme.is_symlink():
+            expected = record.get("theme_hash")
+            if (existing_theme.is_symlink() or not existing_theme.is_dir()
+                    or not isinstance(expected, str)
+                    or _theme_digest(existing_theme) != expected):
+                warn(f"Firefox: {profile.name} theme ownership is uncertain or "
+                     "the payload was customized; skipped")
                 return False
         migrate_legacy = record.get("chrome_kind") == "legacy-theme-symlink"
         chrome = _prepare_chrome_dir(profile, migrate_legacy=migrate_legacy)
@@ -574,6 +582,9 @@ def _restore_colliding_theme(chrome: Path, record: dict[str, object]) -> None:
 
 def _uninstall_profile(profile: Path, record: dict[str, object] | None) -> bool:
     chrome = profile / "chrome"
+    if chrome.is_symlink():
+        warn(f"Firefox: {profile.name} chrome is a symlink; preserving shared files")
+        return False
     success = True
     if chrome.is_dir():
         success &= _clean_file(
@@ -585,12 +596,26 @@ def _uninstall_profile(profile: Path, record: dict[str, object] | None) -> bool:
             remove_if_empty=not bool(record and record.get("user_content_existed")),
         )
         theme = chrome / THEME_DIRNAME
-        if (theme / OWNERSHIP_MARKER).is_file():
-            if theme.is_symlink():
-                theme.unlink()
+        theme_removed = not (theme.exists() or theme.is_symlink())
+        if not theme_removed:
+            expected = record.get("theme_hash") if record else None
+            if (theme.is_symlink() or not theme.is_dir()
+                    or not isinstance(expected, str)
+                    or not (theme / OWNERSHIP_MARKER).is_file()):
+                warn(f"Firefox: {profile.name} theme ownership is unknown; preserving it")
+                success = False
             else:
-                shutil.rmtree(theme)
-        if record:
+                try:
+                    if _theme_digest(theme) != expected:
+                        warn(f"Firefox: {profile.name} theme was customized; preserving it")
+                        success = False
+                    else:
+                        shutil.rmtree(theme)
+                        theme_removed = True
+                except (OSError, ValueError) as exc:
+                    warn(f"Firefox: {profile.name} theme could not be verified ({exc})")
+                    success = False
+        if record and theme_removed:
             _restore_colliding_theme(chrome, record)
         if record and record.get("chrome_kind") in (
             "missing", "legacy-theme-symlink",
