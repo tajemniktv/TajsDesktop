@@ -18,14 +18,13 @@ from utils import run_user
 BIN_DEST = HOME / ".local/bin/tajsdesktop-theme-switch"
 SVC_DIR = HOME / ".config/systemd/user"
 PY_SRC = REPO_ROOT / "src/scripts/theme_switch.py"
-LAYOUT_STATE_FILE = HOME / ".local/state/tajsdesktop/layout-installed"
-
-
-def _managed_state_files() -> tuple[Path, Path]:
+def _managed_state_files() -> tuple[Path, ...]:
     state_home = Path(os.environ.get("XDG_STATE_HOME") or
                       HOME / ".local/state")
     wallpaper_state = state_home / "tajsdesktop/wallpapers.json"
-    return wallpaper_state, LAYOUT_STATE_FILE
+    # Layout ownership belongs to the layout step. A theme-switch disable
+    # must never erase the proof needed to protect user-modified panels.
+    return (wallpaper_state,)
 
 # Legacy 0.36.x-0.38.x portal watcher. Current installs remove this autostart
 # and stop the process; the names stay here solely for upgrade cleanup.
@@ -303,19 +302,13 @@ def install() -> None:
         warn("Theme switcher not installed")
 
 
-_LEGACY_BIN = HOME / ".local/bin/mactahoe-theme-switch"
-
-
 def _running_switcher_pids() -> set[int] | None:
-    """Find same-user processes executing either installed switcher path."""
+    """Find same-user processes executing this fork's installed switcher."""
     try:
         uid = int(os.environ.get("SUDO_UID") or os.geteuid())
     except ValueError:
         uid = os.geteuid()
-    targets = {
-        os.path.normpath(os.fspath(BIN_DEST)),
-        os.path.normpath(os.fspath(_LEGACY_BIN)),
-    }
+    targets = {os.path.normpath(os.fspath(BIN_DEST))}
     try:
         entries = list(_PROC_ROOT.iterdir())
     except OSError:
@@ -362,14 +355,9 @@ def _wait_for_switchers(timeout: float = _SWITCHER_DRAIN_SECONDS) -> bool:
 
 
 def uninstall() -> None:
-    # Include legacy unit names from earlier versions so an upgrade-then-
-    # uninstall doesn't leave orphaned systemd files behind.
-    legacy_units = (
-        *UNITS,
-        "tajsdesktop-theme-apply.service",
-        "mactahoe-theme-watcher.service",
-    )
-    units_stopped = _teardown_units(legacy_units)
+    # Uninstall only fork-namespaced units. The old Tahoe names are foreign
+    # unless a separate migration recorded proof of ownership.
+    units_stopped = _teardown_units(UNITS)
     # Strip the OpenRC cron line too, so an uninstall on either init leaves
     # no orphaned schedule behind.
     cron_status = remove_periodic(CRON_TAG)
@@ -377,7 +365,7 @@ def uninstall() -> None:
     stop_gtk_sync_watcher()
     _teardown_gtk_sync_autostart()
     binaries_neutralized = True
-    for p in (BIN_DEST, _LEGACY_BIN):
+    for p in (BIN_DEST,):
         try: p.unlink()
         except FileNotFoundError: pass
         except OSError:
@@ -409,16 +397,7 @@ def uninstall() -> None:
             warn(f"Theme switch state could not be removed ({p}: {exc})")
             state_cleanup_ok = False
 
-    config_cleanup_ok = all((
-        kw_write("--file", "kdeglobals", "--group", "KDE",
-                 "--key", "AutomaticLookAndFeel", "false"),
-        kw_write("--file", "kdeglobals", "--group", "KDE",
-                 "--key", "DefaultLightLookAndFeel", "--delete"),
-        kw_write("--file", "kdeglobals", "--group", "KDE",
-                 "--key", "DefaultDarkLookAndFeel", "--delete"),
-    ))
-    if not state_cleanup_ok or not config_cleanup_ok:
-        fail("Theme switch removal incomplete — local state or KDE settings "
-             "could not be cleared")
+    if not state_cleanup_ok:
+        fail("Theme switch removal incomplete — local state could not be cleared")
         return
     ok("Theme switcher removed")

@@ -1718,7 +1718,6 @@ def test_switch_uninstall_retains_state_when_execution_cannot_be_neutralized(
     failures: list[str] = []
     config_writes: list[tuple[str, ...]] = []
     monkeypatch.setattr(step, "BIN_DEST", binary)
-    monkeypatch.setattr(step, "_LEGACY_BIN", legacy_binary)
     monkeypatch.setattr(step, "_managed_state_files", lambda: state_files)
     monkeypatch.setattr(step, "_teardown_units", lambda _units: False)
     monkeypatch.setattr(
@@ -1745,7 +1744,6 @@ def test_switch_uninstall_reports_state_cleanup_failure(monkeypatch, tmp_path):
     failures: list[str] = []
     successes: list[str] = []
     monkeypatch.setattr(step, "BIN_DEST", tmp_path / "bin/switcher")
-    monkeypatch.setattr(step, "_LEGACY_BIN", tmp_path / "bin/legacy-switcher")
     monkeypatch.setattr(step, "_teardown_units", lambda _units: True)
     monkeypatch.setattr(
         step, "remove_periodic", lambda _tag: step.RemovalStatus.ABSENT,
@@ -1760,53 +1758,18 @@ def test_switch_uninstall_reports_state_cleanup_failure(monkeypatch, tmp_path):
     step.uninstall()
 
     assert bad_state.is_dir()
-    assert any("local state or KDE settings" in item for item in failures)
+    assert any("local state" in item for item in failures)
     assert successes == []
 
 
-def test_switch_uninstall_reports_kde_config_cleanup_failure(
-        monkeypatch, tmp_path):
-    import steps.theme_switch as step
-
-    failures: list[str] = []
-    successes: list[str] = []
-    writes: list[tuple[str, ...]] = []
-    monkeypatch.setattr(step, "BIN_DEST", tmp_path / "bin/switcher")
-    monkeypatch.setattr(step, "_LEGACY_BIN", tmp_path / "bin/legacy-switcher")
-    monkeypatch.setattr(step, "_teardown_units", lambda _units: True)
-    monkeypatch.setattr(
-        step, "remove_periodic", lambda _tag: step.RemovalStatus.ABSENT,
-    )
-    monkeypatch.setattr(step, "stop_gtk_sync_watcher", lambda: None)
-    monkeypatch.setattr(step, "_teardown_gtk_sync_autostart", lambda: None)
-    monkeypatch.setattr(step, "_managed_state_files", lambda: ())
-    monkeypatch.setattr(
-        step, "kw_write",
-        lambda *args: writes.append(args) or len(writes) != 2,
-    )
-    monkeypatch.setattr(step, "fail", failures.append)
-    monkeypatch.setattr(step, "ok", successes.append)
-
-    step.uninstall()
-
-    assert len(writes) == 3
-    assert any("local state or KDE settings" in item for item in failures)
-    assert successes == []
-
-
-def test_switch_uninstall_targets_xdg_wallpaper_state_and_fixed_layout_state(
+def test_switch_uninstall_targets_only_xdg_wallpaper_state(
         monkeypatch, tmp_path):
     import steps.theme_switch as step
 
     custom = tmp_path / "custom-state"
     monkeypatch.setenv("XDG_STATE_HOME", str(custom))
-    monkeypatch.setattr(
-        step, "LAYOUT_STATE_FILE", tmp_path / "fixed/layout-installed",
-    )
-
     assert step._managed_state_files() == (
         custom / "tajsdesktop/wallpapers.json",
-        tmp_path / "fixed/layout-installed",
     )
 
 
@@ -1831,10 +1794,9 @@ def test_switcher_scan_matches_only_exact_same_user_installed_paths(
 
     monkeypatch.setenv("SUDO_UID", str(os.getuid()))
     monkeypatch.setattr(step, "BIN_DEST", current)
-    monkeypatch.setattr(step, "_LEGACY_BIN", legacy)
     monkeypatch.setattr(step, "_PROC_ROOT", proc)
 
-    assert step._running_switcher_pids() == {9876501, 9876502}
+    assert step._running_switcher_pids() == {9876501}
 
 
 def test_switch_uninstall_retains_state_until_running_switcher_drains(
@@ -1847,7 +1809,6 @@ def test_switch_uninstall_retains_state_until_running_switcher_drains(
     failures: list[str] = []
     config_writes: list[tuple[str, ...]] = []
     monkeypatch.setattr(step, "BIN_DEST", tmp_path / "bin/switcher")
-    monkeypatch.setattr(step, "_LEGACY_BIN", tmp_path / "bin/legacy")
     monkeypatch.setattr(step, "_teardown_units", lambda _units: True)
     monkeypatch.setattr(
         step, "remove_periodic", lambda _tag: step.RemovalStatus.ABSENT,
@@ -1872,14 +1833,15 @@ def test_switch_step_install_uninstall_reinstall(sandbox, tmp_path):
     """Round-trip the install/uninstall step. Asserts:
     - install drops the script + service + timer under $XDG_CONFIG_HOME
     - uninstall removes them
-    - leftover apply.service (from an older install layout) is cleaned up
-    - kdeglobals AutomaticLookAndFeel keys are reset on uninstall."""
+    - foreign legacy units and layout state are preserved
+    - kdeglobals preferences are preserved on uninstall."""
     shim_dir = make_live_shim_dir(tmp_path)
 
     # Pin systemd so this exercises the timer path regardless of the CI host
     # (which resolves to OpenRC). The OpenRC crontab path has its own tests.
     env = {"THEME_MODE": "auto", "TAJSDESKTOP_INIT": "systemd"}
     bin_path = sandbox / ".local/bin/tajsdesktop-theme-switch"
+    tahoe_bin = sandbox / ".local/bin/mactahoe-theme-switch"
     svc_dir = sandbox / ".config/systemd/user"
     autostart = (sandbox / ".config/autostart"
                  / "tajsdesktop-gtk-sync.desktop")
@@ -1891,6 +1853,7 @@ def test_switch_step_install_uninstall_reinstall(sandbox, tmp_path):
     assert (svc_dir / "tajsdesktop-theme.service").is_file()
     assert (svc_dir / "tajsdesktop-theme.timer").is_file()
     assert not autostart.exists()
+    tahoe_bin.write_text("foreign Tahoe executable\n")
 
     state_dir = sandbox / ".local/state/tajsdesktop"
     state_dir.mkdir(parents=True)
@@ -1899,8 +1862,7 @@ def test_switch_step_install_uninstall_reinstall(sandbox, tmp_path):
     wallpaper_state.write_text("{}\n")
     layout_marker.write_text("1\n")
 
-    # Drop a leftover apply.service from an older install layout.
-    # Uninstall must remove it.
+    # A same-looking legacy unit has no fork ownership proof.
     (svc_dir / "tajsdesktop-theme-apply.service").write_text(
         "# legacy unit from a previous version\n"
     )
@@ -1913,12 +1875,14 @@ def test_switch_step_install_uninstall_reinstall(sandbox, tmp_path):
     )
     _run_step("theme_switch", "uninstall", env, shim_dir=shim_dir)
     assert not bin_path.exists()
+    assert tahoe_bin.read_text() == "foreign Tahoe executable\n"
     assert not (svc_dir / "tajsdesktop-theme.service").exists()
     assert not (svc_dir / "tajsdesktop-theme.timer").exists()
-    assert not (svc_dir / "tajsdesktop-theme-apply.service").exists()
+    assert (svc_dir / "tajsdesktop-theme-apply.service").exists()
     assert not autostart.exists()
     assert not wallpaper_state.exists()
-    assert not layout_marker.exists()
+    assert layout_marker.exists()
+    assert "AutomaticLookAndFeel=true" in (sandbox / ".config/kdeglobals").read_text()
 
 
 def test_switch_step_openrc_schedules_via_crontab_not_systemd(sandbox, tmp_path):

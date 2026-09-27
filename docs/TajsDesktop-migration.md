@@ -69,6 +69,10 @@ Do not remove that guard merely because static tests or native builds pass.
   configuration files, removes only the recorded panel IDs through Plasma's
   scripting API, and checks that removal persisted. The theme switcher no
   longer reapplies panel transparency to every user panel.
+- Theme-switch removal now leaves legacy Tahoe-named executables and units,
+  the layout ownership snapshot, and live `kdeglobals` preference keys alone.
+  Only the fork's scheduler, executable, and wallpaper tracking state are
+  retired. The old unowned cleanup path is not a safe migration mechanism.
 
 ## Configuration-write audit in progress
 
@@ -77,7 +81,7 @@ Do not remove that guard merely because static tests or native builds pass.
 | Appearance | `apply`, `theme_switch`, `window_decorations`, `kvantum`, `sounds`, and GTK install write live KDE/GSettings choices. Updates must install assets without invoking these selectors. GTK uninstall no longer deletes unrelated GTK4 files or resets GSettings. |
 | Panels and wallpapers | Layout creation and removal are now scoped to newly marked, unchanged fork panels. A user-modified panel is preserved, not silently reset. `apply` can still reset appearance and wallpapers; it must not run on routine update. Explicit scoped panel reset with preview and rollback remains unfinished. |
 | App preferences | Nautilus now initializes only absent MIME/bookmark/CSS/dconf values and preserves edits on uninstall; MIME rollback remains unimplemented without an ownership snapshot. Firefox has its own ownership-aware CSS path. Other app defaults need per-key absence and ownership checks. |
-| Shared/system integration | Rounded Corners and Panel Colorizer use shared IDs; Plymouth touches boot configuration; OLED/theme schedulers manage user services or cron. Foreign ownership must be preserved. |
+| Shared/system integration | Rounded Corners and Panel Colorizer use shared IDs; Plymouth touches boot configuration; OLED/theme schedulers manage user services or cron. Theme-switch uninstall now avoids legacy names and user preference keys, but service and cron ownership still need complete auditing. |
 | Portal routing | The `portals` step previously overwrote its config and deleted it on uninstall. It now preserves foreign and edited files, but the rest of the broad installer is still blocked. |
 
 ## Remaining release gates
