@@ -40,6 +40,7 @@ PREVIEW_QML = Path(__file__).resolve().parent / "preview_installer.qml"
 
 _ACTION_COMMANDS = {
     "install": "sudo ./install",
+    "update-assets": "sudo ./install --update-assets",
     "uninstall": "sudo ./uninstall",
     "preflight": "sudo ./install --preflight",
 }
@@ -827,7 +828,7 @@ def dump_features() -> dict[str, object]:
     preview = plan_features(
         {key: bool(state.get(key, False)) for key in ALL_FEATURES},
         installed, read_version(), upstream_install_present(),
-        refreshable=(feature for feature in ALL_FEATURES
+        refreshable=(feature for feature in (*ALL_FEATURES, "theme_switch")
                      if step_has_phase(feature, "update_assets")),
     )
 

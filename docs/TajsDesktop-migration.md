@@ -85,6 +85,10 @@ Do not remove that guard merely because static tests or native builds pass.
   enabled schedules or the selected light/dark mode. Uninstall refuses to
   remove unrecorded or edited assets. Pre-record installations require an
   explicit migration rather than implicit ownership adoption.
+- The graphical installer now previews the core switcher refresh and has a
+  separate component-update action, still disabled while staging. Its release
+  banner points to the fork's releases for review instead of suggesting
+  `git pull && ./install`.
 
 ## Configuration-write audit in progress
 

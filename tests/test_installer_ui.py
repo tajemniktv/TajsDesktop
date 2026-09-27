@@ -63,11 +63,19 @@ def test_repo_installer_entry_exists(repo):
 
 @pytest.mark.parametrize("action,expected", [
     ("install", "sudo ./install"),
+    ("update-assets", "sudo ./install --update-assets"),
     ("uninstall", "sudo ./uninstall"),
     ("preflight", "sudo ./install --preflight"),
 ])
 def test_command_for_action(installer_ui_module, action, expected):
     assert installer_ui_module.command_for_action(action) == expected
+
+
+def test_gui_update_action_never_suggests_auto_pull_or_reinstall(repo):
+    qml = (repo / "src/installer/InstallerWindow.qml").read_text()
+    assert 'runAction("update-assets")' in qml
+    assert "git pull && ./install" not in qml
+    assert "https://github.com/tajemniktv/TajsDesktop/releases" in qml
 
 
 def test_launch_action_prefers_first_available_terminal(

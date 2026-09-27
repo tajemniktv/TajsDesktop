@@ -271,8 +271,8 @@ Window {
             // ── update banner ─────────────────────────────────────────────
             // A quiet macOS-style pill that fades in only when GitHub has a
             // strictly newer release. Same verdict and copy as the CLI's
-            // `./install --check-update`. Clicking it copies the upgrade
-            // command; the user still upgrades via git pull && ./install.
+            // `./install --check-update`. It links to the fork release for
+            // review; fetching code never silently installs or reapplies it.
             Rectangle {
                 id: updateBanner
                 Layout.alignment: Qt.AlignHCenter
@@ -304,7 +304,7 @@ Window {
                         anchors.verticalCenter: parent.verticalCenter
                         text: installerWindow.t("Update available:") + " " + installerWindow.updateCurrent
                             + " → " + installerWindow.updateLatest
-                            + "   ·   run git pull && ./install"
+                            + "   ·   review the TajsDesktop release"
                         color: Kirigami.Theme.textColor
                         font.family: installerWindow.fontFamily
                         font.pointSize: Kirigami.Theme.defaultFont.pointSize * 0.95
@@ -319,7 +319,7 @@ Window {
                 TapHandler {
                     enabled: !installerWindow.busy
                     onTapped: {
-                        updateClipboard.text = "git pull && ./install";
+                        updateClipboard.text = "https://github.com/tajemniktv/TajsDesktop/releases";
                         updateClipboard.selectAll();
                         updateClipboard.copy();
                         updateClipboard.deselect();
@@ -514,6 +514,12 @@ Window {
                     text: installerWindow.t("Install")
                     enabled: installer && !installer.stagingBlocked
                     onClicked: installerWindow.runAction("install")
+                }
+
+                FlatButton {
+                    text: installerWindow.t("Update components")
+                    enabled: installer && !installer.stagingBlocked
+                    onClicked: installerWindow.runAction("update-assets")
                 }
 
                 FlatButton {
