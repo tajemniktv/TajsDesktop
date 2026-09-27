@@ -41,6 +41,12 @@ Do not remove that guard merely because static tests or native builds pass.
 - GTK uninstall now removes only the fork-namespaced theme asset trees. It no
   longer deletes `~/.config/gtk-4.0` files or resets untracked GSettings that
   may belong to the user or another theme.
+- Nautilus initialization now preserves existing MIME handlers, GTK bookmarks,
+  CSS, and explicit dconf preferences. New bookmarks and CSS carry hash-bound
+  fork ownership markers and are removed only if unchanged. The upstream
+  `bookmarks.mac-tahoe-backup` is foreign state and is never consumed. MIME
+  associations remain untouched on uninstall because the old path recorded
+  no pre-install value; explicit reset still needs a scoped ownership record.
 
 ## Configuration-write audit in progress
 
@@ -48,7 +54,7 @@ Do not remove that guard merely because static tests or native builds pass.
 | --- | --- |
 | Appearance | `apply`, `theme_switch`, `window_decorations`, `kvantum`, `sounds`, and GTK install write live KDE/GSettings choices. Updates must install assets without invoking these selectors. GTK uninstall no longer deletes unrelated GTK4 files or resets GSettings. |
 | Panels and wallpapers | `layout` rebuilds panels and `apply` can reset wallpapers. Neither is safe as a routine update; explicit scoped reset needs a containment-level preview and backup. |
-| App preferences | `nautilus` sets MIME handlers, bookmarks, overrides, and GSettings. Firefox has its own ownership-aware CSS path. App defaults need per-key absence and ownership checks. |
+| App preferences | Nautilus now initializes only absent MIME/bookmark/CSS/dconf values and preserves edits on uninstall; MIME rollback remains unimplemented without an ownership snapshot. Firefox has its own ownership-aware CSS path. Other app defaults need per-key absence and ownership checks. |
 | Shared/system integration | Rounded Corners and Panel Colorizer use shared IDs; Plymouth touches boot configuration; OLED/theme schedulers manage user services or cron. Foreign ownership must be preserved. |
 | Portal routing | The `portals` step previously overwrote its config and deleted it on uninstall. It now preserves foreign and edited files, but the rest of the broad installer is still blocked. |
 
