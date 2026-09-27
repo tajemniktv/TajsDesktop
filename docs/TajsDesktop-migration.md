@@ -28,9 +28,13 @@ Do not remove that guard merely because static tests or native builds pass.
   `profiles/local-laptop.json` contain a reviewed, portable subset of this
   desktop's Dolphin, Konsole, Kate, MIME, workspace, shortcut, input, and
   power choices. `personal_defaults.preview_missing()` reports only absent
-  user keys; even an explicit empty value remains user-owned. These profiles
-  are **not applied yet**. No browser database, hardware identifier, home
-  path, secret, or session value is copied into them.
+  user keys; even an explicit empty value remains user-owned. An isolated
+  first-install engine now backs up touched files and records each applied
+  key before a confirmed reset may delete it; both operations preserve later
+  overrides. They are **not wired into live installation yet**. `./install
+  --plan --profile=local-laptop` and `--plan-reset-profile` are read-only.
+  No browser database, hardware identifier, home path, secret, or session
+  value is copied into the committed profiles.
 - Feature previews classify detected upstream Tahoe as
   `migration-required`, not a clean first install. Panel Colorizer has a
   shared external ID, so the layout step now preserves any installed copy
@@ -79,10 +83,11 @@ Do not remove that guard merely because static tests or native builds pass.
 5. Persist versioned *installed* state only after each successful operation
    and make the preview executable through safe per-feature reconciliation.
    Add explicit, scoped reset actions to the GUI and CLI.
-6. Complete the selective import and wire it to guarded first-install/reset
-   only. Theme, Firefox, and Nautilus settings still need key-by-key review;
-   native GSettings and application-specific ownership must not be inferred
-   from a KConfig file. Preserve user edits on all later updates.
+6. Wire the reviewed profile engine to guarded first-install and explicit
+   reset only, then expose local-machine selection and reset confirmation in
+   the GUI. Theme and Firefox defaults still need key-by-key review; native
+   GSettings and application-specific ownership must not be inferred from a
+   KConfig file. Preserve user edits on all later updates.
 7. Reconcile remaining shared names, branding, and packaged paths; verify
    Qt/KWin builds and relevant systemd/OpenRC paths. Run the full test suite
    and a disposable KDE VM migration/rollback before allowing live use.

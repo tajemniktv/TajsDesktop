@@ -24,6 +24,12 @@ from log import (
 from preflight import run_preflight
 from state import RunTracker
 from fork_lifecycle import load_state, plan_features, upstream_install_present
+from personal_defaults import (
+    load_profile,
+    preview_missing as preview_profile_defaults,
+    preview_profile_reset,
+    profile_state_file,
+)
 from step_runner import run_phase, step_deps, step_exists, step_has_phase, step_module
 from utils import (
     CancellationRequested, cancellation_requested, cancellation_scope,
@@ -146,8 +152,7 @@ Options:
     --plymouth         Boot splash screen (Plymouth)
     --apps             App configuration tweaks
     --nautilus         Install Nautilus and set as default file manager
-    --nautilus-bookmarks  macOS-style sidebar bookmarks (backs up the
-                       existing bookmarks; uninstall restores them)
+    --nautilus-bookmarks  Initialize sidebar bookmarks only when absent
     --portals          Route FileChooser/AppChooser to KDE (fixes stale dialogs)
     --oled-care        OLED burn-in care: pixel-shift the panels every
                        5 minutes (top bar height, dock offset). Default: off
@@ -160,11 +165,12 @@ Options:
     --no-grub-modify   Don't auto-edit /etc/default/grub for the boot
                        splash kernel cmdline (prints manual fix instead)
     --reset-wallpapers Let timed theme changes manage the background again
-    --plan             Preview feature changes without root or desktop writes
-                       and apply the bundled wallpaper once
+    --plan             Preview feature and profile defaults without writes
+    --profile=NAME     Select common or local-laptop defaults explicitly
+    --plan-reset-profile  Preview a scoped personal-defaults reset, read-only
   Persistence:
-    --save             Save current flags to features.json
-    --reset            Reset features.json to all-true defaults
+    --save             Save current flags to the per-user feature file
+    --reset            Reset per-user feature choices to defaults
     --check-update     Check GitHub for a newer release and exit
     --preflight        Run preflight checks (sudo, paths, Qt6, IDs) and exit
     --restart          Restart Plasma shell. Standalone (no other flags)
@@ -292,6 +298,8 @@ class ParsedArgs:
         self.restart_only = False
         self.reset_wallpapers = False
         self.plan_only = False
+        self.plan_profile_reset = False
+        self.profile: str | None = None
         self.cli_overrides: dict[str, bool] = {}
         self.oled_interval: int | None = None
         self.oled_max_shift: int | None = None
@@ -345,6 +353,16 @@ def parse_args(argv: list[str]) -> ParsedArgs:
             p.reset_wallpapers = True
         elif arg == "--plan":
             p.plan_only = True
+        elif arg == "--plan-reset-profile":
+            p.plan_profile_reset = True
+        elif key == "--profile":
+            if "=" in arg:
+                p.profile = inline_value
+            elif i + 1 < len(args) and not args[i + 1].startswith("--"):
+                i += 1
+                p.profile = args[i]
+            else:
+                p.profile = ""
         elif arg == "--no-grub-modify":
             # Read by the plymouth step: print manual instructions
             # instead of editing /etc/default/grub.
@@ -1211,6 +1229,19 @@ def run_install(argv: list[str], tui: bool = False,
     if parsed.check_update:
         return 1 if check_for_updates(verbose=True) else 0
 
+    if parsed.plan_profile_reset:
+        if parsed.plan_only or parsed.do_save or parsed.do_reset:
+            print("--plan-reset-profile cannot be combined with --plan, --save or --reset",
+                  file=sys.stderr)
+            return 2
+        try:
+            print(json.dumps({"reset": preview_profile_reset(),
+                              "executable": not STAGING_INSTALL_BLOCKED}, indent=2))
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"Cannot preview personal-defaults reset: {exc}", file=sys.stderr)
+            return 1
+        return 0
+
     if parsed.plan_only:
         if parsed.do_save or parsed.do_reset:
             print("--plan cannot be combined with --save or --reset",
@@ -1222,10 +1253,18 @@ def run_install(argv: list[str], tui: bool = False,
         desired.update(parsed.cli_overrides)
         upstream_tahoe_present = upstream_install_present()
         try:
+            if parsed.profile is not None:
+                load_profile(parsed.profile)
+            installed = load_state()
             preview = plan_features(
                 {feature: bool(desired.get(feature, False))
                  for feature in ALL_FEATURES},
-                load_state(), read_version(), upstream_tahoe_present,
+                installed, read_version(), upstream_tahoe_present,
+            )
+            preview["profile"] = parsed.profile or "common"
+            preview["profile_defaults"] = (
+                preview_profile_defaults(parsed.profile)
+                if installed is None and not profile_state_file().exists() else []
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             print(f"Cannot preview TajsDesktop state: {exc}", file=sys.stderr)

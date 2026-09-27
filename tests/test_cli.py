@@ -419,6 +419,7 @@ def test_run_install_requires_root(monkeypatch, cli_module):
             "help": False,
             "check_update": False,
             "plan_only": False,
+            "plan_profile_reset": False,
             "preflight_only": False,
             "do_save": False,
             "do_reset": False,

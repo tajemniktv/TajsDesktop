@@ -79,3 +79,34 @@ def test_cli_preview_is_read_only_and_requires_no_root(monkeypatch, capsys):
     assert preview["enable"] == []
     assert "layout" in preview["disable"]
     assert preview["executable"] is False
+
+
+def test_cli_explicit_machine_profile_preview_is_read_only(monkeypatch, capsys,
+                                                          tmp_path):
+    monkeypatch.setattr(cli, "load_features", lambda: {"apps": True})
+    monkeypatch.setattr(cli, "load_state", lambda: None)
+    monkeypatch.setattr(cli, "upstream_install_present", lambda: False)
+    monkeypatch.setattr(cli, "profile_state_file", lambda: tmp_path / "missing")
+    monkeypatch.setattr(cli, "preview_profile_defaults",
+                        lambda name: [{"file": "powerdevilrc", "profile": name}])
+    monkeypatch.setattr(cli, "_require_root_and_drop_to_user",
+                        lambda *_: pytest.fail("root requested"))
+
+    assert cli.run_install(["--plan", "--profile=local-laptop"]) == 0
+    preview = json.loads(capsys.readouterr().out)
+    assert preview["profile"] == "local-laptop"
+    assert preview["profile_defaults"] == [
+        {"file": "powerdevilrc", "profile": "local-laptop"}]
+    assert preview["executable"] is False
+
+
+def test_cli_profile_reset_preview_requires_no_root(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "preview_profile_reset",
+                        lambda: [{"file": "dolphinrc", "action": "delete"}])
+    monkeypatch.setattr(cli, "_require_root_and_drop_to_user",
+                        lambda *_: pytest.fail("root requested"))
+
+    assert cli.run_install(["--plan-reset-profile"]) == 0
+    preview = json.loads(capsys.readouterr().out)
+    assert preview["reset"] == [{"file": "dolphinrc", "action": "delete"}]
+    assert preview["executable"] is False
