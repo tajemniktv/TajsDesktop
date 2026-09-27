@@ -35,6 +35,19 @@ Do not remove that guard merely because static tests or native builds pass.
   `migration-required`, not a clean first install. Panel Colorizer has a
   shared external ID, so the layout step now preserves any installed copy
   rather than replacing or shadowing it with the bundled version.
+- KDE portal routing now creates only an absent file and records TajsDesktop
+  ownership. Uninstall removes it only while both the ownership marker and
+  original content match; user-edited or foreign routing remains untouched.
+
+## Configuration-write audit in progress
+
+| Area | Existing behavior requiring lifecycle work |
+| --- | --- |
+| Appearance | `apply`, `theme_switch`, `window_decorations`, `kvantum`, `sounds`, and `gtk` write live KDE/GSettings choices. Updates must install assets without invoking these selectors. |
+| Panels and wallpapers | `layout` rebuilds panels and `apply` can reset wallpapers. Neither is safe as a routine update; explicit scoped reset needs a containment-level preview and backup. |
+| App preferences | `nautilus` sets MIME handlers, bookmarks, overrides, and GSettings. Firefox has its own ownership-aware CSS path. App defaults need per-key absence and ownership checks. |
+| Shared/system integration | Rounded Corners and Panel Colorizer use shared IDs; Plymouth touches boot configuration; OLED/theme schedulers manage user services or cron. Foreign ownership must be preserved. |
+| Portal routing | The `portals` step previously overwrote its config and deleted it on uninstall. It now preserves foreign and edited files, but the rest of the broad installer is still blocked. |
 
 ## Remaining release gates
 
