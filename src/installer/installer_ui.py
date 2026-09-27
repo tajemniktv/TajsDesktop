@@ -29,6 +29,7 @@ from cli import (
     save_features as save_user_features, user_features_file,
 )
 from fork_lifecycle import load_state, plan_features, upstream_install_present
+from personal_defaults import preview_profile_reset
 from step_runner import step_has_phase
 from log import DONE_MARKER
 from localization import (
@@ -42,6 +43,8 @@ _ACTION_COMMANDS = {
     "install": "sudo ./install",
     "update-assets": "sudo ./install --update-assets",
     "reconcile": "sudo ./install --reconcile",
+    "reset-profile-defaults": (
+        "sudo ./install --reset-profile-defaults --confirm-profile-reset"),
     "uninstall": "sudo ./uninstall",
     "preflight": "sudo ./install --preflight",
 }
@@ -541,6 +544,10 @@ def _make_installer_bridge():
         def translate(self, message: str) -> str:
             return translate(message, self._language)
 
+        @pyqtSlot(result="QVariantMap")
+        def profileResetPreview(self):
+            return profile_reset_preview()
+
         @pyqtSlot(str, result=bool)
         def setLanguage(self, code: str) -> bool:
             if code == self._language:
@@ -846,6 +853,14 @@ def dump_features() -> dict[str, object]:
     ]
     return {"items": items, "config_path": str(user_features_file()),
             "preview": preview, "staging_blocked": STAGING_INSTALL_BLOCKED}
+
+
+def profile_reset_preview() -> dict[str, object]:
+    """Read-only exact reset scope for the GUI confirmation dialog."""
+    try:
+        return {"ok": True, "actions": preview_profile_reset()}
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return {"ok": False, "actions": [], "error": str(exc)}
 
 
 def save_features(payload: dict[str, object]) -> dict[str, object]:

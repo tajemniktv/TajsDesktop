@@ -28,7 +28,7 @@ from fork_lifecycle import (
     upstream_install_present,
 )
 from personal_defaults import (
-    load_profile,
+    load_profile, reset_profile_defaults,
     preview_missing as preview_profile_defaults,
     preview_profile_reset,
     profile_state_file,
@@ -178,6 +178,8 @@ Options:
     --reconcile        Apply only supported feature changes from features.json
     --profile=NAME     Select common or local-laptop defaults explicitly
     --plan-reset-profile  Preview a scoped personal-defaults reset, read-only
+    --reset-profile-defaults  Remove only unchanged profile-initialized keys
+    --confirm-profile-reset  Explicitly confirm --reset-profile-defaults
   Persistence:
     --save             Save current flags to the per-user feature file
     --reset            Reset per-user feature choices to defaults
@@ -311,6 +313,8 @@ class ParsedArgs:
         self.update_assets = False
         self.reconcile = False
         self.plan_profile_reset = False
+        self.reset_profile_defaults = False
+        self.confirm_profile_reset = False
         self.profile: str | None = None
         self.cli_overrides: dict[str, bool] = {}
         self.oled_interval: int | None = None
@@ -371,6 +375,10 @@ def parse_args(argv: list[str]) -> ParsedArgs:
             p.reconcile = True
         elif arg == "--plan-reset-profile":
             p.plan_profile_reset = True
+        elif arg == "--reset-profile-defaults":
+            p.reset_profile_defaults = True
+        elif arg == "--confirm-profile-reset":
+            p.confirm_profile_reset = True
         elif key == "--profile":
             if "=" in arg:
                 p.profile = inline_value
@@ -1048,6 +1056,27 @@ def _run_feature_reconcile_body(feat: dict[str, object],
     return 0
 
 
+def _run_profile_reset_body(*, confirmed: bool) -> int:
+    """Explicit rollback of only unchanged, ledger-owned initial defaults."""
+    if not confirmed:
+        fail("Profile reset requires --confirm-profile-reset; preview it first")
+        return 2
+    try:
+        preview = preview_profile_reset()
+        if not preview:
+            ok("No recorded personal defaults to reset")
+            return 0
+        for entry in preview:
+            note(f"{entry['action']}: {entry['file']} [{entry['group']}] {entry['key']}")
+        result = reset_profile_defaults(confirmed=True)
+    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+        fail(f"Personal-defaults reset stopped: {exc}")
+        return 1
+    ok(f"Personal-defaults reset complete; "
+       f"{sum(entry['action'] == 'delete' for entry in result)} key(s) removed")
+    return 0
+
+
 _BASE_DEPS = [
     ("fc-cache", "fontconfig"), ("kwriteconfig6", "kconfig"),
     ("cmake", "cmake"), ("g++", "gcc"),
@@ -1363,8 +1392,9 @@ def run_install(argv: list[str], tui: bool = False,
         return 1 if check_for_updates(verbose=True) else 0
 
     if parsed.plan_profile_reset:
-        if parsed.plan_only or parsed.do_save or parsed.do_reset:
-            print("--plan-reset-profile cannot be combined with --plan, --save or --reset",
+        if (parsed.plan_only or parsed.do_save or parsed.do_reset
+                or parsed.reset_profile_defaults or parsed.confirm_profile_reset):
+            print("--plan-reset-profile cannot be combined with mutation options",
                   file=sys.stderr)
             return 2
         try:
@@ -1428,6 +1458,19 @@ def run_install(argv: list[str], tui: bool = False,
         print("  Installer lifecycle and configuration migration remain incomplete.",
               file=sys.stderr)
         return 1
+
+    if parsed.confirm_profile_reset and not parsed.reset_profile_defaults:
+        fail("--confirm-profile-reset requires --reset-profile-defaults")
+        return 2
+    if parsed.reset_profile_defaults:
+        if (parsed.update_assets or parsed.reconcile or parsed.only_mode
+                or parsed.cli_overrides or parsed.do_save or parsed.do_reset
+                or parsed.reset_wallpapers or parsed.profile or parsed.restart_only
+                or parsed.theme_mode is not None or parsed.oled_interval is not None
+                or parsed.oled_max_shift is not None):
+            fail("--reset-profile-defaults cannot be combined with other actions")
+            return 2
+        return _run_profile_reset_body(confirmed=parsed.confirm_profile_reset)
 
     if parsed.update_assets:
         if (parsed.cli_overrides or parsed.only_mode or parsed.do_save

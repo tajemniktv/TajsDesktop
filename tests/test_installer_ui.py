@@ -65,6 +65,8 @@ def test_repo_installer_entry_exists(repo):
     ("install", "sudo ./install"),
     ("update-assets", "sudo ./install --update-assets"),
     ("reconcile", "sudo ./install --reconcile"),
+    ("reset-profile-defaults",
+     "sudo ./install --reset-profile-defaults --confirm-profile-reset"),
     ("uninstall", "sudo ./uninstall"),
     ("preflight", "sudo ./install --preflight"),
 ])
@@ -83,6 +85,23 @@ def test_gui_reconciliation_action_remains_staging_blocked(repo):
     qml = (repo / "src/installer/InstallerWindow.qml").read_text()
     assert 'runAction("reconcile")' in qml
     assert 'enabled: installer && !installer.stagingBlocked' in qml
+
+
+def test_gui_profile_reset_previews_before_explicit_confirmation(repo):
+    qml = (repo / "src/installer/InstallerWindow.qml").read_text()
+    assert "installer.profileResetPreview()" in qml
+    assert 'item.action === "delete"' in qml
+    assert 'runAction("reset-profile-defaults")' in qml
+    assert "confirmAvailable && installer && !installer.stagingBlocked" in qml
+
+
+def test_gui_profile_reset_preview_returns_exact_engine_actions(
+        installer_ui_module, monkeypatch):
+    expected = [{"action": "preserve-user-value", "file": "dolphinrc",
+                 "group": "MainWindow", "key": "MenuBar"}]
+    monkeypatch.setattr(installer_ui_module, "preview_profile_reset", lambda: expected)
+    assert installer_ui_module.profile_reset_preview() == {
+        "ok": True, "actions": expected}
 
 
 def test_launch_action_prefers_first_available_terminal(

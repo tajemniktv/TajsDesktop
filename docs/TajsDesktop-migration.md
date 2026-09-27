@@ -77,6 +77,12 @@ Do not remove that guard merely because static tests or native builds pass.
   The graphical installer exposes the corresponding disabled-while-staging
   Apply features action; the feature window already distinguishes requested
   selections from the installed-state record.
+  The existing personal-defaults rollback engine now has a separate staged
+  `--reset-profile-defaults --confirm-profile-reset` CLI action. The GUI reads
+  its exact per-key preview before presenting a confirmation dialog; both
+  execution paths remain behind the live staging guard. This removes only
+  unchanged keys that the profile ledger says the fork initialized, not
+  arbitrary KDE preferences or later user edits.
   Wallpaper discovery now matches the fork-namespaced bundles. Cursor updates
   validate and stage the bundled archive before replacing either installed
   theme, so a broken archive leaves the current cursors intact.
@@ -136,9 +142,9 @@ Do not remove that guard merely because static tests or native builds pass.
    including Firefox and OLED care, without replaying broad installation. Connect installed
    versus requested state with executable eligibility in the GUI and add
    scoped reset actions to the GUI and CLI.
-6. Wire the reviewed profile engine to guarded first-install and explicit
-   reset only, then expose local-machine selection and reset confirmation in
-   the GUI. Theme and Firefox defaults still need key-by-key review; native
+6. Wire the reviewed profile engine to guarded first-install; the explicit
+   reset entry point and GUI confirmation are staged. Expose local-machine
+   selection in the GUI. Theme and Firefox defaults still need key-by-key review; native
    GSettings and application-specific ownership must not be inferred from a
    KConfig file. Preserve user edits on all later updates.
 7. Reconcile remaining shared names, branding, and packaged paths; verify

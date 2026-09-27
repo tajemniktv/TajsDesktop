@@ -105,6 +105,49 @@ Window {
         installer.start(action);
     }
 
+    function openProfileReset(): void {
+        if (!installer || installer.stagingBlocked)
+            return;
+        const preview = installer.profileResetPreview();
+        profileResetDialog.confirmAvailable = preview.ok === true
+            && (preview.actions || []).some(item => item.action === "delete");
+        if (preview.ok !== true) {
+            profileResetDialog.previewText = preview.error || t("Cannot preview reset");
+        } else {
+            const actions = preview.actions || [];
+            profileResetDialog.previewText = actions.length === 0
+                ? t("No profile-initialized keys to reset.")
+                : actions.map(item => item.action + ": " + item.file
+                    + " [" + item.group + "] " + item.key).join("\n");
+        }
+        profileResetDialog.open();
+    }
+
+    QQC2.Dialog {
+        id: profileResetDialog
+        parent: installerWindow.contentItem
+        anchors.centerIn: parent
+        modal: true
+        title: installerWindow.t("Reset personal defaults?")
+        standardButtons: QQC2.Dialog.Ok | QQC2.Dialog.Cancel
+        property string previewText: ""
+        property bool confirmAvailable: false
+        onAccepted: {
+            if (confirmAvailable && installer && !installer.stagingBlocked)
+                installerWindow.runAction("reset-profile-defaults");
+        }
+        contentItem: QQC2.ScrollView {
+            implicitWidth: 560
+            implicitHeight: 260
+            QQC2.Label {
+                width: 540
+                wrapMode: Text.Wrap
+                text: installerWindow.t("Only unchanged TajsDesktop-initialized keys will be removed. A backup is made before reset.")
+                    + "\n\n" + profileResetDialog.previewText
+            }
+        }
+    }
+
     Connections {
         target: installer ? installer : null
         function onFinished(code) {
@@ -526,6 +569,12 @@ Window {
                     text: installerWindow.t("Apply features")
                     enabled: installer && !installer.stagingBlocked
                     onClicked: installerWindow.runAction("reconcile")
+                }
+
+                FlatButton {
+                    text: installerWindow.t("Reset defaults")
+                    enabled: installer && !installer.stagingBlocked
+                    onClicked: installerWindow.openProfileReset()
                 }
 
                 FlatButton {

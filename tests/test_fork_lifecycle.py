@@ -231,6 +231,35 @@ def test_cli_reconcile_stays_behind_live_staging_guard(monkeypatch):
     assert cli.run_install(["--reconcile"]) == 1
 
 
+def test_profile_reset_requires_confirmation_and_keeps_preview_read_only(monkeypatch):
+    monkeypatch.setattr(cli, "preview_profile_reset", lambda: [
+        {"action": "delete", "file": "dolphinrc", "group": "MainWindow",
+         "key": "MenuBar"}])
+    monkeypatch.setattr(cli, "reset_profile_defaults",
+                        lambda **kwargs: pytest.fail("unconfirmed reset ran"))
+    assert cli._run_profile_reset_body(confirmed=False) == 2
+
+
+def test_profile_reset_calls_scoped_engine_only_when_confirmed(monkeypatch):
+    preview = [{"action": "delete", "file": "dolphinrc",
+                "group": "MainWindow", "key": "MenuBar"}]
+    calls = []
+    monkeypatch.setattr(cli, "preview_profile_reset", lambda: preview)
+    monkeypatch.setattr(cli, "reset_profile_defaults",
+                        lambda **kwargs: calls.append(kwargs) or preview)
+    assert cli._run_profile_reset_body(confirmed=True) == 0
+    assert calls == [{"confirmed": True}]
+
+
+def test_cli_profile_reset_stays_behind_live_staging_guard(monkeypatch):
+    monkeypatch.setattr(cli, "_require_root_and_drop_to_user", lambda prog: True)
+    monkeypatch.setattr(cli, "_run_profile_reset_body",
+                        lambda **kwargs: pytest.fail("staged profile reset executed live"))
+    parsed = cli.parse_args(["--reset-profile-defaults", "--confirm-profile-reset"])
+    assert parsed.reset_profile_defaults and parsed.confirm_profile_reset
+    assert cli.run_install(["--reset-profile-defaults", "--confirm-profile-reset"]) == 1
+
+
 def test_foreign_tahoe_install_requires_explicit_migration():
     preview = plan_features({"layout": True}, None, "0.52.0",
                             foreign_install=True)
