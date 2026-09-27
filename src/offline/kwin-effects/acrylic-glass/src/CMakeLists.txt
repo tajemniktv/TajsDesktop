@@ -9,7 +9,7 @@ set(LIQUIDGLASS_SHADER_INCLUDES
     highlight.glsl
 )
 
-# Everything liquidglass.qrc references except the two preprocessed
+# Everything tajsdesktopglass.qrc references except the two preprocessed
 # .frag outputs generated below.
 set(LIQUIDGLASS_SHADER_STATIC
     blur.glsl
@@ -47,43 +47,43 @@ foreach(shader_file IN LISTS LIQUIDGLASS_SHADER_STATIC)
     configure_file("shaders/${shader_file}"
                    "${CMAKE_CURRENT_BINARY_DIR}/shaders/${shader_file}" COPYONLY)
 endforeach()
-configure_file(liquidglass.qrc
-               "${CMAKE_CURRENT_BINARY_DIR}/liquidglass.qrc" COPYONLY)
+configure_file(tajsdesktopglass.qrc
+               "${CMAKE_CURRENT_BINARY_DIR}/tajsdesktopglass.qrc" COPYONLY)
 
-set(liquidglass_SOURCES
+set(tajsdesktopglass_SOURCES
     effect.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/liquidglass.qrc
+    ${CMAKE_CURRENT_BINARY_DIR}/tajsdesktopglass.qrc
     main.cpp
 )
 
-kconfig_add_kcfg_files(liquidglass_SOURCES
+kconfig_add_kcfg_files(tajsdesktopglass_SOURCES
     glassconfig.kcfgc
 )
 
 if(GLASS_WAYLAND)
-    add_library(liquidglass MODULE ${liquidglass_SOURCES})
-    target_link_libraries(liquidglass PRIVATE
+    add_library(tajsdesktopglass MODULE ${tajsdesktopglass_SOURCES})
+    target_link_libraries(tajsdesktopglass PRIVATE
         KDecoration3::KDecoration
         KF6::ConfigGui
         KWin::kwin
     )
     # GLASS_KWIN_67 drives the 6.6-vs-6.7 ABI gating in kwin_version_compat.h.
     if(GLASS_KWIN_67_WAYLAND)
-        target_compile_definitions(liquidglass PRIVATE GLASS_KWIN_67)
+        target_compile_definitions(tajsdesktopglass PRIVATE GLASS_KWIN_67)
     endif()
-    install(TARGETS liquidglass DESTINATION ${KDE_INSTALL_PLUGINDIR}/kwin/effects/plugins)
+    install(TARGETS tajsdesktopglass DESTINATION ${KDE_INSTALL_PLUGINDIR}/kwin/effects/plugins)
 endif()
 if(GLASS_X11)
-    add_library(liquidglass_x11 MODULE ${liquidglass_SOURCES})
-    target_link_libraries(liquidglass_x11 PRIVATE
+    add_library(tajsdesktopglass_x11 MODULE ${tajsdesktopglass_SOURCES})
+    target_link_libraries(tajsdesktopglass_x11 PRIVATE
         KDecoration3::KDecoration
         KF6::ConfigGui
         KWinX11::kwin
         XCB::XCB
     )
-    target_compile_definitions(liquidglass_x11 PRIVATE GLASS_X11)
+    target_compile_definitions(tajsdesktopglass_x11 PRIVATE GLASS_X11)
     if(GLASS_KWIN_67_X11)
-        target_compile_definitions(liquidglass_x11 PRIVATE GLASS_KWIN_67)
+        target_compile_definitions(tajsdesktopglass_x11 PRIVATE GLASS_KWIN_67)
     endif()
-    install(TARGETS liquidglass_x11 DESTINATION ${KDE_INSTALL_PLUGINDIR}/kwin-x11/effects/plugins)
+    install(TARGETS tajsdesktopglass_x11 DESTINATION ${KDE_INSTALL_PLUGINDIR}/kwin-x11/effects/plugins)
 endif()

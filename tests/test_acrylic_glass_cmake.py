@@ -69,7 +69,7 @@ def test_acrylic_glass_installs_the_effect_default_blur(monkeypatch, tmp_path):
     from steps import acrylic_glass
 
     build = tmp_path / "build"
-    for name in ("src/liquidglass.so", "src/kcm/kwin_liquidglass_config.so"):
+    for name in ("src/tajsdesktopglass.so", "src/kcm/kwin_tajsdesktopglass_config.so"):
         artifact = build / name
         artifact.parent.mkdir(parents=True, exist_ok=True)
         artifact.touch()
@@ -92,5 +92,5 @@ def test_acrylic_glass_installs_the_effect_default_blur(monkeypatch, tmp_path):
     default = entry.text
     assert default == "3.5"
     blur_writes = [args for args in writes if "BlurStrength" in args]
-    assert blur_writes == [("--file", "kwinrc", "--group", "Effect-liquidglass",
+    assert blur_writes == [("--file", "kwinrc", "--group", "Effect-tajsdesktopglass",
                            "--key", "BlurStrength", default)]

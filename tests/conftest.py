@@ -110,7 +110,7 @@ def seeded_color_schemes(sandbox, offline) -> Path:
     """Sandbox + the two MacTahoe .colors files dropped into XDG_DATA_HOME."""
     target = sandbox / ".local/share/color-schemes"
     for variant in ("Light", "Dark"):
-        src = offline / "color-schemes" / f"MacTahoeLiquidKde{variant}.colors"
+        src = offline / "color-schemes" / f"TajsDesktop{variant}.colors"
         if src.is_file():
             shutil.copy2(src, target / src.name)
     return sandbox
@@ -327,7 +327,7 @@ def make_live_shim_dir(tmp_path: Path) -> Path:
 # sandbox fixture only redirects HOME / XDG_*. Anything that contacts the
 # user systemd manager (``systemctl --user``), Kvantum config, dconf, or
 # uses an absolute path bypasses the sandbox and can silently disable the
-# maintainer's ``mac-tahoe-liquid-kde-theme.timer``.
+# maintainer's ``tajsdesktop-theme.timer``.
 #
 # This fixture snapshots a hand-picked set of live files + systemctl unit
 # state at session start, restores them at session end if they drifted,
@@ -346,9 +346,9 @@ _LIVE_FILES = (
 )
 
 _LIVE_UNITS = (
-    "mac-tahoe-liquid-kde-theme.timer",
-    "mac-tahoe-liquid-kde-theme.service",
-    "mac-tahoe-liquid-kde-theme-apply.service",
+    "tajsdesktop-theme.timer",
+    "tajsdesktop-theme.service",
+    "tajsdesktop-theme-apply.service",
 )
 
 
@@ -402,11 +402,11 @@ def _restore_file(path: Path, original: bytes | None) -> tuple[bool, str]:
         diff = len(current) - len(original)
         summary = f"{diff:+d} bytes"
         # Dump the pre/post pair to /tmp so the maintainer can diff them.
-        dump = Path("/tmp") / f"mttkde-leak-{path.name}"
+        dump = Path("/tmp") / f"tajsdesktop-leak-{path.name}"
         try:
             dump.with_suffix(".before").write_bytes(original)
             dump.with_suffix(".after").write_bytes(current)
-            summary += f" → diff /tmp/mttkde-leak-{path.name}.before .after"
+            summary += f" → diff /tmp/tajsdesktop-leak-{path.name}.before .after"
         except OSError:
             pass
     try:

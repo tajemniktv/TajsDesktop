@@ -17,11 +17,11 @@ from steps._helpers import (
 from utils import have, pkg_install
 
 
-THEME_NAME = "MacTahoeLiquidKde"
+THEME_NAME = "TajsDesktop"
 FALLBACK_THEME = "bgrt"
 SYSTEM_THEMES_DIR = Path("/usr/share/plymouth/themes")
 DEST = SYSTEM_THEMES_DIR / THEME_NAME
-STATE_DIR = HOME / ".local/state/mac-tahoe-liquid-kde"
+STATE_DIR = HOME / ".local/state/tajsdesktop"
 PREV_THEME_FILE = STATE_DIR / "plymouth-previous-theme"
 PREV_SIMPLEDRM_NAME = "plymouth-previous-simpledrm.json"
 
@@ -70,9 +70,9 @@ def _check_prereqs() -> tuple[bool, bool]:
 
 
 def _grub_auto_patch_enabled() -> bool:
-    """Opt-out: MTTKDE_NO_GRUB_MODIFY=1 (the CLI's --no-grub-modify) keeps
+    """Opt-out: TAJSDESKTOP_NO_GRUB_MODIFY=1 (the CLI's --no-grub-modify) keeps
     /etc/default/grub untouched."""
-    return os.environ.get("MTTKDE_NO_GRUB_MODIFY", "").lower() not in (
+    return os.environ.get("TAJSDESKTOP_NO_GRUB_MODIFY", "").lower() not in (
         "1", "true", "yes",
     )
 
@@ -118,13 +118,13 @@ def _patch_grub_add_splash() -> bool:
     new_line = f"{prefix}{quote}{' '.join(tokens)}{quote}{suffix}"
     new_text = text[:match.start()] + new_line + text[match.end():]
 
-    backup = GRUB_DEFAULT.with_suffix(GRUB_DEFAULT.suffix + ".mttkde.bak")
+    backup = GRUB_DEFAULT.with_suffix(GRUB_DEFAULT.suffix + ".tajsdesktop.bak")
     try:
         with _as_root():
             # Keep the oldest backup — that's the true original.
             if not backup.exists():
                 shutil.copy2(GRUB_DEFAULT, backup)
-            tmp = GRUB_DEFAULT.with_name(GRUB_DEFAULT.name + ".mttkde-tmp")
+            tmp = GRUB_DEFAULT.with_name(GRUB_DEFAULT.name + ".tajsdesktop-tmp")
             tmp.write_text(new_text, encoding="utf-8")
             shutil.copystat(GRUB_DEFAULT, tmp)
             tmp.replace(GRUB_DEFAULT)
@@ -314,7 +314,7 @@ def _set_plymouthd_simpledrm(value: bool | str | None) -> bool:
     try:
         with _as_root():
             PLYMOUTHD_CONF.parent.mkdir(parents=True, exist_ok=True)
-            tmp = PLYMOUTHD_CONF.with_name(PLYMOUTHD_CONF.name + ".mttkde-tmp")
+            tmp = PLYMOUTHD_CONF.with_name(PLYMOUTHD_CONF.name + ".tajsdesktop-tmp")
             with tmp.open("w", encoding="utf-8") as fh:
                 # space_around_delimiters=False is LOAD-BEARING: plymouth's
                 # shell parser leaves trailing space on keys ("Theme ") and
@@ -474,7 +474,7 @@ def install() -> None:
                      "GRUB_CMDLINE_LINUX_DEFAULT in /etc/default/grub, "
                      "then run: sudo grub-mkconfig -o /boot/grub/grub.cfg "
                      "(or re-run the installer without "
-                     "MTTKDE_NO_GRUB_MODIFY=1)")
+                     "TAJSDESKTOP_NO_GRUB_MODIFY=1)")
             elif GRUB_DEFAULT.is_file():
                 # Leftover /etc/default/grub, no regen binary — a different
                 # bootloader is active.

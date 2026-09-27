@@ -15,10 +15,10 @@ from steps._helpers import (
 )
 from utils import run_user
 
-DEST_DIR = HOME / ".config/Kvantum/mac-tahoe-liquid-kde"
-DEST_DIR_DARK = HOME / ".config/Kvantum/mac-tahoe-liquid-kdeDark"
+DEST_DIR = HOME / ".config/Kvantum/tajsdesktop"
+DEST_DIR_DARK = HOME / ".config/Kvantum/tajsdesktopDark"
 
-_THEMES = ("mac-tahoe-liquid-kde", "mac-tahoe-liquid-kdeDark")
+_THEMES = ("tajsdesktop", "tajsdesktopDark")
 
 ENGINE_VERSION = "1.1.8"
 ENGINE_COMMIT = "058534fc15d1798c3887590166f05c598e8e946c"
@@ -27,9 +27,9 @@ ENGINE_ARCHIVE = offline("kvantum-engine", f"Kvantum-{ENGINE_VERSION}.tar.xz")
 ENGINE_WORK = build_dir("kvantum-engine")
 ENGINE_SOURCE = ENGINE_WORK / f"Kvantum-{ENGINE_VERSION}"
 ENGINE_BUILD = ENGINE_WORK / "build"
-ENGINE_MARKER = Path("/usr/share/mac-tahoe-liquid-kde/kvantum-engine.json")
+ENGINE_MARKER = Path("/usr/share/tajsdesktop/kvantum-engine.json")
 ENGINE_LICENSE = Path(
-    "/usr/share/licenses/mac-tahoe-liquid-kde/Kvantum.txt"
+    "/usr/share/licenses/tajsdesktop/Kvantum.txt"
 )
 
 
@@ -282,7 +282,7 @@ def _install_bundled_engine() -> bool:
 
 
 def _install_one(name: str) -> None:
-    src = offline("kvantum/mac-tahoe-liquid-kde")
+    src = offline("kvantum/tajsdesktop")
     dst = (DEST_DIR_DARK if "Dark" in name else DEST_DIR)
     dst.mkdir(parents=True, exist_ok=True)
     for ext in (".kvconfig", ".svg"):
@@ -294,7 +294,7 @@ def _install_one(name: str) -> None:
 
 
 def install() -> None:
-    src = offline("kvantum/mac-tahoe-liquid-kde")
+    src = offline("kvantum/tajsdesktop")
     if not src.is_dir():
         fail(f"Kvantum theme source not found at {src}")
         return
@@ -311,18 +311,18 @@ def install() -> None:
         _install_one(name)
 
     if any((DEST_DIR / f"{_THEMES[0]}{e}").is_file() for e in (".kvconfig", ".svg")):
-        ok("mac-tahoe-liquid-kde theme (installed)")
+        ok("tajsdesktop theme (installed)")
     else:
-        fail("mac-tahoe-liquid-kde theme (copy failed)")
+        fail("tajsdesktop theme (copy failed)")
         return
 
     if any((DEST_DIR_DARK / f"{_THEMES[1]}{e}").is_file() for e in (".kvconfig", ".svg")):
         if existed:
-            reinstall("mac-tahoe-liquid-kdeDark theme")
+            reinstall("tajsdesktopDark theme")
         else:
-            ok("mac-tahoe-liquid-kdeDark theme (installed)")
+            ok("tajsdesktopDark theme (installed)")
     else:
-        fail("mac-tahoe-liquid-kdeDark theme (copy failed)")
+        fail("tajsdesktopDark theme (copy failed)")
         return
 
     if kw_write("--file", "kdeglobals", "--group", "KDE",
@@ -410,11 +410,11 @@ def uninstall() -> None:
             except OSError:
                 pass
     if any(d.is_dir() for d in (DEST_DIR, DEST_DIR_DARK)):
-        fail("MacTahoeLiquidKde themes (some leftovers)")
+        fail("TajsDesktop themes (some leftovers)")
     elif any_was_installed:
-        ok("MacTahoeLiquidKde themes removed")
+        ok("TajsDesktop themes removed")
     else:
-        ok("MacTahoeLiquidKde themes (not installed)")
+        ok("TajsDesktop themes (not installed)")
     _remove_bundled_engine()
     shutil.rmtree(ENGINE_WORK, ignore_errors=True)
     info("Kvantum Qt styling removed")

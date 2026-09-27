@@ -57,7 +57,7 @@ RUN emerge-webrsync && \
         'sys-auth/polkit systemd' \
         'llvm-core/libclc spirv' \
         'dev-util/mesa_clc -debug' \
-        > /etc/portage/package.use/mttkde-plasma && \
+        > /etc/portage/package.use/tajsdesktop-plasma && \
     getuto && \
     emerge --autounmask --autounmask-write --autounmask-continue=y \
            --getbinpkg --usepkg --quiet --noreplace \

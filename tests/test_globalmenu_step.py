@@ -62,15 +62,15 @@ def _stub_sudo_helpers(monkeypatch):
 
 def test_install_copies_globalmenu_runtime_qml(tmp_path, monkeypatch):
     home = tmp_path / "home"
-    src = tmp_path / "offline/plasmoids/org.kde.mac.tahoe.liquid.globalmenu"
-    build = tmp_path / "build/plasmoids/org.kde.mac.tahoe.liquid.globalmenu"
-    artifact = build / "bin/plasma/applets/org.kde.mac.tahoe.liquid.globalmenu.so"
-    runtime_dir = build / "bin/plasma/applet/org/kde/mac/tahoe/liquid/globalmenu"
+    src = tmp_path / "offline/plasmoids/org.tajemniktv.tajsdesktop.globalmenu"
+    build = tmp_path / "build/plasmoids/org.tajemniktv.tajsdesktop.globalmenu"
+    artifact = build / "bin/plasma/applets/org.tajemniktv.tajsdesktop.globalmenu.so"
+    runtime_dir = build / "bin/plasma/applet/org/tajemniktv/tajsdesktop/globalmenu"
 
     artifact.parent.mkdir(parents=True, exist_ok=True)
     artifact.write_bytes(b"so")
     runtime_dir.mkdir(parents=True, exist_ok=True)
-    (runtime_dir / "qmldir").write_text("module plasma.applet.org.kde.mac.tahoe.liquid.globalmenu\n")
+    (runtime_dir / "qmldir").write_text("module plasma.applet.org.tajemniktv.tajsdesktop.globalmenu\n")
     (runtime_dir / "main.qml").write_text("import QtQuick\nItem {}\n")
 
     fake_plugins, fake_qml = _stub_qt6_paths(monkeypatch, tmp_path)
@@ -82,7 +82,7 @@ def test_install_copies_globalmenu_runtime_qml(tmp_path, monkeypatch):
     monkeypatch.setattr(globalmenu, "gtk3_appmenu_module", lambda: gtk_module)
     monkeypatch.setattr(
         globalmenu, "ABOUT_INFO_DEST",
-        home / ".local/bin/mac-tahoe-about-info",
+        home / ".local/bin/tajsdesktop-about-info",
     )
     monkeypatch.setattr(globalmenu, "SRC", src)
     monkeypatch.setattr(globalmenu, "BUILD", build)
@@ -98,8 +98,8 @@ def test_install_copies_globalmenu_runtime_qml(tmp_path, monkeypatch):
     globalmenu.install()
 
     assert not failures, failures
-    expected_so = fake_plugins / "plasma/applets/org.kde.mac.tahoe.liquid.globalmenu.so"
-    expected_qml = fake_qml / "plasma/applet/org/kde/mac/tahoe/liquid/globalmenu"
+    expected_so = fake_plugins / "plasma/applets/org.tajemniktv.tajsdesktop.globalmenu.so"
+    expected_qml = fake_qml / "plasma/applet/org/tajemniktv/tajsdesktop/globalmenu"
     assert expected_so.is_file()
     assert (expected_qml / "qmldir").is_file()
     assert (expected_qml / "main.qml").is_file()
@@ -122,10 +122,10 @@ def test_globalmenu_dest_paths_anchor_to_qmake6_libdir(monkeypatch, tmp_path):
     (/usr/lib64/qt6), and Debian-multiarch alike."""
     fake_plugins, fake_qml = _stub_qt6_paths(monkeypatch, tmp_path)
     assert globalmenu.DEST_SO == fake_plugins / (
-        "plasma/applets/org.kde.mac.tahoe.liquid.globalmenu.so"
+        "plasma/applets/org.tajemniktv.tajsdesktop.globalmenu.so"
     )
     assert globalmenu.DEST_QML_DIR == fake_qml / (
-        "plasma/applet/org/kde/mac/tahoe/liquid/globalmenu"
+        "plasma/applet/org/tajemniktv/tajsdesktop/globalmenu"
     )
 
 
@@ -134,8 +134,8 @@ def test_globalmenu_build_artifacts_match_install_sources():
     step then copies. If they drift, the upfront build phase greenlights
     a build whose outputs don't actually feed the install."""
     artifacts = globalmenu.build_artifacts()
-    assert globalmenu.BUILD / "bin/plasma/applets/org.kde.mac.tahoe.liquid.globalmenu.so" in artifacts
-    assert globalmenu.BUILD / "bin/plasma/applet/org/kde/mac/tahoe/liquid/globalmenu" in artifacts
+    assert globalmenu.BUILD / "bin/plasma/applets/org.tajemniktv.tajsdesktop.globalmenu.so" in artifacts
+    assert globalmenu.BUILD / "bin/plasma/applet/org/tajemniktv/tajsdesktop/globalmenu" in artifacts
 
 
 def test_system_session_actions_use_qtdbus_not_distro_binary_names():
@@ -157,7 +157,7 @@ def test_system_session_actions_use_qtdbus_not_distro_binary_names():
 def test_install_about_info_bakes_version(tmp_path, monkeypatch):
     from paths import read_version
 
-    dest = tmp_path / "bin/mac-tahoe-about-info"
+    dest = tmp_path / "bin/tajsdesktop-about-info"
     monkeypatch.setattr(globalmenu, "ABOUT_INFO_DEST", dest)
     globalmenu._install_about_info()
 

@@ -1,4 +1,4 @@
-# Managed by mac-tahoe-liquid-kde: GTK appmenu lifetime
+# Managed by tajsdesktop: GTK appmenu lifetime
 # Plasma sources this before starting applications. GTK retains modules
 # loaded through GTK3_MODULES even when settings.ini or XSettings changes.
 # Older appmenu modules leave D-Bus callbacks and GTK vfuncs registered

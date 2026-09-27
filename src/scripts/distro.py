@@ -168,10 +168,10 @@ def init_system() -> str:
     canonical sd_booted() check), so a systemd package merely installed
     but not booted still reads as openrc, which is correct.
 
-    ``MTTKDE_INIT=openrc|systemd`` forces the answer — the only supported
+    ``TAJSDESKTOP_INIT=openrc|systemd`` forces the answer — the only supported
     way to exercise the OpenRC path on a systemd CI host (mirrors the
     OFFLINE/STEPS test overrides). It is not cached, so a test can flip it."""
-    forced = os.environ.get("MTTKDE_INIT")
+    forced = os.environ.get("TAJSDESKTOP_INIT")
     if forced in ("systemd", "openrc"):
         return forced
     global _INIT_CACHE

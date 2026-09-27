@@ -8,7 +8,7 @@
     address / serial / hardware.
 
     Run directly with:
-        qml6 -I src/offline/plasmoids/org.kde.mac.tahoe.liquid.globalmenu/qml \
+        qml6 -I src/offline/plasmoids/org.tajemniktv.tajsdesktop.globalmenu/qml \
              src/scripts/preview_about.qml
 
     SPDX-License-Identifier: GPL-2.0-or-later
@@ -16,7 +16,7 @@
 import QtQuick
 import QtQuick.Window
 
-import "../offline/plasmoids/org.kde.mac.tahoe.liquid.globalmenu/qml"
+import "../offline/plasmoids/org.tajemniktv.tajsdesktop.globalmenu/qml"
 
 AboutWindow {
     id: about
@@ -27,6 +27,6 @@ AboutWindow {
     // Point the data source at the mock-emitter. Same about_info
     // helper, just with ``--mock`` so the JSON it emits is the canned
     // _MOCK_DATA dict instead of live hardware probing.
-    fetcherCommand: "sh -c 'MAC_TAHOE_ABOUT_MOCK=1 ~/.local/bin/mac-tahoe-about-info'"
+    fetcherCommand: "sh -c 'MAC_TAHOE_ABOUT_MOCK=1 ~/.local/bin/tajsdesktop-about-info'"
     useSystemFont: true
 }

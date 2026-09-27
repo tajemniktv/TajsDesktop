@@ -1,5 +1,5 @@
 """MacTahoe icon themes: extracts the pre-built
-MacTahoeLiquidKde-Icons.tar.zst into ~/.local/share/icons. The tarball is
+TajsDesktop-Icons.tar.zst into ~/.local/share/icons. The tarball is
 rebuilt offline via _assemble() (maintainer refresh workflow, see below)."""
 
 import re
@@ -16,8 +16,8 @@ from utils import remove_path, run_user
 OFFLINE_DIR = offline("icons")
 DEST_DIR = DATA_HOME / "icons"
 _THEME_NAMES = (
-    "MacTahoeLiquidKde-Icons",
-    "MacTahoeLiquidKde-Icons-dark",
+    "TajsDesktop-Icons",
+    "TajsDesktop-Icons-dark",
 )
 
 # Subdirs _assemble() cherry-picks from upstream into the default theme.
@@ -34,16 +34,16 @@ def deps():
 
 
 def install() -> None:
-    """Extract the pre-built MacTahoeLiquidKde-Icons tarball into
+    """Extract the pre-built TajsDesktop-Icons tarball into
     ~/.local/share/icons, then rebuild GTK icon caches."""
     DEST_DIR.mkdir(parents=True, exist_ok=True)
-    tarball = OFFLINE_DIR / "MacTahoeLiquidKde-Icons.tar.zst"
+    tarball = OFFLINE_DIR / "TajsDesktop-Icons.tar.zst"
     if not tarball.is_file():
         fail(f"offline tarball missing: {tarball}")
         return
 
     n = 0
-    with temp_dir("mttkde-icons") as staging:
+    with temp_dir("tajsdesktop-icons") as staging:
         # Extract away from the live icon path. Removing an active theme before
         # this completes makes every running KDE process report
         # "Icon theme ... not found" and briefly fall back to Breeze.
@@ -68,12 +68,12 @@ def install() -> None:
     # Clean only our own obsolete variants, and only after both current themes
     # are safely live. A failed extraction must leave the installed theme intact.
     if n == len(_THEME_NAMES):
-        for old in DEST_DIR.glob("MacTahoeLiquidKde-Icons*"):
+        for old in DEST_DIR.glob("TajsDesktop-Icons*"):
             if old.is_dir() and old.name not in _THEME_NAMES:
                 shutil.rmtree(old, ignore_errors=True)
 
     if shutil.which("gtk-update-icon-cache"):
-        for theme in DEST_DIR.glob("MacTahoeLiquidKde-Icons*"):
+        for theme in DEST_DIR.glob("TajsDesktop-Icons*"):
             if theme.is_dir():
                 run_user(
                     ["gtk-update-icon-cache", "-f", "-t", str(theme)],
@@ -87,7 +87,7 @@ def install() -> None:
 
 def uninstall() -> None:
     n = 0
-    for theme in DEST_DIR.glob("MacTahoeLiquidKde-Icons*"):
+    for theme in DEST_DIR.glob("TajsDesktop-Icons*"):
         if theme.is_dir():
             try:
                 shutil.rmtree(theme)
@@ -270,4 +270,4 @@ def _assemble(repo: Path, name: str) -> None:
 
 
 # Only _assemble() uses this; the maintainer refresh script overrides it.
-CACHE = Path("/tmp/mttkde-icons-build")
+CACHE = Path("/tmp/tajsdesktop-icons-build")

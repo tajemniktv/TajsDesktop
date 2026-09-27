@@ -1,0 +1,20 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Lester Cordero Murillo"
+            }
+        ],
+        "Category": "Plasma 6.0 theme",
+        "Description": "TajsDesktop Light by Lester Cordero Murillo",
+        "Description[zh_CN]": "MacTahoe 苹果主题，由 Lester Cordero Murillo 设计制作",
+        "EnabledByDefault": true,
+        "Id": "TajsDesktop-Light",
+        "License": "GPL-3.0",
+        "Name": "TajsDesktop-Light",
+        "Name[zh_CN]": "MacTahoe 苹果",
+        "Version": "6.2.0",
+        "Website": "https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde"
+    },
+    "X-Plasma-API": "5.0"
+}

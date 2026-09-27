@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=TajsDesktop
+Description=macOS Tahoe-inspired boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/TajsDesktop
+ScriptFile=/usr/share/plymouth/themes/TajsDesktop/TajsDesktop.script

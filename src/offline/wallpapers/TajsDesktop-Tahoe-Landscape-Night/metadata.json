@@ -1,0 +1,17 @@
+{
+    "KPlugin": {
+        "Id": "TajsDesktop-Tahoe-Landscape-Night",
+        "Name": "Tahoe Landscape — Night",
+        "Description": "Lake Tahoe landscape — Night",
+        "Authors": [
+            {
+                "Name": "TajsDesktop-Tahoe Liquid KDE",
+                "Email": ""
+            }
+        ],
+        "Category": "TajsDesktop-Tahoe Liquid KDE",
+        "License": "Apple Inc. wallpapers extracted from macOS",
+        "Website": "https://github.com/lester-sudo/macos-tahoe-liquid-kde",
+        "Version": "1.0"
+    }
+}

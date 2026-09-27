@@ -18,7 +18,7 @@ def install() -> None:
     DEST_DIR.mkdir(parents=True, exist_ok=True)
     n_inst = n_re = 0
     for mode in VARIANTS:
-        name = f"MacTahoeLiquidKde-{mode}"
+        name = f"TajsDesktop-{mode}"
         dest = DEST_DIR / name
         existed = dest.is_dir()
         dest.mkdir(parents=True, exist_ok=True)
@@ -44,7 +44,7 @@ def install() -> None:
         else:
             ok(f"{name} (installed)"); n_inst += 1
 
-    chosen = "MacTahoeLiquidKde-Light" if theme_mode() == "light" else "MacTahoeLiquidKde-Dark"
+    chosen = "TajsDesktop-Light" if theme_mode() == "light" else "TajsDesktop-Dark"
     write_failures = 0
     for key, value in (
         ("library", "org.kde.kwin.aurorae"),
@@ -71,10 +71,10 @@ def install() -> None:
 def uninstall() -> None:
     n = 0
     for mode in VARIANTS:
-        d = DEST_DIR / f"MacTahoeLiquidKde-{mode}"
+        d = DEST_DIR / f"TajsDesktop-{mode}"
         if d.is_dir():
             shutil.rmtree(d, ignore_errors=True)
-            ok(f"MacTahoeLiquidKde-{mode} removed")
+            ok(f"TajsDesktop-{mode} removed")
             n += 1
     for key, value in (
         ("library", "org.kde.breeze"),

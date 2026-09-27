@@ -26,9 +26,9 @@ _APPLE_RAINBOW = (
 _step_counter = 0
 errors: list[str] = []
 
-_CONFIGURED_PROGRESS_FILE = os.environ.get("MTTKDE_PROGRESS_FILE")
+_CONFIGURED_PROGRESS_FILE = os.environ.get("TAJSDESKTOP_PROGRESS_FILE")
 PROGRESS_FILE = _CONFIGURED_PROGRESS_FILE or (
-    f"/tmp/mttkde-install-progress-{os.getpid()}-{secrets.token_hex(8)}"
+    f"/tmp/tajsdesktop-install-progress-{os.getpid()}-{secrets.token_hex(8)}"
 )
 DONE_MARKER = "__DONE__"
 
@@ -198,6 +198,6 @@ def banner(version: str) -> None:
     for extra in art[len(_APPLE_RAINBOW):]:
         print(f"  {_APPLE_RAINBOW[-1]}{BOLD}{extra}{RESET}")
     print()
-    print(f"  {GREEN}{BOLD}        MacTahoe Liquid KDE {WHITE}v{version}{RESET}")
+    print(f"  {GREEN}{BOLD}        TajsDesktop {WHITE}v{version}{RESET}")
     print(f"  {WHITE}            Developed by Lester{RESET}")
     print()

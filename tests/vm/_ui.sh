@@ -109,7 +109,7 @@ ui_info() {
 
 # Y/n prompt matching the style of cli.py's confirm() — bold red
 # message, "Continue? [Y/n]", default-yes, EOF or "" counts as yes,
-# "n" aborts. Honors MTTKDE_NO_CONFIRM=1 for the SSH-driven VM
+# "n" aborts. Honors TAJSDESKTOP_NO_CONFIRM=1 for the SSH-driven VM
 # harness path (same env var as the installer).
 #
 # Reads from /dev/tty when possible (so it works even when stdout is
@@ -118,8 +118,8 @@ ui_info() {
 ui_confirm() {
     local msg="$1"
     printf "\n  ${_UI_BOLD}${_UI_RED}%s${_UI_RESET}\n\n" "$msg"
-    if [[ "${MTTKDE_NO_CONFIRM:-}" == "1" ]]; then
-        printf "  ${_UI_DIM}MTTKDE_NO_CONFIRM=1 — auto-accepting${_UI_RESET}\n\n"
+    if [[ "${TAJSDESKTOP_NO_CONFIRM:-}" == "1" ]]; then
+        printf "  ${_UI_DIM}TAJSDESKTOP_NO_CONFIRM=1 — auto-accepting${_UI_RESET}\n\n"
         return 0
     fi
     local answer=""

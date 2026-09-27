@@ -30,7 +30,7 @@ from steps import plymouth
 
 
 REPO = Path(__file__).resolve().parent.parent
-THEME_SRC = REPO / "src/offline/plymouth/MacTahoeLiquidKde"
+THEME_SRC = REPO / "src/offline/plymouth/TajsDesktop"
 
 
 @pytest.fixture(autouse=True)
@@ -43,24 +43,24 @@ def _isolate_plymouthd_conf(tmp_path, monkeypatch):
 
 
 def test_plymouth_metadata_parses():
-    meta = THEME_SRC / "MacTahoeLiquidKde.plymouth"
+    meta = THEME_SRC / "TajsDesktop.plymouth"
     assert meta.is_file(), f"missing metadata: {meta}"
     cp = configparser.ConfigParser(strict=True)
     cp.read(str(meta), encoding="utf-8")
     assert "Plymouth Theme" in cp.sections()
     assert "script" in cp.sections()
-    assert cp.get("Plymouth Theme", "Name") == "MacTahoeLiquidKde"
+    assert cp.get("Plymouth Theme", "Name") == "TajsDesktop"
     assert cp.get("Plymouth Theme", "ModuleName") == "script"
     image_dir = cp.get("script", "ImageDir")
     script_file = cp.get("script", "ScriptFile")
-    assert image_dir == "/usr/share/plymouth/themes/MacTahoeLiquidKde"
+    assert image_dir == "/usr/share/plymouth/themes/TajsDesktop"
     assert script_file == (
-        "/usr/share/plymouth/themes/MacTahoeLiquidKde/MacTahoeLiquidKde.script"
+        "/usr/share/plymouth/themes/TajsDesktop/TajsDesktop.script"
     )
 
 
 def test_plymouth_script_references_resolve():
-    script = THEME_SRC / "MacTahoeLiquidKde.script"
+    script = THEME_SRC / "TajsDesktop.script"
     assert script.is_file()
     text = script.read_text(encoding="utf-8")
     refs = re.findall(r'Image\("([^"]+)"\)', text)
@@ -72,7 +72,7 @@ def test_plymouth_script_references_resolve():
 def test_plymouth_script_brackets_balanced():
     """Plymouth's parser silently falls back to text when brackets are
     unbalanced. Validate manually since we have no parser to run."""
-    script = THEME_SRC / "MacTahoeLiquidKde.script"
+    script = THEME_SRC / "TajsDesktop.script"
     raw = script.read_text(encoding="utf-8")
     # Strip string literals and line comments so a `#` or `}` inside
     # text doesn't pollute the count.
@@ -92,7 +92,7 @@ def test_plymouth_script_brackets_balanced():
 
 def test_plymouth_script_is_the_known_working_og_version():
     """Issue #76 is distro policy; do not mutate the generally-working UI."""
-    script = THEME_SRC / "MacTahoeLiquidKde.script"
+    script = THEME_SRC / "TajsDesktop.script"
     digest = hashlib.sha256(script.read_bytes()).hexdigest()
     assert digest == "e0b8fa931fcf02e77e9944c469557927ffcd27df84820c0aa3909c3aab678b6b"
 
@@ -106,8 +106,8 @@ def test_plymouth_theme_directory_is_minimal():
     .script doesn't actually implement."""
     actual = {p.name for p in THEME_SRC.iterdir() if p.is_file()}
     expected = {
-        "MacTahoeLiquidKde.plymouth",
-        "MacTahoeLiquidKde.script",
+        "TajsDesktop.plymouth",
+        "TajsDesktop.script",
         "boot.png",
         "boot.svg",
         "progress_track.png",
@@ -125,8 +125,8 @@ def test_plymouth_script_has_no_fork_attribution():
     """The .script was rewritten from scratch. There must be no
     'forked from X', no upstream author names, no Pear-OS references
     leaking into the header — per CLAUDE.md branding policy."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
-    meta = (THEME_SRC / "MacTahoeLiquidKde.plymouth").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
+    meta = (THEME_SRC / "TajsDesktop.plymouth").read_text(encoding="utf-8")
     blacklist = (
         "forked",
         "fork of",
@@ -150,7 +150,7 @@ def test_plymouth_script_paints_black_background():
     the .script ever crashes mid-init. Pinning both top + bottom colours
     to pure black means the worst-case render is a black screen — the
     same colour the kernel was on a tick earlier."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     assert "Window.SetBackgroundTopColor(0, 0, 0)" in text
     assert "Window.SetBackgroundBottomColor(0, 0, 0)" in text
 
@@ -163,7 +163,7 @@ def test_plymouth_script_scales_logo_dynamically():
     looked oversized at real boot on 4K (the high-res source PNG
     downscales crisper than upstream's tiny PNG, so visually
     'bigger' at the same percentage)."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     assert "0.07" in text, "missing dynamic-scale ratio 0.07"
     # Math.Int() rounds the float scale back to an int pixel size —
     # without it Plymouth refuses to render fractional pixel widths.
@@ -176,7 +176,7 @@ def test_plymouth_script_centers_logo_after_scale():
     """Centering math must happen AFTER the scale or the logo lands
     off-centre at non-1080p resolutions. Compute against the SCALED
     sprite's GetWidth()/GetHeight(), not the source image dimensions."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     assert re.search(
         r"SetX\s*\(\s*Window\.GetX\(\)\s*\+\s*screen_w\s*/\s*2"
         r"\s*-\s*logo_image\.GetWidth\(\)\s*/\s*2\s*\)",
@@ -193,7 +193,7 @@ def test_plymouth_script_handles_portrait_orientation():
     """Tablets / rotated panels report screen_w < screen_h. Without an
     explicit branch the logo would scale to 18% of HEIGHT on a portrait
     display, which is visually too big. Branch on the smaller axis."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     assert re.search(r"screen_w\s*<\s*screen_h", text), (
         "no portrait branch — logo will overflow on rotated displays"
     )
@@ -203,7 +203,7 @@ def test_plymouth_script_loads_each_image_only_once():
     """Image() reads from disk every call. Calling it inside a callback
     or per-monitor loop would re-read the file on every tick / window.
     Pin the load-once invariant for all three sources."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     for name in ("boot.png", "progress_track.png", "progress_fill.png"):
         refs = re.findall(rf'Image\("{re.escape(name)}"\)', text)
         assert len(refs) == 1, (
@@ -216,7 +216,7 @@ def test_plymouth_script_wires_required_callbacks():
     message display. Without them the splash either crashes or
     silently shows a stale frame when the boot path tries to surface
     fsck/recovery messages or progress."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     for cb in (
         "Plymouth.SetQuitFunction",
         "Plymouth.SetBootProgressFunction",
@@ -233,7 +233,7 @@ def test_plymouth_script_does_not_implement_password_callback():
     (missing entry/bullet references). Strip comments before checking
     — the header comment lists the callback as 'deliberately NOT
     wired', and that mention is intentional."""
-    raw = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    raw = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     no_comments = re.sub(r"#.*$", "", raw, flags=re.MULTILINE)
     assert "SetPasswordFunction" not in no_comments, (
         "password callback requires entry/bullet PNGs we don't ship"
@@ -247,7 +247,7 @@ def test_plymouth_script_does_not_reference_deleted_assets():
     sure no stale Image() reference points at the old names, since
     Plymouth would silently text-splash on the first boot that hit
     the missing-asset path."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     for name in ("box.png", "lock.png", "entry.png", "bullet.png",
                  "progress_box.png", "progress_bar.png"):
         assert name not in text, (
@@ -260,7 +260,7 @@ def test_plymouth_script_message_state_initialised():
     a parallel array + counter + running Y offset declared at module
     scope. Missing any of the three would crash the first time a
     message arrived."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     for sym in ("message_y", "message_sprites", "message_count"):
         assert sym in text, f"message bookkeeping symbol missing: {sym}"
 
@@ -272,7 +272,7 @@ def test_plymouth_script_uses_single_window_logic():
     monitors black, no logo. The DRM renderer mirrors a single Sprite
     across every connected display automatically, so the correct
     approach is single-Window logic with NO loop over heads."""
-    raw = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    raw = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     # Strip comments before forbidding patterns — the script's header
     # comment may mention the forbidden calls; those mentions are fine.
     code = re.sub(r"#.*$", "", raw, flags=re.MULTILINE)
@@ -296,7 +296,7 @@ def test_plymouth_script_shutdown_layout_shares_boot_path():
     through the same SetX/SetY math. Enforce that the script has no
     mode-conditional logo positioning — the only mode branch should be
     progress visibility."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     # Mode literals appear only in: `mode = Plymouth.GetMode()` and the
     # `show_progress = (mode == "boot")` predicate (and comments).
     mode_string_uses = [
@@ -316,7 +316,7 @@ def test_plymouth_script_progress_visibility_gated_by_mode():
     shutdown/reboot have no monotonic completion to track. Both the
     SetBootProgressFunction binding AND the track's visibility must
     be gated on the boot-mode predicate."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     assert re.search(
         r'show_progress\s*=\s*\(\s*mode\s*==\s*"boot"\s*\)', text,
     ), "show_progress must derive from mode == 'boot'"
@@ -334,7 +334,7 @@ def test_plymouth_script_progress_visibility_gated_by_mode():
 def test_plymouth_script_progress_bar_scales_horizontally():
     """The fill grows in WIDTH only — height stays fixed. If you scale
     both axes, the bar warps as progress advances."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     assert re.search(
         r"fill_source\.Scale\(\s*Math\.Int\(\s*bar_w\s*\*\s*progress\s*\)"
         r"\s*,\s*bar_h\s*\)",
@@ -347,7 +347,7 @@ def test_plymouth_script_clamps_progress_range():
     [0, 1] near the boot-finished tick. Without clamps the fill ends
     up wider than the track, or Scale() is called with a negative
     width which silently produces a zero-sized image."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     assert re.search(r"if\s*\(\s*progress\s*<\s*0\s*\)", text), (
         "missing lower-bound clamp on progress"
     )
@@ -360,7 +360,7 @@ def test_plymouth_script_progress_bar_positioned_below_logo():
     """The bar's Y must derive from the logo sprite — not from a
     screen-percentage constant. That keeps the bar at a fixed gap
     below the logo regardless of resolution / aspect ratio."""
-    text = (THEME_SRC / "MacTahoeLiquidKde.script").read_text(encoding="utf-8")
+    text = (THEME_SRC / "TajsDesktop.script").read_text(encoding="utf-8")
     assert re.search(
         r"bar_y\s*=\s*logo\.GetY\(\)\s*\+\s*logo_image\.GetHeight\(\)",
         text,
@@ -372,9 +372,9 @@ def test_plymouth_step_module_has_install_paths_pinned():
     refactor that drifts ``DEST`` somewhere harmless doesn't leave the
     theme orphaned next to plymouthd's actual search path."""
     assert str(plymouth.DEST) == (
-        "/usr/share/plymouth/themes/MacTahoeLiquidKde"
+        "/usr/share/plymouth/themes/TajsDesktop"
     )
-    assert plymouth.THEME_NAME == "MacTahoeLiquidKde"
+    assert plymouth.THEME_NAME == "TajsDesktop"
     assert plymouth.FALLBACK_THEME == "bgrt"
 
 
@@ -435,17 +435,17 @@ def _stub(monkeypatch, *, have_bin=True, current_theme="breeze",
         calls["install_tree"].append((Path(src), Path(dest)))
         Path(dest).mkdir(parents=True, exist_ok=True)
         # Stage a *valid* theme on disk so _validate_theme passes.
-        meta = Path(dest) / "MacTahoeLiquidKde.plymouth"
+        meta = Path(dest) / "TajsDesktop.plymouth"
         meta.write_text(
             "[Plymouth Theme]\n"
-            "Name=MacTahoeLiquidKde\n"
+            "Name=TajsDesktop\n"
             "ModuleName=script\n"
             "\n"
             "[script]\n"
-            "ImageDir=/usr/share/plymouth/themes/MacTahoeLiquidKde\n"
-            "ScriptFile=/usr/share/plymouth/themes/MacTahoeLiquidKde/MacTahoeLiquidKde.script\n"
+            "ImageDir=/usr/share/plymouth/themes/TajsDesktop\n"
+            "ScriptFile=/usr/share/plymouth/themes/TajsDesktop/TajsDesktop.script\n"
         )
-        script = Path(dest) / "MacTahoeLiquidKde.script"
+        script = Path(dest) / "TajsDesktop.script"
         script.write_text(
             'logo = Image("boot.png");\n'
             'Window.SetBackgroundTopColor(0, 0, 0);\n'
@@ -473,9 +473,9 @@ def _activation_calls(calls):
 def test_install_skips_when_plymouth_binary_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(plymouth, "HOME", tmp_path)
     monkeypatch.setattr(plymouth, "STATE_DIR",
-                        tmp_path / ".local/state/mac-tahoe-liquid-kde")
+                        tmp_path / ".local/state/tajsdesktop")
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE",
-                        tmp_path / ".local/state/mac-tahoe-liquid-kde/plymouth-previous-theme")
+                        tmp_path / ".local/state/tajsdesktop/plymouth-previous-theme")
     calls = _stub(monkeypatch, have_bin=False)
     monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest")
 
@@ -487,12 +487,12 @@ def test_install_skips_when_plymouth_binary_missing(tmp_path, monkeypatch):
 
 
 def test_install_snapshots_previous_theme(tmp_path, monkeypatch):
-    state_dir = tmp_path / ".local/state/mac-tahoe-liquid-kde"
+    state_dir = tmp_path / ".local/state/tajsdesktop"
     prev_file = state_dir / "plymouth-previous-theme"
     monkeypatch.setattr(plymouth, "HOME", tmp_path)
     monkeypatch.setattr(plymouth, "STATE_DIR", state_dir)
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE", prev_file)
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
 
     calls = _stub(monkeypatch, have_bin=True, current_theme="breeze")
     plymouth.install()
@@ -500,7 +500,7 @@ def test_install_snapshots_previous_theme(tmp_path, monkeypatch):
     assert prev_file.is_file()
     assert prev_file.read_text().strip() == "breeze"
     # Activation ran with -R + our theme name.
-    assert [plymouth.PLYMOUTH_BIN, "-R", "MacTahoeLiquidKde"] in _activation_calls(calls)
+    assert [plymouth.PLYMOUTH_BIN, "-R", "TajsDesktop"] in _activation_calls(calls)
     assert calls["as_root"]
 
 
@@ -516,9 +516,9 @@ def test_install_does_not_overwrite_snapshot_with_own_name(tmp_path, monkeypatch
     monkeypatch.setattr(plymouth, "HOME", tmp_path)
     monkeypatch.setattr(plymouth, "STATE_DIR", state_dir)
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE", prev_file)
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
 
-    _stub(monkeypatch, have_bin=True, current_theme="MacTahoeLiquidKde")
+    _stub(monkeypatch, have_bin=True, current_theme="TajsDesktop")
     plymouth.install()
 
     assert prev_file.read_text().strip() == "breeze"
@@ -533,7 +533,7 @@ def test_install_aborts_on_invalid_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr(plymouth, "STATE_DIR", state_dir)
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE",
                         state_dir / "plymouth-previous-theme")
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
 
     calls = _stub(monkeypatch, have_bin=True, current_theme="breeze")
 
@@ -541,8 +541,8 @@ def test_install_aborts_on_invalid_metadata(tmp_path, monkeypatch):
     def broken_install_tree(src, dest, label=None):
         calls["install_tree"].append((Path(src), Path(dest)))
         Path(dest).mkdir(parents=True, exist_ok=True)
-        (Path(dest) / "MacTahoeLiquidKde.plymouth").write_text(
-            "[Plymouth Theme]\nName=MacTahoeLiquidKde\n"
+        (Path(dest) / "TajsDesktop.plymouth").write_text(
+            "[Plymouth Theme]\nName=TajsDesktop\n"
             # Missing [script] section, missing ScriptFile.
         )
         return True
@@ -563,7 +563,7 @@ def test_install_activation_call_includes_R_flag(tmp_path, monkeypatch):
     monkeypatch.setattr(plymouth, "STATE_DIR", tmp_path / "state")
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE",
                         tmp_path / "state/plymouth-previous-theme")
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
 
     calls = _stub(monkeypatch, have_bin=True)
     plymouth.install()
@@ -581,7 +581,7 @@ def test_install_attempts_rollback_when_activation_fails(tmp_path, monkeypatch):
     monkeypatch.setattr(plymouth, "HOME", tmp_path)
     monkeypatch.setattr(plymouth, "STATE_DIR", state_dir)
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE", prev_file)
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
 
     calls = _stub(monkeypatch, have_bin=True, current_theme="breeze",
                   activate_rc=1)
@@ -589,7 +589,7 @@ def test_install_attempts_rollback_when_activation_fails(tmp_path, monkeypatch):
 
     activations = _activation_calls(calls)
     # First activation: ours (failed). Second: rollback to breeze.
-    assert activations[0] == [plymouth.PLYMOUTH_BIN, "-R", "MacTahoeLiquidKde"]
+    assert activations[0] == [plymouth.PLYMOUTH_BIN, "-R", "TajsDesktop"]
     assert activations[-1] == [plymouth.PLYMOUTH_BIN, "-R", "breeze"]
 
 
@@ -602,7 +602,7 @@ def test_install_skips_activation_when_plymouth_script_plugin_is_missing(
     monkeypatch.setattr(
         plymouth, "PREV_THEME_FILE", state_dir / "plymouth-previous-theme",
     )
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
 
     calls = _stub(monkeypatch, have_bin=True, current_theme="breeze")
     monkeypatch.setattr(plymouth, "_ensure_script_plugin", lambda: False)
@@ -621,13 +621,13 @@ def test_uninstall_restores_snapshot(tmp_path, monkeypatch):
     monkeypatch.setattr(plymouth, "HOME", tmp_path)
     monkeypatch.setattr(plymouth, "STATE_DIR", state_dir)
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE", prev_file)
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
 
     calls = _stub(monkeypatch, have_bin=True)
     plymouth.uninstall()
 
     assert _activation_calls(calls) == [[plymouth.PLYMOUTH_BIN, "-R", "bgrt"]]
-    assert calls["remove"] == [tmp_path / "dest/MacTahoeLiquidKde"]
+    assert calls["remove"] == [tmp_path / "dest/TajsDesktop"]
     assert not prev_file.is_file()
 
 
@@ -636,7 +636,7 @@ def test_uninstall_falls_back_to_bgrt_without_snapshot(tmp_path, monkeypatch):
     monkeypatch.setattr(plymouth, "STATE_DIR", tmp_path / "state-missing")
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE",
                         tmp_path / "state-missing/plymouth-previous-theme")
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
 
     calls = _stub(monkeypatch, have_bin=True)
     plymouth.uninstall()
@@ -651,12 +651,12 @@ def test_uninstall_avoids_loop_when_snapshot_is_our_own_name(tmp_path, monkeypat
     state_dir = tmp_path / "state"
     state_dir.mkdir()
     prev_file = state_dir / "plymouth-previous-theme"
-    prev_file.write_text("MacTahoeLiquidKde\n")
+    prev_file.write_text("TajsDesktop\n")
 
     monkeypatch.setattr(plymouth, "HOME", tmp_path)
     monkeypatch.setattr(plymouth, "STATE_DIR", state_dir)
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE", prev_file)
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
 
     calls = _stub(monkeypatch, have_bin=True)
     plymouth.uninstall()
@@ -676,13 +676,13 @@ def test_uninstall_continues_when_plymouth_binary_missing(tmp_path, monkeypatch)
     monkeypatch.setattr(plymouth, "HOME", tmp_path)
     monkeypatch.setattr(plymouth, "STATE_DIR", state_dir)
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE", prev_file)
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
 
     calls = _stub(monkeypatch, have_bin=False)
     plymouth.uninstall()
 
     assert _activation_calls(calls) == []
-    assert calls["remove"] == [tmp_path / "dest/MacTahoeLiquidKde"]
+    assert calls["remove"] == [tmp_path / "dest/TajsDesktop"]
 
 
 # ──────────────────────── boot-side prerequisites ──────────────────────
@@ -758,7 +758,7 @@ def test_prereqs_skip_mkinitcpio_check_when_file_absent(tmp_path, monkeypatch):
 def test_grub_patch_appends_splash_when_missing(tmp_path, monkeypatch):
     """GRUB cmdline auto-patch: if GRUB_CMDLINE_LINUX_DEFAULT
     is missing 'splash', the installer appends it (preserving every
-    other token), keeps a .mttkde.bak backup, and the new value lands
+    other token), keeps a .tajsdesktop.bak backup, and the new value lands
     on disk. Existing 'splash' tokens are left alone — idempotent
     re-runs don't duplicate the flag."""
     grub = tmp_path / "etc/default/grub"
@@ -781,7 +781,7 @@ def test_grub_patch_appends_splash_when_missing(tmp_path, monkeypatch):
     text = grub.read_text(encoding="utf-8")
     assert 'GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=3 splash"' in text
     # Backup landed alongside.
-    bak = grub.with_suffix(grub.suffix + ".mttkde.bak")
+    bak = grub.with_suffix(grub.suffix + ".tajsdesktop.bak")
     assert bak.is_file()
     assert "quiet loglevel=3" in bak.read_text(encoding="utf-8")
     assert "splash" not in bak.read_text(encoding="utf-8").split("\n")[2]
@@ -817,25 +817,25 @@ def test_grub_patch_refuses_to_invent_missing_cmdline_line(tmp_path, monkeypatch
 
 
 def test_grub_auto_patch_disabled_via_env(monkeypatch):
-    """The --no-grub-modify CLI flag exports MTTKDE_NO_GRUB_MODIFY=1.
+    """The --no-grub-modify CLI flag exports TAJSDESKTOP_NO_GRUB_MODIFY=1.
     Plymouth's gating helper must respect that so the auto-patch
     branch is skipped and the warn() path runs instead."""
-    monkeypatch.setenv("MTTKDE_NO_GRUB_MODIFY", "1")
+    monkeypatch.setenv("TAJSDESKTOP_NO_GRUB_MODIFY", "1")
     assert plymouth._grub_auto_patch_enabled() is False
 
-    monkeypatch.delenv("MTTKDE_NO_GRUB_MODIFY", raising=False)
+    monkeypatch.delenv("TAJSDESKTOP_NO_GRUB_MODIFY", raising=False)
     assert plymouth._grub_auto_patch_enabled() is True
 
 
 def test_grub_auto_patch_accepts_yes_and_true_for_opt_out(monkeypatch):
-    """Users might write MTTKDE_NO_GRUB_MODIFY=true or =yes — the env
+    """Users might write TAJSDESKTOP_NO_GRUB_MODIFY=true or =yes — the env
     parser should recognise the common forms so opt-out works
     regardless of the value style the user picked."""
     for val in ("1", "true", "TRUE", "yes", "YES"):
-        monkeypatch.setenv("MTTKDE_NO_GRUB_MODIFY", val)
+        monkeypatch.setenv("TAJSDESKTOP_NO_GRUB_MODIFY", val)
         assert plymouth._grub_auto_patch_enabled() is False, val
     for val in ("0", "false", "no", "", "off"):
-        monkeypatch.setenv("MTTKDE_NO_GRUB_MODIFY", val)
+        monkeypatch.setenv("TAJSDESKTOP_NO_GRUB_MODIFY", val)
         # Anything not in the affirmative set means auto-patch stays on.
         # ("off" isn't in the affirmative list either — silently fall
         # through to enabled. Documented in plymouth.py.)
@@ -889,7 +889,7 @@ def test_grub_patch_handles_single_quotes(tmp_path, monkeypatch):
 
 
 def test_grub_patch_backup_keeps_truly_original(tmp_path, monkeypatch):
-    """The .mttkde.bak must be the file BEFORE any patcher run, even
+    """The .tajsdesktop.bak must be the file BEFORE any patcher run, even
     across multiple install runs. If a user installs twice, the
     second run must NOT overwrite the backup with the first run's
     already-patched output — otherwise the rollback path is gone."""
@@ -909,7 +909,7 @@ def test_grub_patch_backup_keeps_truly_original(tmp_path, monkeypatch):
     )
     plymouth._patch_grub_add_splash()
 
-    bak = grub.with_suffix(grub.suffix + ".mttkde.bak")
+    bak = grub.with_suffix(grub.suffix + ".tajsdesktop.bak")
     assert bak.read_text() == original, (
         "second run overwrote the original backup — rollback path lost"
     )
@@ -1018,7 +1018,7 @@ def test_install_sets_use_simpledrm_true_outside_fedora(tmp_path, monkeypatch):
     monkeypatch.setattr(plymouth, "STATE_DIR", tmp_path / "state")
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE",
                         tmp_path / "state/plymouth-previous-theme")
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
     monkeypatch.setattr(plymouth, "PLYMOUTHD_CONF", conf)
     monkeypatch.setattr(plymouth, "plymouth_use_simpledrm", lambda: True)
     _stub(monkeypatch, have_bin=True, current_theme="breeze")
@@ -1041,7 +1041,7 @@ def test_fedora_sets_simpledrm_zero_before_initramfs_rebuild(
     monkeypatch.setattr(
         plymouth, "PREV_THEME_FILE", state_dir / "plymouth-previous-theme",
     )
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
     monkeypatch.setattr(plymouth, "PLYMOUTHD_CONF", conf)
     monkeypatch.setattr(plymouth, "plymouth_use_simpledrm", lambda: False)
     _stub(monkeypatch, have_bin=True, current_theme="breeze")
@@ -1072,7 +1072,7 @@ def test_install_refuses_renderer_override_when_snapshot_fails(
     monkeypatch.setattr(
         plymouth, "PREV_THEME_FILE", state_dir / "plymouth-previous-theme",
     )
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
     monkeypatch.setattr(plymouth, "PLYMOUTHD_CONF", tmp_path / "plymouthd.conf")
     monkeypatch.setattr(plymouth, "_save_previous_simpledrm", lambda **_kw: False)
     writes = []
@@ -1101,7 +1101,7 @@ def test_uninstall_restores_exact_previous_simpledrm_before_rebuild(
     monkeypatch.setattr(
         plymouth, "PREV_THEME_FILE", state_dir / "plymouth-previous-theme",
     )
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
     monkeypatch.setattr(plymouth, "PLYMOUTHD_CONF", conf)
     monkeypatch.setattr(plymouth, "plymouth_use_simpledrm", lambda: False)
     _stub(monkeypatch, have_bin=True, current_theme="breeze")
@@ -1136,7 +1136,7 @@ def test_failed_activation_restores_simpledrm_before_rollback_rebuild(
     monkeypatch.setattr(
         plymouth, "PREV_THEME_FILE", state_dir / "plymouth-previous-theme",
     )
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
     monkeypatch.setattr(plymouth, "PLYMOUTHD_CONF", conf)
     monkeypatch.setattr(plymouth, "plymouth_use_simpledrm", lambda: False)
     _stub(monkeypatch, have_bin=True, current_theme="breeze")
@@ -1171,7 +1171,7 @@ def test_upgrade_removes_legacy_project_owned_simpledrm_override(
     monkeypatch.setattr(
         plymouth, "PREV_THEME_FILE", state_dir / "plymouth-previous-theme",
     )
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
     monkeypatch.setattr(plymouth, "PLYMOUTHD_CONF", conf)
     monkeypatch.setattr(plymouth, "plymouth_use_simpledrm", lambda: False)
     _stub(monkeypatch, have_bin=True, current_theme=plymouth.THEME_NAME)
@@ -1196,7 +1196,7 @@ def test_uninstall_retains_renderer_state_when_restore_fails(
     renderer_state.write_text("{not-json}\n", encoding="utf-8")
     monkeypatch.setattr(plymouth, "STATE_DIR", state_dir)
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE", previous_theme)
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
     monkeypatch.setattr(plymouth, "PLYMOUTHD_CONF", conf)
     _stub(monkeypatch, have_bin=True)
 
@@ -1223,7 +1223,7 @@ def test_install_preserves_unrelated_plymouthd_conf_keys(tmp_path, monkeypatch):
     monkeypatch.setattr(plymouth, "STATE_DIR", tmp_path / "state")
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE",
                         tmp_path / "state/plymouth-previous-theme")
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
     monkeypatch.setattr(plymouth, "PLYMOUTHD_CONF", conf)
     _stub(monkeypatch, have_bin=True, current_theme="breeze")
     plymouth.install()
@@ -1245,7 +1245,7 @@ def test_install_writes_plymouthd_conf_without_spaces_around_equals(tmp_path, mo
     (trailing space), the ``[[ "Theme " == "Theme" ]]`` comparison fails,
     and the script falls through to the distro defaults file (which has
     ``Theme=bgrt``). plymouthd at boot/shutdown then loads bgrt instead
-    of MacTahoeLiquidKde — a silent shutdown-splash regression, and
+    of TajsDesktop — a silent shutdown-splash regression, and
     configparser's default write format uses exactly those spaces.
 
     Writing with ``space_around_delimiters=False`` produces the
@@ -1255,9 +1255,9 @@ def test_install_writes_plymouthd_conf_without_spaces_around_equals(tmp_path, mo
     monkeypatch.setattr(plymouth, "STATE_DIR", tmp_path / "state")
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE",
                         tmp_path / "state/plymouth-previous-theme")
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
     monkeypatch.setattr(plymouth, "PLYMOUTHD_CONF", conf)
-    _stub(monkeypatch, have_bin=True, current_theme="MacTahoeLiquidKde")
+    _stub(monkeypatch, have_bin=True, current_theme="TajsDesktop")
     plymouth.install()
 
     text = conf.read_text(encoding="utf-8")
@@ -1297,8 +1297,8 @@ def test_install_survives_duplicate_theme_lines_in_plymouthd_conf(tmp_path, monk
     conf = tmp_path / "plymouthd.conf"
     conf.write_text(
         "[Daemon]\n"
-        "Theme=MacTahoeLiquidKde\n"
-        "Theme = MacTahoeLiquidKde\n"
+        "Theme=TajsDesktop\n"
+        "Theme = TajsDesktop\n"
         "UseSimpledrm = true\n",
         encoding="utf-8",
     )
@@ -1306,12 +1306,12 @@ def test_install_survives_duplicate_theme_lines_in_plymouthd_conf(tmp_path, monk
     monkeypatch.setattr(plymouth, "STATE_DIR", tmp_path / "state")
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE",
                         tmp_path / "state/plymouth-previous-theme")
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
     monkeypatch.setattr(plymouth, "PLYMOUTHD_CONF", conf)
     # This test covers duplicate-key normalization, not distro policy. Keep
     # its expected value deterministic inside Fedora/Nobara containers too.
     monkeypatch.setattr(plymouth, "plymouth_use_simpledrm", lambda: True)
-    _stub(monkeypatch, have_bin=True, current_theme="MacTahoeLiquidKde")
+    _stub(monkeypatch, have_bin=True, current_theme="TajsDesktop")
     plymouth.install()
 
     text = conf.read_text(encoding="utf-8")
@@ -1336,7 +1336,7 @@ def test_uninstall_removes_use_simpledrm_override(tmp_path, monkeypatch):
     conf = tmp_path / "plymouthd.conf"
     conf.write_text(
         "[Daemon]\n"
-        "Theme=MacTahoeLiquidKde\n"
+        "Theme=TajsDesktop\n"
         "UseSimpledrm=true\n"
         "ShowDelay=0\n",
         encoding="utf-8",
@@ -1348,7 +1348,7 @@ def test_uninstall_removes_use_simpledrm_override(tmp_path, monkeypatch):
     monkeypatch.setattr(plymouth, "HOME", tmp_path)
     monkeypatch.setattr(plymouth, "STATE_DIR", state_dir)
     monkeypatch.setattr(plymouth, "PREV_THEME_FILE", prev_file)
-    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/MacTahoeLiquidKde")
+    monkeypatch.setattr(plymouth, "DEST", tmp_path / "dest/TajsDesktop")
     monkeypatch.setattr(plymouth, "PLYMOUTHD_CONF", conf)
     _stub(monkeypatch, have_bin=True)
     plymouth.uninstall()
@@ -1412,7 +1412,7 @@ def test_grub_active_requires_both_file_and_regen_binary(tmp_path, monkeypatch):
 def test_install_skips_grub_patch_when_no_regen_binary(tmp_path, monkeypatch):
     """A systemd-boot user with a leftover /etc/default/grub from a
     previous install must NOT have that file patched — patching it
-    is a no-op (no grub.cfg gets regenerated) and the .mttkde.bak
+    is a no-op (no grub.cfg gets regenerated) and the .tajsdesktop.bak
     backup just clutters their filesystem. install() must fall
     through to the warn() path instead."""
     import contextlib
@@ -1435,5 +1435,5 @@ def test_install_skips_grub_patch_when_no_regen_binary(tmp_path, monkeypatch):
     # File on disk must be untouched (no patch happened).
     assert grub.read_text() == original
     # No backup file created.
-    bak = grub.with_suffix(grub.suffix + ".mttkde.bak")
+    bak = grub.with_suffix(grub.suffix + ".tajsdesktop.bak")
     assert not bak.exists()

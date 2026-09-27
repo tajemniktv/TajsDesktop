@@ -1,0 +1,17 @@
+{
+    "KPlugin": {
+        "Id": "TajsDesktop-Tahoe-Beach-Dawn",
+        "Name": "Tahoe Beach \u2014 Dawn",
+        "Description": "Lake Tahoe at dawn",
+        "Authors": [
+            {
+                "Name": "TajsDesktop-Tahoe Liquid KDE",
+                "Email": ""
+            }
+        ],
+        "Category": "TajsDesktop-Tahoe Liquid KDE",
+        "License": "Apple Inc. wallpapers extracted from macOS",
+        "Website": "https://github.com/lester-sudo/macos-tahoe-liquid-kde",
+        "Version": "1.0"
+    }
+}

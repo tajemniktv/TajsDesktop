@@ -10,8 +10,8 @@ def test_uninstall_disables_before_unload_and_reconfigures_after_removal(
     kwinrc = home / ".config/kwinrc"
     kwinrc.parent.mkdir(parents=True)
     kwinrc.write_text(
-        "[Plugins]\nliquidglassEnabled=true\n\n"
-        "[Effect-liquidglass]\nBlurStrength=5\n\n"
+        "[Plugins]\ntajsdesktopglassEnabled=true\n\n"
+        "[Effect-tajsdesktopglass]\nBlurStrength=5\n\n"
         "[Windows]\nPlacement=Smart\n"
     )
 
@@ -38,13 +38,13 @@ def test_uninstall_disables_before_unload_and_reconfigures_after_removal(
     acrylic_glass.uninstall()
 
     assert calls[0][0] == "write"
-    assert "liquidglassEnabled" in calls[0][1]
+    assert "tajsdesktopglassEnabled" in calls[0][1]
     assert calls[1][1][-2:] == (
-        "org.kde.kwin.Effects.unloadEffect", "liquidglass",
+        "org.kde.kwin.Effects.unloadEffect", "tajsdesktopglass",
     )
     assert calls[2][1][-1] == "org.kde.KWin.reconfigure"
     assert calls[-1][1][-1] == "org.kde.KWin.reconfigure"
     assert len(removed) == 2
     text = kwinrc.read_text()
-    assert "[Effect-liquidglass]" not in text
+    assert "[Effect-tajsdesktopglass]" not in text
     assert "[Windows]\nPlacement=Smart" in text

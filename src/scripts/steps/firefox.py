@@ -21,15 +21,15 @@ from pathlib import Path
 from steps._helpers import HOME, info, offline, ok, warn
 
 
-THEME_DIRNAME = "MacTahoeLiquidKde"
+THEME_DIRNAME = "TajsDesktop"
 THEME_SOURCE_NAME = "firefox"
-OWNERSHIP_MARKER = ".mttkde-firefox-theme.json"
+OWNERSHIP_MARKER = ".tajsdesktop-firefox-theme.json"
 STATE_VERSION = 1
 
-CHROME_START = "/* >>> MacTahoe Liquid KDE Firefox theme >>> */"
-CHROME_END = "/* <<< MacTahoe Liquid KDE Firefox theme <<< */"
-USER_START = "// >>> MacTahoe Liquid KDE Firefox theme >>>"
-USER_END = "// <<< MacTahoe Liquid KDE Firefox theme <<<"
+CHROME_START = "/* >>> TajsDesktop Firefox theme >>> */"
+CHROME_END = "/* <<< TajsDesktop Firefox theme <<< */"
+USER_START = "// >>> TajsDesktop Firefox theme >>>"
+USER_END = "// <<< TajsDesktop Firefox theme <<<"
 
 CHROME_BLOCKS = {
     "userChrome.css": (
@@ -58,7 +58,7 @@ LEGACY_PREF_LINES = (
 
 
 def _state_root() -> Path:
-    return HOME / ".local/state/mac-tahoe-liquid-kde/firefox"
+    return HOME / ".local/state/tajsdesktop/firefox"
 
 
 def _manifest_path() -> Path:
@@ -383,7 +383,7 @@ def _prepare_chrome_dir(profile: Path, migrate_legacy: bool = False) -> Path:
         resolved = chrome.resolve(strict=True)
         if not resolved.is_dir():
             raise OSError(f"chrome symlink target is not a directory: {resolved}")
-        staged = profile / ".chrome.mttkde-stage"
+        staged = profile / ".chrome.tajsdesktop-stage"
         if staged.is_symlink():
             staged.unlink()
         elif staged.exists():
@@ -392,7 +392,7 @@ def _prepare_chrome_dir(profile: Path, migrate_legacy: bool = False) -> Path:
             staged.mkdir()
         else:
             shutil.copytree(resolved, staged, symlinks=True)
-        previous = profile / ".chrome.mttkde-previous"
+        previous = profile / ".chrome.tajsdesktop-previous"
         if previous.exists() or previous.is_symlink():
             raise OSError(f"stale recovery path exists: {previous}")
         os.replace(chrome, previous)
@@ -428,13 +428,13 @@ def _install_payload(chrome: Path) -> None:
     if not source.is_dir() or not marker.is_file():
         raise OSError(f"bundled Firefox theme is incomplete: {source}")
     destination = chrome / THEME_DIRNAME
-    staged = chrome / f".{THEME_DIRNAME}.mttkde-stage"
+    staged = chrome / f".{THEME_DIRNAME}.tajsdesktop-stage"
     if staged.exists() and not staged.is_symlink():
         shutil.rmtree(staged)
     elif staged.is_symlink():
         staged.unlink()
     shutil.copytree(source, staged, symlinks=True)
-    previous = chrome / f".{THEME_DIRNAME}.mttkde-previous"
+    previous = chrome / f".{THEME_DIRNAME}.tajsdesktop-previous"
     if previous.exists() or previous.is_symlink():
         if staged.is_dir():
             shutil.rmtree(staged)
@@ -478,6 +478,22 @@ def _install_profile(profile: Path, manifest: dict[str, object]) -> bool:
     profiles = manifest.setdefault("profiles", {})
     assert isinstance(profiles, dict)
     key = str(profile)
+    # A fork cannot claim upstream's CSS blocks or replace a shared chrome
+    # symlink. Both need an explicit, reviewed migration rather than an
+    # ordinary feature toggle.
+    if (profile / "chrome").is_symlink():
+        warn(f"Firefox: {profile.name} uses a shared chrome symlink; skipped")
+        return False
+    for path in (profile / "chrome/userChrome.css",
+                 profile / "chrome/userContent.css", profile / "user.js"):
+        try:
+            if path.is_file() and "MacTahoe Liquid KDE Firefox theme" in \
+                    path.read_text(encoding="utf-8"):
+                warn(f"Firefox: {profile.name} has an upstream theme; skipped")
+                return False
+        except (OSError, UnicodeError):
+            warn(f"Firefox: {profile.name} could not be inspected; skipped")
+            return False
     if not _markers_are_valid(profile):
         return False
     snapshot = _snapshot_profile(profile, _root_for_profile(profile))

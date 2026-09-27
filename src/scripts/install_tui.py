@@ -1,7 +1,7 @@
 """Interactive terminal wizard for ``sudo ./install`` / ``sudo ./uninstall``.
 
 Pure stdlib (curses). cli.py only enters this on a real TTY with no CLI
-flags and no MTTKDE_NO_CONFIRM; any exception here makes cli.py fall
+flags and no TAJSDESKTOP_NO_CONFIRM; any exception here makes cli.py fall
 back to the classic confirm-and-flags flow, so the wizard can never
 block an install. The model (``Wizard``) is curses-free and unit-tested;
 only ``run_wizard`` / ``run_progress`` touch the screen.
@@ -39,7 +39,7 @@ FEATURE_ORDER = [
     "kvantum", "icons", "cursors", "wallpapers", "global_theme",
     "layout", "plasmoids", "globalmenu", "acrylic_glass", "rounded_corners", "sounds",
     "gtk", "firefox", "sddm", "plymouth", "apps", "nautilus",
-    "nautilus_bookmarks", "portals", "kconf_update",
+    "nautilus_bookmarks", "portals",
 ]
 
 THEME_MODES = ("auto", "light", "dark")
@@ -51,7 +51,6 @@ _NAME_OVERRIDES = {
     "sddm": "SDDM Login",
     "oled_care": "OLED Care",
     "rounded_corners": "Rounded Corners",
-    "kconf_update": "Config Migrations",
     "_reset_wallpapers": "Reset Saved Wallpapers",
 }
 
@@ -267,7 +266,7 @@ def _draw_header(scr) -> int:
     once, in the CLI banner printed before the TUI starts. Returns the
     first body row."""
     _, w = scr.getmaxyx()
-    name = "MacTahoe Liquid KDE"
+    name = "TajsDesktop"
     ver = f" v{read_version()}"
     x = max(0, (w - len(name + ver)) // 2)
     x = _put(scr, 0, x, name, _c(_P_GREEN, curses.A_BOLD))
@@ -880,7 +879,7 @@ def run_progress(runner, total: int, mode: str = "install") -> int:
     if curses is None:
         return int(runner())
 
-    log_path = os.environ.get("MTTKDE_INSTALL_LOG", "/tmp/mttkde-install.log")
+    log_path = os.environ.get("TAJSDESKTOP_INSTALL_LOG", "/tmp/tajsdesktop-install.log")
     try:
         logf = open(log_path, "w", buffering=1, encoding="utf-8")
     except OSError:

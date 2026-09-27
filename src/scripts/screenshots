@@ -21,7 +21,7 @@ Requirements:
     - ``spectacle`` (kde-spectacle).
     - ``qml6`` (qt6-declarative) for the standalone About preview.
     - ``plasma-windowed`` (plasma-workspace) for the launcher.
-    - The theme installed (``mac-tahoe-theme-switch`` on PATH).
+    - The theme installed (``tajsdesktop-theme-switch`` on PATH).
 
 Limitations:
     - Plymouth (``boot_*``) is captured at physical boot, not here.
@@ -48,8 +48,8 @@ from paths import REPO_ROOT
 
 SCREENSHOTS_DIR = REPO_ROOT / "src/screenshots"
 PREVIEW_QML = REPO_ROOT / "src/scripts/preview_about.qml"
-THEME_SWITCH = Path.home() / ".local/bin/mac-tahoe-theme-switch"
-LAUNCHER_ID = "org.kde.mac-tahoe-liquid-kde.launcher"
+THEME_SWITCH = Path.home() / ".local/bin/tajsdesktop-theme-switch"
+LAUNCHER_ID = "org.tajemniktv.tajsdesktop.launcher"
 
 
 # ── theme helpers ────────────────────────────────────────────────────────

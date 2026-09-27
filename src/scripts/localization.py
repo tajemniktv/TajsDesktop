@@ -27,7 +27,7 @@ LANGUAGE_CODES = tuple(item["code"] for item in LANGUAGES)
 _ES = {
     "System default": "Predeterminado del sistema",
     "Language": "Idioma",
-    "MacTahoe Liquid KDE Installer": "Instalador de MacTahoe Liquid KDE",
+    "TajsDesktop Installer": "Instalador de TajsDesktop",
     "Update available:": "Actualización disponible:",
     "Install": "Instalar",
     "Uninstall": "Desinstalar",
@@ -81,7 +81,7 @@ _ES = {
 _ZH_CN = {
     "System default": "跟随系统",
     "Language": "语言",
-    "MacTahoe Liquid KDE Installer": "MacTahoe Liquid KDE 安装程序",
+    "TajsDesktop Installer": "TajsDesktop 安装程序",
     "Update available:": "有可用更新：",
     "Install": "安装",
     "Uninstall": "卸载",
@@ -144,7 +144,7 @@ _FEATURE_LABELS = {
     "sddm": "SDDM Login", "plymouth": "Plymouth", "apps": "Apps",
     "nautilus": "Nautilus", "nautilus_bookmarks": "Nautilus Bookmarks",
     "portals": "Portals", "oled_care": "OLED Care",
-    "apply_theme": "Apply Theme", "kconf_update": "Config Migrations",
+    "apply_theme": "Apply Theme",
 }
 
 _ES.update({
@@ -230,7 +230,7 @@ def system_language() -> str:
 def _config_path() -> Path:
     home = Path(os.environ.get("HOME") or Path.home())
     root = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
-    return root / "mac-tahoe-liquid-kde/language.json"
+    return root / "tajsdesktop/language.json"
 
 
 def get_language() -> str:

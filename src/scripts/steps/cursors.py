@@ -1,5 +1,5 @@
 """MacTahoe cursor themes: extracts the bundled
-MacTahoeLiquidKde-Cursors.tar.zst into ~/.local/share/icons.
+TajsDesktop-Cursors.tar.zst into ~/.local/share/icons.
 Fully offline — no download phase."""
 
 import shutil
@@ -19,14 +19,14 @@ def deps():
 
 def install() -> None:
     DEST_DIR.mkdir(parents=True, exist_ok=True)
-    tarball = OFFLINE_DIR / "MacTahoeLiquidKde-Cursors.tar.zst"
+    tarball = OFFLINE_DIR / "TajsDesktop-Cursors.tar.zst"
     if not tarball.is_file():
         fail(f"offline tarball missing: {tarball}")
         return
 
     # Wipe our own stale cursor dirs (crashed-run leftovers); dirs whose
     # name contains "Icons" belong to the icons step — never touch them.
-    for old in DEST_DIR.glob("MacTahoeLiquidKde*"):
+    for old in DEST_DIR.glob("TajsDesktop*"):
         if old.is_dir() and "Icons" not in old.name:
             shutil.rmtree(old, ignore_errors=True)
 
@@ -39,7 +39,7 @@ def install() -> None:
         return
 
     n = 0
-    for theme in sorted(DEST_DIR.glob("MacTahoeLiquidKde*")):
+    for theme in sorted(DEST_DIR.glob("TajsDesktop*")):
         if theme.is_dir() and "Icons" not in theme.name and \
                 (theme / "cursors").is_dir():
             ok(f"{theme.name} (installed)")
@@ -49,7 +49,7 @@ def install() -> None:
 
 def uninstall() -> None:
     n = 0
-    for theme in DEST_DIR.glob("MacTahoeLiquidKde*"):
+    for theme in DEST_DIR.glob("TajsDesktop*"):
         if not theme.is_dir() or "Icons" in theme.name:
             continue
         try:

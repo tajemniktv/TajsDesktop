@@ -15,28 +15,28 @@ from steps._scheduler import (
 )
 from utils import run_user
 
-BIN_DEST = HOME / ".local/bin/mac-tahoe-theme-switch"
+BIN_DEST = HOME / ".local/bin/tajsdesktop-theme-switch"
 SVC_DIR = HOME / ".config/systemd/user"
 PY_SRC = REPO_ROOT / "src/scripts/theme_switch.py"
-LAYOUT_STATE_FILE = HOME / ".local/state/mac-tahoe-liquid-kde/layout-installed"
+LAYOUT_STATE_FILE = HOME / ".local/state/tajsdesktop/layout-installed"
 
 
 def _managed_state_files() -> tuple[Path, Path]:
     state_home = Path(os.environ.get("XDG_STATE_HOME") or
                       HOME / ".local/state")
-    wallpaper_state = state_home / "mac-tahoe-liquid-kde/wallpapers.json"
+    wallpaper_state = state_home / "tajsdesktop/wallpapers.json"
     return wallpaper_state, LAYOUT_STATE_FILE
 
 # Legacy 0.36.x-0.38.x portal watcher. Current installs remove this autostart
 # and stop the process; the names stay here solely for upgrade cleanup.
 AUTOSTART_DIR = HOME / ".config/autostart"
-GTK_SYNC_DESKTOP = "mac-tahoe-liquid-kde-gtk-sync.desktop"
+GTK_SYNC_DESKTOP = "tajsdesktop-gtk-sync.desktop"
 
 # --auto only: oneshot service (fires 10s after plasmashell) + 06:00/18:00
 # timer. --light/--dark pin the mode, so nothing is scheduled.
 UNITS = (
-    "mac-tahoe-liquid-kde-theme.service",
-    "mac-tahoe-liquid-kde-theme.timer",
+    "tajsdesktop-theme.service",
+    "tajsdesktop-theme.timer",
 )
 
 # crontab tag + fire times for the OpenRC backend, matching the systemd
@@ -366,7 +366,7 @@ def uninstall() -> None:
     # uninstall doesn't leave orphaned systemd files behind.
     legacy_units = (
         *UNITS,
-        "mac-tahoe-liquid-kde-theme-apply.service",
+        "tajsdesktop-theme-apply.service",
         "mactahoe-theme-watcher.service",
     )
     units_stopped = _teardown_units(legacy_units)

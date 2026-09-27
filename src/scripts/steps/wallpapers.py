@@ -38,14 +38,14 @@ def install() -> None:
 
 
 _FIXED_NAMES = (
-    "MacTahoe", "MacTahoe-Beach-Dawn", "MacTahoe-Beach-Day",
-    "MacTahoe-Beach-Dusk", "MacTahoe-Beach-Night",
-    "MacTahoe-Iridescence",
-    "MacTahoe-Landscape-Morning", "MacTahoe-Landscape-Evening",
-    "MacTahoe-Landscape-Night",
-    "MacHeritage-Sequoia", "MacHeritage-Sequoia-Sunrise",
-    "MacHeritage-Sonoma", "MacHeritage-Sonoma-Horizon",
-    "MacHeritage-Ventura", "MacHeritage-Monterey", "MacHeritage-BigSur",
+    "TajsDesktop-Tahoe", "TajsDesktop-Tahoe-Beach-Dawn", "TajsDesktop-Tahoe-Beach-Day",
+    "TajsDesktop-Tahoe-Beach-Dusk", "TajsDesktop-Tahoe-Beach-Night",
+    "TajsDesktop-Tahoe-Iridescence",
+    "TajsDesktop-Tahoe-Landscape-Morning", "TajsDesktop-Tahoe-Landscape-Evening",
+    "TajsDesktop-Tahoe-Landscape-Night",
+    "TajsDesktop-Heritage-Sequoia", "TajsDesktop-Heritage-Sequoia-Sunrise",
+    "TajsDesktop-Heritage-Sonoma", "TajsDesktop-Heritage-Sonoma-Horizon",
+    "TajsDesktop-Heritage-Ventura", "TajsDesktop-Heritage-Monterey", "TajsDesktop-Heritage-BigSur",
 )
 
 
@@ -60,7 +60,7 @@ def uninstall() -> None:
             except OSError:
                 fail(name)
     # Legacy index-numbered landscapes from earlier releases.
-    for d in DEST_DIR.glob("MacTahoe-Landscape-[0-9][0-9]/"):
+    for d in DEST_DIR.glob("TajsDesktop-Tahoe-Landscape-[0-9][0-9]/"):
         try:
             shutil.rmtree(d)
             ok(d.name); n += 1

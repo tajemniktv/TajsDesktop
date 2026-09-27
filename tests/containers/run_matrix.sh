@@ -52,14 +52,14 @@ for distro in "${DISTROS[@]}"; do
 
     echo
     echo "${BOLD}── building ${distro} ──${RESET}"
-    if ! docker build -f "$dockerfile" -t "mttkde-test-${distro}:latest" "$REPO_ROOT"; then
+    if ! docker build -f "$dockerfile" -t "tajsdesktop-test-${distro}:latest" "$REPO_ROOT"; then
         RESULT[$distro]="BUILD-FAIL"
         continue
     fi
 
     echo
     echo "${BOLD}── running ${distro} ──${RESET}"
-    if docker run --rm "mttkde-test-${distro}:latest"; then
+    if docker run --rm "tajsdesktop-test-${distro}:latest"; then
         RESULT[$distro]="PASS"
     else
         RESULT[$distro]="FAIL"

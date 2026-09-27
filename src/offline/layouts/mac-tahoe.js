@@ -39,7 +39,7 @@ for (var screen = 0; screen < screenCount; screen++) {
         colorizer.writeConfig("hideWidget", "true");
     }
 
-    bar.addWidget("org.kde.mac.tahoe.liquid.globalmenu");
+    bar.addWidget("org.tajemniktv.tajsdesktop.globalmenu");
     bar.addWidget("org.kde.plasma.panelspacer");
 
     // system tray — macOS style: only bluetooth, wifi, brightness visible
@@ -80,17 +80,17 @@ for (var screen = 0; screen < screenCount; screen++) {
     // opacity is set to translucent via plasmashellrc after layout apply
     // (JS scripting API does not expose panelOpacity)
 
-    var launcher = dock.addWidget("org.kde.mac-tahoe-liquid-kde.launcher");
+    var launcher = dock.addWidget("org.tajemniktv.tajsdesktop.launcher");
     launcher.currentConfigGroup = ["General"];
     launcher.writeConfig("icon", "view-app-grid");
     dock.addWidget("org.kde.plasma.marginsseparator");
 
-    var tasks = dock.addWidget("org.kde.mac.tahoe.liquid.icontasks");
+    var tasks = dock.addWidget("org.tajemniktv.tajsdesktop.icontasks");
     tasks.currentConfigGroup = ["General"];
     // Filled by layout.py from the user's existing taskbar pins, applied to
     // every dock across every screen (see _append_launcher_restore).
     tasks.writeConfig("launchers", "");
 
     dock.addWidget("org.kde.plasma.marginsseparator");
-    dock.addWidget("org.kde.mac-tahoe-liquid-kde.trashcan");
+    dock.addWidget("org.tajemniktv.tajsdesktop.trashcan");
 }

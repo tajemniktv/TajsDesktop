@@ -13,7 +13,7 @@ from steps._helpers import (
 from utils import kw_read, kw_write
 
 
-THEME_ID = "MacTahoeLiquidKde"
+THEME_ID = "TajsDesktop"
 FALLBACK_THEME_ID = "ocean"
 OFFLINE_DIR = offline("sounds", THEME_ID)
 DEST_DIR = DATA_HOME / "sounds" / THEME_ID

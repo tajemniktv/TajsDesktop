@@ -7,7 +7,7 @@ from steps._helpers import (
 from utils import run_user
 
 DEST_DIR = HOME / ".themes"
-VARIANTS = ("MacTahoeLiquidKde-Light", "MacTahoeLiquidKde-Dark")
+VARIANTS = ("TajsDesktop-Light", "TajsDesktop-Dark")
 GTK4_DEST = HOME / ".config/gtk-4.0"
 GTK4_FILES_TO_REMOVE = (
     "gtk.css", "gtk-dark.css", "gtk-Dark.css", "gtk-Light.css",

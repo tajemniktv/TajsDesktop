@@ -77,11 +77,11 @@ def _create_private_run_file(prefix: str) -> str:
 
 
 def _create_progress_file() -> str:
-    return _create_private_run_file("mttkde-install-progress-")
+    return _create_private_run_file("tajsdesktop-install-progress-")
 
 
 def _create_cancel_file() -> str:
-    return _create_private_run_file("mttkde-install-cancel-")
+    return _create_private_run_file("tajsdesktop-install-cancel-")
 
 
 def _secure_run_file_fd(path: str, *, write: bool) -> int:
@@ -208,9 +208,9 @@ def escalated_command_for_action(
             raise ValueError(
                 "headless installer launch requires progress and cancel files")
         headless_pairs = [
-            "MTTKDE_NO_CONFIRM=1",
-            f"MTTKDE_PROGRESS_FILE={shlex.quote(progress_file)}",
-            f"MTTKDE_CANCEL_FILE={shlex.quote(cancel_file)}",
+            "TAJSDESKTOP_NO_CONFIRM=1",
+            f"TAJSDESKTOP_PROGRESS_FILE={shlex.quote(progress_file)}",
+            f"TAJSDESKTOP_CANCEL_FILE={shlex.quote(cancel_file)}",
         ]
 
     if shutil.which("pkexec"):
@@ -749,7 +749,7 @@ def _launch_preview_pyqt() -> int:
     # Must be set before QGuiApplication is constructed.
     os.environ.setdefault("QT_NO_XDG_DESKTOP_PORTAL", "1")
     app = QGuiApplication.instance() or QGuiApplication(sys.argv[:1])
-    app.setApplicationName("mac-tahoe-liquid-kde-installer")
+    app.setApplicationName("tajsdesktop-installer")
     # A close request during an install must leave the event loop running so
     # the privileged child can stop safely and be reaped.
     app.setQuitOnLastWindowClosed(False)

@@ -11,7 +11,7 @@
 # For LOCAL runs, ./tests/containers/run_matrix.sh gentoo will pull the
 # same image from GHCR — no source compile.
 
-FROM ghcr.io/lestercorderomurillo/mttkde-gentoo-base:latest
+FROM ghcr.io/lestercorderomurillo/tajsdesktop-gentoo-base:latest
 
 WORKDIR /repo
 COPY . /repo

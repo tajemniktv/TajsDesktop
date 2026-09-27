@@ -1,5 +1,12 @@
 # AGENTS.md
 
+> **TajsDesktop staging status (2026-09-27):** This file still contains the
+> upstream Tahoe architecture as a historical baseline. The fork is not
+> install-ready: `cli.py` blocks live install/uninstall until the separate-ID
+> migration and configuration-preserving lifecycle are complete. Never bypass
+> that guard or deploy this branch to the live desktop. The existing local
+> `features.json` edit is user-owned and must remain separate from commits.
+
 This file is the authoritative reference for working on
 **macos-tahoe-liquid-kde**. Mirrors at `CLAUDE.md`, `CODEX.md`, and
 `GEMINI.md` point back here so each agent finds the same content under

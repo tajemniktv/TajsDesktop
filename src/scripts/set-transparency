@@ -15,10 +15,10 @@ from pathlib import Path
 from paths import OFFLINE_DIR, REPO_ROOT
 
 
-KVANTUM_DIR = OFFLINE_DIR / "kvantum/mac-tahoe-liquid-kde"
+KVANTUM_DIR = OFFLINE_DIR / "kvantum/tajsdesktop"
 PLASMA_DIR = OFFLINE_DIR / "plasma-theme"
 GTK_DIR = OFFLINE_DIR / "gtk"
-VARIANTS = ("MacTahoeLiquidKde-Dark", "MacTahoeLiquidKde-Light")
+VARIANTS = ("TajsDesktop-Dark", "TajsDesktop-Light")
 
 DEFAULT_DOCK_PCT = 12
 
@@ -126,7 +126,7 @@ def _apply_to_live_system() -> None:
     print()
     print("Applying to live system...")
     home = Path.home()
-    kvantum_dest = home / ".config/Kvantum/mac-tahoe-liquid-kde"
+    kvantum_dest = home / ".config/Kvantum/tajsdesktop"
     kvantum_dest.mkdir(parents=True, exist_ok=True)
     for f in KVANTUM_DIR.iterdir():
         shutil.copy2(f, kvantum_dest / f.name)
@@ -196,8 +196,8 @@ def main(argv: list[str]) -> int:
     print(f"  Menu:     reduce_menu_opacity={menu_reduce}")
     print()
 
-    for cfg in (KVANTUM_DIR / "mac-tahoe-liquid-kde.kvconfig",
-                KVANTUM_DIR / "mac-tahoe-liquid-kdeDark.kvconfig"):
+    for cfg in (KVANTUM_DIR / "tajsdesktop.kvconfig",
+                KVANTUM_DIR / "tajsdesktopDark.kvconfig"):
         if cfg.is_file():
             _update_kvconfig(cfg, alpha_hex, menu_reduce)
 

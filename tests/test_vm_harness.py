@@ -167,7 +167,7 @@ def test_plymouth_render_harness_does_not_depend_on_active_window_focus():
 
 def test_plymouth_render_harness_forces_visible_progress():
     assert "on_boot_progress(0, 0.65)" in PLYMOUTH_RENDER
-    assert "Plymouth.SetBootProgressFunction(mttkde_harness_progress)" in PLYMOUTH_RENDER
+    assert "Plymouth.SetBootProgressFunction(tajsdesktop_harness_progress)" in PLYMOUTH_RENDER
     assert "on_boot_progress(duration, 0.65)" in PLYMOUTH_RENDER
     assert "apply_layout" not in PLYMOUTH_RENDER
 

@@ -61,8 +61,15 @@ ALL_FEATURES = [
     "rounded_corners",
     "global_theme", "layout", "sounds", "gtk", "firefox", "sddm", "plymouth", "apps",
     "nautilus", "nautilus_bookmarks", "portals", "oled_care", "apply_theme",
-    "kconf_update",
 ]
+
+# Read-only compatibility with existing features.json files. The upstream
+# kconf_update migration must not run in a separately installed fork.
+LEGACY_IGNORED_FEATURES = ("kconf_update",)
+
+# The fork is being staged, not deployed. Its component-ID migration is not
+# enough to make the old installer lifecycle safe for an existing desktop.
+STAGING_INSTALL_BLOCKED = True
 
 # ``layout`` is listed but skipped in the loop — it runs after apply so it
 # sees the new panel/dock packages, and may be retried once after the restart.
@@ -70,7 +77,6 @@ INSTALL_ORDER = [
     "fonts", "color_schemes", "plasma_theme", "window_decorations",
     "kvantum", "gtk", "firefox", "icons", "cursors", "global_theme", "wallpapers",
     "sounds",
-    "kconf_update",
     "plasmoids", "globalmenu", "acrylic_glass", "rounded_corners",
     "layout", "nautilus", "portals", "plymouth",
 ]
@@ -101,7 +107,6 @@ FEATURE_DESC = {
     "portals": "KDE file dialogs",
     "oled_care": "Panel pixel shift",
     "apply_theme": "Activate after install",
-    "kconf_update": "Settings migrations",
 }
 
 INSTALL_HELP = """\
@@ -317,7 +322,7 @@ def parse_args(argv: list[str]) -> ParsedArgs:
         elif arg == "--no-grub-modify":
             # Read by the plymouth step: print manual instructions
             # instead of editing /etc/default/grub.
-            os.environ["MTTKDE_NO_GRUB_MODIFY"] = "1"
+            os.environ["TAJSDESKTOP_NO_GRUB_MODIFY"] = "1"
         elif arg.startswith("--no-"):
             key = arg[5:].replace("-", "_")
             if key in ALL_FEATURES:
@@ -457,9 +462,9 @@ def export_env(feat: dict[str, object]) -> None:
         _coerce_int(feat.get("oled_interval"), 5, 1, 59))
     os.environ["OLED_MAX_SHIFT"] = str(
         _coerce_int(feat.get("oled_max_shift"), 8, 1, 16))
-    os.environ["MTTKDE_EXISTING_INSTALL"] = _b(
+    os.environ["TAJSDESKTOP_EXISTING_INSTALL"] = _b(
         feat.get("_existing_install", False))
-    os.environ["MTTKDE_RESET_WALLPAPERS"] = _b(
+    os.environ["TAJSDESKTOP_RESET_WALLPAPERS"] = _b(
         feat.get("_reset_wallpapers", False))
     for k in ALL_FEATURES:
         os.environ[f"FEAT_{k.upper()}"] = _b(feat.get(k, True))
@@ -505,12 +510,12 @@ def _detect_plasma_version() -> str | None:
 def verify_plasma() -> bool:
     # VM boot-splash harness bypass (Plymouth needs no Plasma). NEVER set
     # on real installs — it would write KDE configs to a Plasma-less system.
-    if os.environ.get("MTTKDE_SKIP_PLASMA_CHECK") == "1":
-        warn("MTTKDE_SKIP_PLASMA_CHECK=1 — bypassing Plasma version check (test mode)")
+    if os.environ.get("TAJSDESKTOP_SKIP_PLASMA_CHECK") == "1":
+        warn("TAJSDESKTOP_SKIP_PLASMA_CHECK=1 — bypassing Plasma version check (test mode)")
         return True
     if not have("plasmashell"):
         fail("KDE Plasma not found")
-        print("     MacTahoe Liquid KDE requires KDE Plasma 6.6+.", file=sys.stderr)
+        print("     TajsDesktop requires KDE Plasma 6.6+.", file=sys.stderr)
         return False
     ver = _detect_plasma_version()
     if not ver:
@@ -533,8 +538,8 @@ def confirm(msg: str) -> bool:
     print()
     # VM harness bypass — non-tty ``input()`` reads the SSH heredoc and
     # can deadlock.
-    if os.environ.get("MTTKDE_NO_CONFIRM") == "1":
-        print("  MTTKDE_NO_CONFIRM=1 — auto-accepting (test mode)")
+    if os.environ.get("TAJSDESKTOP_NO_CONFIRM") == "1":
+        print("  TAJSDESKTOP_NO_CONFIRM=1 — auto-accepting (test mode)")
         print()
         return True
     try:
@@ -566,7 +571,7 @@ def _tui_active(argv: list[str], tui: bool) -> bool:
     ``legacy-install`` / ``legacy-uninstall`` entries never pass tui."""
     if not tui or argv:
         return False
-    if os.environ.get("MTTKDE_NO_CONFIRM") == "1":
+    if os.environ.get("TAJSDESKTOP_NO_CONFIRM") == "1":
         return False
     try:
         return sys.stdin.isatty() and sys.stdout.isatty()
@@ -596,13 +601,13 @@ def _theme_is_already_installed() -> bool:
     """
     home = Path.home()
     candidates = (
-        home / ".local/state/mac-tahoe-liquid-kde/wallpapers.json",
-        home / ".local/state/mac-tahoe-liquid-kde/layout-installed",
-        home / ".local/bin/mac-tahoe-theme-switch",
+        home / ".local/state/tajsdesktop/wallpapers.json",
+        home / ".local/state/tajsdesktop/layout-installed",
+        home / ".local/bin/tajsdesktop-theme-switch",
         home / ".local/share/plasma/look-and-feel/"
-        "org.kde.mac-tahoe-liquid-kde.light",
+        "org.tajemniktv.tajsdesktop.light",
         home / ".local/share/plasma/look-and-feel/"
-        "org.kde.mac-tahoe-liquid-kde.dark",
+        "org.tajemniktv.tajsdesktop.dark",
     )
     if any(path.exists() for path in candidates):
         return True
@@ -611,7 +616,7 @@ def _theme_is_already_installed() -> bool:
         text = appletsrc.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
-    return "org.kde.mac-tahoe" in text or "org.kde.mac.tahoe" in text
+    return "org.tajemniktv.tajsdesktop." in text
 
 
 def _restore_user_session_env(uid: int) -> None:
@@ -689,15 +694,15 @@ def _require_root_and_drop_to_user(op: str = "install") -> bool:
 
 _VERIFY_CHECKS = [
     ("icons", "kdeglobals", "Icons", "Theme",
-     "MacTahoeLiquidKde-Icons", "Icon theme"),
+     "TajsDesktop-Icons", "Icon theme"),
     ("color_schemes", "kdeglobals", "General", "ColorScheme",
-     "MacTahoeLiquidKde", "Color scheme"),
+     "TajsDesktop", "Color scheme"),
     ("cursors", "kcminputrc", "Mouse", "cursorTheme",
-     "MacTahoeLiquidKde", "Cursor theme"),
+     "TajsDesktop", "Cursor theme"),
     ("plasma_theme", "plasmarc", "Theme", "name",
-     "MacTahoeLiquidKde", "Plasma theme"),
+     "TajsDesktop", "Plasma theme"),
     ("window_decorations", "kwinrc", "org.kde.kdecoration2", "theme",
-     "__aurorae__svg__MacTahoeLiquidKde", "Window decorations"),
+     "__aurorae__svg__TajsDesktop", "Window decorations"),
     ("rounded_corners", "kwinrc", "Plugins", "shapecornersEnabled",
      "true", "KDE Rounded Corners"),
     ("rounded_corners", "kwinrc", "Round-Corners", "Size",
@@ -952,8 +957,8 @@ def _print_done(verb: str) -> None:
     print()
     print(f"\033[0;32m\033[1m  ── Done\033[0m")
     if not errors:
-        ok(f"MacTahoe Liquid KDE {verb} successfully")
-        print(f"  \033[0;90mReport bugs at: https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/issues/new\033[0m")
+        ok(f"TajsDesktop {verb} successfully")
+        print(f"  \033[0;90mReport bugs at: https://github.com/tajemniktv/TajsDesktop/issues/new\033[0m")
         print()
         return
     # Snapshot: fail() appends to errors, so iterating the live list while
@@ -962,7 +967,7 @@ def _print_done(verb: str) -> None:
     warn(f"{len(issues)} issue(s):")
     for e in issues:
         print(f"  \033[0;31m✗\033[0m  {e}", file=sys.stderr)
-    print(f"  \033[0;90mReport bugs at: https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/issues/new\033[0m")
+    print(f"  \033[0;90mReport bugs at: https://github.com/tajemniktv/TajsDesktop/issues/new\033[0m")
     print()
 
 
@@ -1186,15 +1191,21 @@ def run_install(argv: list[str], tui: bool = False,
         return 1
     check_cancelled()
 
-    feat = apply_overrides(load_features(), parsed)
-    feat["_existing_install"] = _theme_is_already_installed()
-    export_env(feat)
-
     if parsed.preflight_only:
         banner(read_version())
         result = run_preflight("install")
         check_cancelled()
         return 0 if result else 1
+
+    if STAGING_INSTALL_BLOCKED:
+        fail("TajsDesktop is staged but not safe for live installation yet")
+        print("  Installer lifecycle and configuration migration remain incomplete.",
+              file=sys.stderr)
+        return 1
+
+    feat = apply_overrides(load_features(), parsed)
+    feat["_existing_install"] = _theme_is_already_installed()
+    export_env(feat)
 
     # Standalone --restart just kicks plasmashell. Combined with install
     # flags it is implicit — the install already ends with restart_plasma.
@@ -1277,6 +1288,10 @@ def run_uninstall(argv: list[str], tui: bool = False,
     if not _require_root_and_drop_to_user(prog):
         return 1
     check_cancelled()
+
+    if STAGING_INSTALL_BLOCKED:
+        fail("TajsDesktop is staged but not safe for live removal yet")
+        return 1
 
     feat = apply_overrides(load_features(), parsed)
     export_env(feat)

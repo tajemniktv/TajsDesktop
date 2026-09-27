@@ -13,6 +13,6 @@ catches it; a sandbox test does not need to.
 
 What WOULD be a real test for this surface: install the effect,
 ``qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect
-liquidglass`` returns true, ``activeEffects`` lists it. That needs
+tajsdesktopglass`` returns true, ``activeEffects`` lists it. That needs
 KWin. Out of scope here.
 """

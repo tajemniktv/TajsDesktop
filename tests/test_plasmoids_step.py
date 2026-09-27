@@ -56,30 +56,30 @@ def test_install_copies_taskmanager_runtime_package(tmp_path, monkeypatch):
     dest = home / ".local/share/plasma/plasmoids"
     monkeypatch.setenv("XDG_CACHE_HOME", str(home / ".cache"))
 
-    taskmanager = src / "org.kde.mac.tahoe.liquid.taskmanager"
+    taskmanager = src / "org.tajemniktv.tajsdesktop.taskmanager"
     artifact = (taskmanager / "build/bin/plasma/applets" /
-                "org.kde.mac.tahoe.liquid.taskmanager.so")
+                "org.tajemniktv.tajsdesktop.taskmanager.so")
     runtime_qml = (
-        taskmanager / "build/bin/plasma/applet/org/kde/mac/tahoe/liquid/taskmanager"
+        taskmanager / "build/bin/plasma/applet/org/tajemniktv/tajsdesktop/taskmanager"
     )
     artifact.parent.mkdir(parents=True, exist_ok=True)
     artifact.write_bytes(b"so")
     runtime_qml.mkdir(parents=True, exist_ok=True)
     (runtime_qml / "qmldir").write_text(
-        "module plasma.applet.org.kde.mac.tahoe.liquid.taskmanager\n"
+        "module plasma.applet.org.tajemniktv.tajsdesktop.taskmanager\n"
     )
     (runtime_qml / "main.qml").write_text("import QtQuick\nItem {}\n")
     (taskmanager / "metadata.json").write_text(
-        '{"KPlugin":{"Id":"org.kde.mac.tahoe.liquid.taskmanager"}}\n'
+        '{"KPlugin":{"Id":"org.tajemniktv.tajsdesktop.taskmanager"}}\n'
     )
     (taskmanager / "contents/ui").mkdir(parents=True, exist_ok=True)
     (taskmanager / "contents/ui/main.qml").write_text("import QtQuick\nItem {}\n")
     (taskmanager / "CMakeLists.txt").write_text("cmake_minimum_required(VERSION 3.16)\n")
 
-    icontasks = src / "org.kde.mac.tahoe.liquid.icontasks"
+    icontasks = src / "org.tajemniktv.tajsdesktop.icontasks"
     icontasks.mkdir(parents=True, exist_ok=True)
     (icontasks / "metadata.json").write_text(
-        '{"KPlugin":{"Id":"org.kde.mac.tahoe.liquid.icontasks"}}\n'
+        '{"KPlugin":{"Id":"org.tajemniktv.tajsdesktop.icontasks"}}\n'
     )
 
     (home / ".config").mkdir(parents=True, exist_ok=True)
@@ -107,12 +107,12 @@ def test_install_copies_taskmanager_runtime_package(tmp_path, monkeypatch):
     plasmoids.install()
 
     expected_so = fake_plugins / (
-        "plasma/applets/org.kde.mac.tahoe.liquid.taskmanager.so"
+        "plasma/applets/org.tajemniktv.tajsdesktop.taskmanager.so"
     )
     expected_qml = fake_qml / (
-        "plasma/applet/org/kde/mac/tahoe/liquid/taskmanager"
+        "plasma/applet/org/tajemniktv/tajsdesktop/taskmanager"
     )
-    runtime = dest / "org.kde.mac.tahoe.liquid.taskmanager"
+    runtime = dest / "org.tajemniktv.tajsdesktop.taskmanager"
     assert expected_so.is_file()
     assert (expected_qml / "qmldir").is_file()
     assert expected_so.read_bytes() == b"so"
@@ -132,17 +132,17 @@ def test_taskmanager_dest_paths_anchor_to_qmake6_libdir(monkeypatch, tmp_path):
     alike."""
     fake_plugins, fake_qml = _stub_qt6_paths(monkeypatch, tmp_path)
     assert plasmoids.TASKMANAGER_DEST_SO == fake_plugins / (
-        "plasma/applets/org.kde.mac.tahoe.liquid.taskmanager.so"
+        "plasma/applets/org.tajemniktv.tajsdesktop.taskmanager.so"
     )
     assert plasmoids.TASKMANAGER_DEST_QML == fake_qml / (
-        "plasma/applet/org/kde/mac/tahoe/liquid/taskmanager"
+        "plasma/applet/org/tajemniktv/tajsdesktop/taskmanager"
     )
 
 
 def test_taskmanager_build_artifacts_match_install_sources():
     artifacts = plasmoids.build_artifacts()
-    assert plasmoids.TASKMANAGER_BUILD / "bin/plasma/applets/org.kde.mac.tahoe.liquid.taskmanager.so" in artifacts
-    assert plasmoids.TASKMANAGER_BUILD / "bin/plasma/applet/org/kde/mac/tahoe/liquid/taskmanager" in artifacts
+    assert plasmoids.TASKMANAGER_BUILD / "bin/plasma/applets/org.tajemniktv.tajsdesktop.taskmanager.so" in artifacts
+    assert plasmoids.TASKMANAGER_BUILD / "bin/plasma/applet/org/tajemniktv/tajsdesktop/taskmanager" in artifacts
 
     task_qml = (plasmoids.TASKMANAGER_SRC / "contents/ui/Task.qml").read_text()
     assert "z: dockMagnified ? 10 : 0" in task_qml
@@ -159,7 +159,7 @@ def test_taskmanager_build_artifacts_match_install_sources():
         plasmoids.TASKMANAGER_SRC / "contents/ui/ConfigAppearance.qml"
     ).read_text()
     assert "property alias cfg_dockMagnification" in appearance_qml
-    assert '"plasma_applet_org.kde.mac.tahoe.liquid.taskmanager"' in appearance_qml
+    assert '"plasma_applet_org.tajemniktv.tajsdesktop.taskmanager"' in appearance_qml
     assert '"Hover magnification:")' in appearance_qml
     assert "from: 100" in appearance_qml
     assert "to: 150" in appearance_qml
@@ -167,7 +167,7 @@ def test_taskmanager_build_artifacts_match_install_sources():
 
 def test_taskmanager_badge_count_checks_full_int_range(repo):
     source = (repo / "src/offline/plasmoids"
-              / "org.kde.mac.tahoe.liquid.taskmanager"
+              / "org.tajemniktv.tajsdesktop.taskmanager"
               / "smartlauncherbackend.cpp").read_text()
 
     assert "newCount >= std::numeric_limits<int>::min()" in source
@@ -180,7 +180,7 @@ def test_uninstall_preserves_user_overrides_of_upstream_plasmoid_ids(
     dest = tmp_path / "plasmoids"
     stock_taskmanager = dest / "org.kde.plasma.taskmanager"
     stock_icontasks = dest / "org.kde.plasma.icontasks"
-    owned = dest / "org.kde.mac.tahoe.liquid.taskmanager"
+    owned = dest / "org.tajemniktv.tajsdesktop.taskmanager"
     for directory in (stock_taskmanager, stock_icontasks, owned):
         directory.mkdir(parents=True)
         (directory / "marker").write_text("keep" if "plasma." in directory.name else "remove")

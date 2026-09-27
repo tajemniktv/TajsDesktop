@@ -158,7 +158,7 @@ def test_install_and_uninstall_profile_without_existing_chrome(firefox_home):
     assert (profile / "prefs.js").is_file()
 
 
-def test_shared_chrome_symlink_is_detached_without_mutating_target(firefox_home):
+def test_shared_chrome_symlink_is_left_untouched(firefox_home):
     profile = _seed_profile(firefox_home / ".mozilla/firefox")
     shared = firefox_home / "shared-firefox-chrome"
     shared.mkdir()
@@ -167,17 +167,16 @@ def test_shared_chrome_symlink_is_detached_without_mutating_target(firefox_home)
 
     firefox.install()
 
-    assert (profile / "chrome").is_dir()
-    assert not (profile / "chrome").is_symlink()
-    assert firefox.CHROME_START in (profile / "chrome/userChrome.css").read_text()
+    assert (profile / "chrome").is_symlink()
     assert (shared / "userChrome.css").read_text() == "/* shared original */\n"
     assert not (shared / firefox.THEME_DIRNAME).exists()
 
     firefox.uninstall()
+    assert (profile / "chrome").is_symlink()
     assert (profile / "chrome/userChrome.css").read_text() == "/* shared original */\n"
 
 
-def test_legacy_vinceliuice_symlink_migrates_and_uninstalls_to_normal_firefox(
+def test_legacy_vinceliuice_symlink_is_left_untouched(
     firefox_home,
 ):
     profile = _seed_profile(firefox_home / ".mozilla/firefox")
@@ -194,22 +193,32 @@ def test_legacy_vinceliuice_symlink_migrates_and_uninstalls_to_normal_firefox(
 
     firefox.install()
 
-    assert not (profile / "chrome").is_symlink()
-    assert legacy_css not in (profile / "chrome/userChrome.css").read_text()
+    assert (profile / "chrome").is_symlink()
+    assert (profile / "chrome/userChrome.css").read_text() == legacy_css
     user_js = (profile / "user.js").read_text()
-    assert firefox.USER_START in user_js
-    assert 'browser.tabs.drawInTitlebar' not in user_js
-    # The old shared payload is preserved on disk and in the timestamped backup.
+    assert firefox.USER_START not in user_js
+    assert 'browser.tabs.drawInTitlebar' in user_js
     assert (shared / "userChrome.css").read_text() == legacy_css
-    snapshots = list((firefox._state_root() / "snapshots").glob("*/*/chrome"))
-    assert snapshots and (snapshots[0] / "userChrome.css").read_text() == legacy_css
 
     firefox.uninstall()
 
-    assert not (profile / "chrome").exists()
-    assert not (profile / "user.js").exists()
+    assert (profile / "chrome").is_symlink()
+    assert (profile / "user.js").read_text() == user_js
     assert (profile / "prefs.js").is_file()
     assert (shared / "MacTahoe/theme.css").read_text() == "/* old payload */\n"
+
+
+def test_upstream_theme_block_is_not_replaced(firefox_home):
+    profile = _seed_profile(firefox_home / ".mozilla/firefox")
+    chrome = profile / "chrome"
+    chrome.mkdir()
+    original = "/* >>> MacTahoe Liquid KDE Firefox theme >>> */\ncustom\n"
+    (chrome / "userChrome.css").write_text(original)
+
+    firefox.install()
+    assert (chrome / "userChrome.css").read_text() == original
+    assert not (chrome / firefox.THEME_DIRNAME).exists()
+    assert json.loads(firefox._manifest_path().read_text())["profiles"] == {}
 
 
 def test_existing_same_named_directory_is_backed_up_and_restored(firefox_home):
@@ -263,7 +272,7 @@ def test_failed_payload_swap_rolls_back_preexisting_directory(
     real_replace = firefox.os.replace
 
     def fail_staged_payload(source, destination):
-        if Path(source).name == f".{firefox.THEME_DIRNAME}.mttkde-stage":
+        if Path(source).name == f".{firefox.THEME_DIRNAME}.tajsdesktop-stage":
             raise OSError("simulated atomic swap failure")
         return real_replace(source, destination)
 

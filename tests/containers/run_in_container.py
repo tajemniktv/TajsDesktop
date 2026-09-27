@@ -371,9 +371,9 @@ def step_preflight_destinations() -> bool:
 _CMAKE_COMPONENTS = (
     # (label, source path under repo)
     ("dock-taskmanager",
-     "src/offline/plasmoids/org.kde.mac.tahoe.liquid.taskmanager"),
+     "src/offline/plasmoids/org.tajemniktv.tajsdesktop.taskmanager"),
     ("globalmenu",
-     "src/offline/plasmoids/org.kde.mac.tahoe.liquid.globalmenu"),
+     "src/offline/plasmoids/org.tajemniktv.tajsdesktop.globalmenu"),
     ("acrylic-glass",
      "src/offline/kwin-effects/acrylic-glass"),
 )

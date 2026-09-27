@@ -115,7 +115,7 @@ def test_parse_args_recognizes_one_shot_wallpaper_reset(cli_module):
 def test_existing_install_detects_current_state_marker(
         cli_module, monkeypatch, tmp_path):
     home = tmp_path / "home"
-    marker = home / ".local/state/mac-tahoe-liquid-kde/wallpapers.json"
+    marker = home / ".local/state/tajsdesktop/wallpapers.json"
     marker.parent.mkdir(parents=True)
     marker.write_text("{}\n")
     monkeypatch.setenv("HOME", str(home))
@@ -129,7 +129,7 @@ def test_existing_install_detects_legacy_applet_without_state(
     config = home / ".config"
     config.mkdir(parents=True)
     (config / "plasma-org.kde.plasma.desktop-appletsrc").write_text(
-        "plugin=org.kde.mac-tahoe-liquid-kde.launcher\n")
+        "plugin=org.tajemniktv.tajsdesktop.launcher\n")
     monkeypatch.setenv("HOME", str(home))
 
     assert cli_module._theme_is_already_installed() is True
@@ -144,20 +144,20 @@ def test_config_verifier_honors_xdg_config_home(
     (xdg / "kdedefaults").mkdir(parents=True)
     (home / ".config").mkdir(parents=True)
     (xdg / "kdedefaults/kdeglobals").write_text(
-        "[Icons]\nTheme=MacTahoeLiquidKde-Icons\n")
+        "[Icons]\nTheme=TajsDesktop-Icons\n")
     (home / ".config/kdeglobals").write_text(
         "[Icons]\nTheme=breeze-dark\n")
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
 
     assert cli_module._read_config_cascade(
-        "kdeglobals", "Icons", "Theme") == "MacTahoeLiquidKde-Icons"
+        "kdeglobals", "Icons", "Theme") == "TajsDesktop-Icons"
 
 
 @pytest.mark.parametrize("user_value,default_value", [
-    ("MacTahoeLiquidKde-Icons-dark", "breeze-dark"),
-    ("breeze-dark", "MacTahoeLiquidKde-Icons-dark"),
-    ("", "MacTahoeLiquidKde-Icons-dark"),
+    ("TajsDesktop-Icons-dark", "breeze-dark"),
+    ("breeze-dark", "TajsDesktop-Icons-dark"),
+    ("", "TajsDesktop-Icons-dark"),
 ])
 def test_config_verifier_user_value_overrides_kdedefaults(
         cli_module, sandbox, user_value, default_value):
@@ -177,14 +177,14 @@ def test_config_verifier_falls_back_for_missing_key_in_existing_user_file(
     (config / "kdedefaults").mkdir()
     (config / "kdeglobals").write_text("[Icons]\nOtherSetting=keep\n")
     (config / "kdedefaults/kdeglobals").write_text(
-        "[Icons]\nTheme=MacTahoeLiquidKde-Icons-dark\n")
+        "[Icons]\nTheme=TajsDesktop-Icons-dark\n")
 
     assert cli_module._read_config_cascade(
-        "kdeglobals", "Icons", "Theme") == "MacTahoeLiquidKde-Icons-dark"
+        "kdeglobals", "Icons", "Theme") == "TajsDesktop-Icons-dark"
 
 
 @pytest.mark.parametrize("user_value,passes", [
-    ("MacTahoeLiquidKde-Icons-dark", True),
+    ("TajsDesktop-Icons-dark", True),
     ("breeze-dark", False),
     ("", False),
 ])
@@ -194,7 +194,7 @@ def test_verify_config_uses_live_user_value(
     (config / "kdedefaults").mkdir()
     (config / "kdeglobals").write_text(f"[Icons]\nTheme={user_value}\n")
     (config / "kdedefaults/kdeglobals").write_text(
-        "[Icons]\nTheme=MacTahoeLiquidKde-Icons-light\n")
+        "[Icons]\nTheme=TajsDesktop-Icons-light\n")
     monkeypatch.setattr(cli_module, "kw_read", lambda *args: pytest.fail(
         "An explicit user value, including empty, must not fall back"))
     failures = []
@@ -216,7 +216,7 @@ def test_verify_config_reads_other_layers_when_key_is_absent(
 
     def read(file, group, prop):
         reads.append((file, group, prop))
-        return "MacTahoeLiquidKde-Icons-dark"
+        return "TajsDesktop-Icons-dark"
 
     monkeypatch.setattr(cli_module, "kw_read", read)
     monkeypatch.setattr(cli_module, "fail", pytest.fail)
@@ -443,6 +443,19 @@ def test_fork_update_source_and_no_automatic_git_execution(cli_module, monkeypat
     monkeypatch.setattr(cli_module.os, "execv",
                         lambda *a: pytest.fail("installer re-executed"))
     assert not hasattr(cli_module, "auto_update_and_reexec")
+
+
+@pytest.mark.parametrize("entrypoint", ["run_install", "run_uninstall"])
+def test_staged_fork_cannot_mutate_live_desktop(
+        cli_module, monkeypatch, entrypoint):
+    monkeypatch.setattr(cli_module, "_require_root_and_drop_to_user",
+                        lambda _prog: True)
+    monkeypatch.setattr(cli_module, "apply_overrides",
+                        lambda *_: pytest.fail("feature file modified"))
+    monkeypatch.setattr(cli_module, "run_phase",
+                        lambda *_: pytest.fail("live step executed"))
+    monkeypatch.setattr(cli_module, "fail", lambda *_: None)
+    assert getattr(cli_module, entrypoint)([]) == 1
 
 
 # ── _check_deps: probe each package, install ONLY the missing ones ──────

@@ -1,0 +1,20 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Lester Cordero Murillo"
+            }
+        ],
+        "Category": "Plasma 6.0 theme",
+        "Description": "TajsDesktop Dark by Lester Cordero Murillo",
+        "Description[zh_CN]": "MacTahoe 暗黑苹果主题，由 Lester Cordero Murillo 设计制作",
+        "EnabledByDefault": true,
+        "Id": "TajsDesktop-Dark",
+        "License": "GPL-3.0",
+        "Name": "TajsDesktop-Dark",
+        "Name[zh_CN]": "MacTahoe 暗黑苹果",
+        "Version": "6.2.0",
+        "Website": "https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde"
+    },
+    "X-Plasma-API": "5.0"
+}

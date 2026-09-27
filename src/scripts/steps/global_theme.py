@@ -10,7 +10,7 @@ DEST_DIR = DATA_HOME / "plasma/look-and-feel"
 def install() -> None:
     src = offline("look-and-feel")
     DEST_DIR.mkdir(parents=True, exist_ok=True)
-    for theme in sorted(src.glob("MacTahoeLiquidKde-*")):
+    for theme in sorted(src.glob("TajsDesktop-*")):
         if not theme.is_dir():
             continue
         try:
@@ -24,5 +24,5 @@ def install() -> None:
 
 
 def uninstall() -> None:
-    for theme in DEST_DIR.glob("org.kde.mac-tahoe-liquid-kde.*"):
+    for theme in DEST_DIR.glob("org.tajemniktv.tajsdesktop.*"):
         remove_tree(theme)

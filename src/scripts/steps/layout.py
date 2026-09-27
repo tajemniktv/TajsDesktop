@@ -14,7 +14,7 @@ LAYOUT_RESET = offline("layouts/default.js")
 _DISCOVER_DESKTOP = "applications:org.kde.discover.desktop"
 COLORIZER_ID = "luisbocanegra.panel.colorizer"
 COLORIZER_SRC = offline("plasmoids") / COLORIZER_ID
-MAC_TASKS_ID = "org.kde.mac.tahoe.liquid.icontasks"
+MAC_TASKS_ID = "org.tajemniktv.tajsdesktop.icontasks"
 DEFAULT_TASKS_ID = "org.kde.plasma.icontasks"
 
 
@@ -124,7 +124,7 @@ def _capture_pinned_launchers() -> list[str]:
     for m in re.finditer(r"^launchers=(.*)$", text, re.MULTILINE):
         for entry in m.group(1).split(","):
             entry = entry.strip()
-            if entry and "mac.tahoe" not in entry and "mac-tahoe" not in entry:
+            if entry and "org.tajemniktv.tajsdesktop" not in entry:
                 if entry not in seen:
                     seen.append(entry)
     return seen
@@ -218,14 +218,14 @@ _DEFAULT_PANEL_NEEDLES = (
     "plugin=org.kde.plasma.showdesktop",
 )
 _CUSTOM_PANEL_NEEDLES = (
-    "plugin=org.kde.mac.tahoe.liquid.globalmenu",
-    "plugin=org.kde.mac.tahoe.liquid.icontasks",
-    "plugin=org.kde.mac-tahoe-liquid-kde.launcher",
-    "plugin=org.kde.mac-tahoe-liquid-kde.trashcan",
+    "plugin=org.tajemniktv.tajsdesktop.globalmenu",
+    "plugin=org.tajemniktv.tajsdesktop.icontasks",
+    "plugin=org.tajemniktv.tajsdesktop.launcher",
+    "plugin=org.tajemniktv.tajsdesktop.trashcan",
 )
 _THEME_PLUGIN_RE = re.compile(
     r"^plugin=org\.kde\.(?:"
-    r"mac-tahoe-liquid-kde|"
+    r"tajsdesktop|"
     r"mac\.tahoe(?:\.liquid)?|"
     r"mactahoe-liquid-kde"
     r")\.",
@@ -234,7 +234,7 @@ _THEME_PLUGIN_RE = re.compile(
 
 
 def _layout_marker() -> Path:
-    return HOME / ".local/state/mac-tahoe-liquid-kde/layout-installed"
+    return HOME / ".local/state/tajsdesktop/layout-installed"
 
 
 def _mark_layout_installed() -> None:

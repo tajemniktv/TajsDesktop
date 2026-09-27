@@ -39,17 +39,17 @@ def test_scrub_kdedefaults_removes_mac_tahoe_values(tmp_path, offline):
     d = tmp_path / "kdedefaults"
     d.mkdir()
     (d / "kdeglobals").write_text(
-        "[KDE]\nLookAndFeelPackage=MacTahoeLiquidKde-Dark\n"
-        "ColorScheme=MacTahoeLiquidKdeDark\n")
-    (d / "plasmarc").write_text("SomeOther=1\nTheme=MacTahoeLiquidKde-Dark\n")
-    (d / "package").write_text("MacTahoeLiquidKde-Dark\n")
+        "[KDE]\nLookAndFeelPackage=TajsDesktop-Dark\n"
+        "ColorScheme=TajsDesktopDark\n")
+    (d / "plasmarc").write_text("SomeOther=1\nTheme=TajsDesktop-Dark\n")
+    (d / "package").write_text("TajsDesktop-Dark\n")
     for fn in ("kdeglobals", "plasmarc", "package"):
         _run_script(script, d / fn)
     kg = (d / "kdeglobals").read_text()
-    assert "ColorScheme=MacTahoeLiquidKdeDark" not in kg
+    assert "ColorScheme=TajsDesktopDark" not in kg
     # LookAndFeelPackage is outside the scrubbed key list, so it stays.
-    assert "LookAndFeelPackage=MacTahoeLiquidKde-Dark" in kg
-    assert "Theme=MacTahoeLiquidKde-Dark" not in (d / "plasmarc").read_text()
+    assert "LookAndFeelPackage=TajsDesktop-Dark" in kg
+    assert "Theme=TajsDesktop-Dark" not in (d / "plasmarc").read_text()
     assert (d / "package").read_text().strip() == "org.kde.breeze.desktop"
 
 
@@ -85,22 +85,22 @@ def test_scrub_colorgroups_drops_malformed_header(tmp_path, offline):
     assert "[Colors:Window]" in out
 
 
-def test_migrate_appletsrc_renames_dock_ids(tmp_path, offline):
+def test_fork_migration_preserves_stock_and_upstream_dock_ids(tmp_path, offline):
     script = offline / "kconf_update/mac-tahoe-migrate-appletsrc.sh"
     f = tmp_path / "appletsrc"
     f.write_text(
         "plugin=org.kde.plasma.icontasks\n"
         "plugin=org.kde.plasma.taskmanager\n"
-        "plugin=org.kde.mac-tahoe-liquid-kde.icontasks\n"
-        "plugin=org.kde.mac-tahoe-liquid-kde.taskmanager\n")
+        "plugin=org.kde.mac.tahoe.liquid.icontasks\n"
+        "plugin=org.kde.mac.tahoe.liquid.taskmanager\n")
     _run_script(script, f)
     out = f.read_text()
+    assert "org.tajemniktv.tajsdesktop.icontasks" not in out
+    assert "org.tajemniktv.tajsdesktop.taskmanager" not in out
+    assert "org.kde.plasma.icontasks" in out
+    assert "org.kde.plasma.taskmanager" in out
     assert "org.kde.mac.tahoe.liquid.icontasks" in out
     assert "org.kde.mac.tahoe.liquid.taskmanager" in out
-    assert "org.kde.plasma.icontasks" not in out
-    assert "org.kde.plasma.taskmanager" not in out
-    assert "org.kde.mac-tahoe-liquid-kde.icontasks" not in out
-    assert "org.kde.mac-tahoe-liquid-kde.taskmanager" not in out
 
 
 def test_appletsrc_migration_gated_on_plasmoids_feature(monkeypatch):
@@ -166,8 +166,8 @@ def test_helpers_self_locate_when_run_argless(tmp_path, offline):
     its live config files from $XDG_CONFIG_HOME / $HOME on its own."""
     cfg = tmp_path / ".config"
     (cfg / "kdedefaults").mkdir(parents=True)
-    (cfg / "kdedefaults/package").write_text("MacTahoeLiquidKde-Dark\n")
-    (cfg / "kdedefaults/plasmarc").write_text("Theme=MacTahoeLiquidKde-Dark\n")
+    (cfg / "kdedefaults/package").write_text("TajsDesktop-Dark\n")
+    (cfg / "kdedefaults/plasmarc").write_text("Theme=TajsDesktop-Dark\n")
     (cfg / "kdeglobals").write_text(
         "[Colors:Button]\\x5d\\x5bBad]\nBackgroundNormal=0,0,0\n"
         "[Colors:Window]\nBackgroundNormal=1,1,1\n")
@@ -181,7 +181,7 @@ def test_helpers_self_locate_when_run_argless(tmp_path, offline):
         _run_script(offline / "kconf_update" / name, env=env)
     assert (cfg / "kdedefaults/package").read_text().strip() == \
         "org.kde.breeze.desktop"
-    assert "MacTahoe" not in (cfg / "kdedefaults/plasmarc").read_text()
+    assert "TajsDesktop" not in (cfg / "kdedefaults/plasmarc").read_text()
     assert "[Colors:Button]" not in (cfg / "kdeglobals").read_text()
-    assert "org.kde.mac.tahoe.liquid.icontasks" in \
+    assert "org.kde.plasma.icontasks" in \
         (cfg / "plasma-org.kde.plasma.desktop-appletsrc").read_text()

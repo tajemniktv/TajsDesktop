@@ -24,12 +24,12 @@ CRON_TAG = "oled"
 
 DEFAULT_INTERVAL_MINUTES = 5
 
-BIN_DEST = HOME / ".local/bin/mac-tahoe-oled-care"
+BIN_DEST = HOME / ".local/bin/tajsdesktop-oled-care"
 SVC_DIR = HOME / ".config/systemd/user"
 PY_SRC = REPO_ROOT / "src/scripts/oled_care.py"
 
-SERVICE_UNIT = "mac-tahoe-liquid-kde-oled.service"
-TIMER_UNIT = "mac-tahoe-liquid-kde-oled.timer"
+SERVICE_UNIT = "tajsdesktop-oled.service"
+TIMER_UNIT = "tajsdesktop-oled.timer"
 UNITS = (SERVICE_UNIT, TIMER_UNIT)
 
 _PROC_ROOT = Path("/proc")
@@ -462,7 +462,7 @@ def _schedule_systemd(interval: int, max_px: int) -> bool:
     # Restart only the timer (also picks up a changed interval); the service
     # fires on its first boundary so the install's Plasma restart isn't raced.
     results.append(
-        _user_service("restart", "mac-tahoe-liquid-kde-oled.timer"))
+        _user_service("restart", "tajsdesktop-oled.timer"))
     scheduled = all(results)
     if scheduled:
         info(f"Panels pixel-shift up to {max_px} px every {interval} min "

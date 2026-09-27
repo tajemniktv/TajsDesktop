@@ -250,7 +250,7 @@ def test_refresh_desktop_database_noop_without_tool(monkeypatch):
 def _seed_install_env(monkeypatch, tmp_path):
     """Shrink install() to the theme-switch spawn block: fonts, wallpaper,
     caches, and the KWin tail are stubbed or feature-gated off."""
-    switch = tmp_path / ".local/bin/mac-tahoe-theme-switch"
+    switch = tmp_path / ".local/bin/tajsdesktop-theme-switch"
     switch.parent.mkdir(parents=True)
     switch.write_text("#!/bin/sh\n")
     switch.chmod(0o755)
@@ -501,7 +501,7 @@ def test_uninstall_resets_icon_theme_even_when_icons_feature_disabled(
         monkeypatch, tmp_path):
     # The MacTahoe icon dirs get deleted later in the uninstall. If
     # kdeglobals still named them with ICONS off, KDE would log
-    # "Icon theme MacTahoeLiquidKde-Icons not found". The reset must be
+    # "Icon theme TajsDesktop-Icons not found". The reset must be
     # unconditional.
     writes: list = []
     monkeypatch.setattr(apply, "kw_write",

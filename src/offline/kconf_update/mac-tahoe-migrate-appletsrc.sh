@@ -7,10 +7,6 @@
 f=${1:-"${XDG_CONFIG_HOME:-$HOME/.config}/plasma-org.kde.plasma.desktop-appletsrc"}
 [ -f "$f" ] || exit 0
 
-sed -i \
-    -e 's/org\.kde\.plasma\.icontasks/org.kde.mac.tahoe.liquid.icontasks/g' \
-    -e 's/org\.kde\.plasma\.taskmanager/org.kde.mac.tahoe.liquid.taskmanager/g' \
-    -e 's/org\.kde\.mac-tahoe-liquid-kde\.icontasks/org.kde.mac.tahoe.liquid.icontasks/g' \
-    -e 's/org\.kde\.mac-tahoe-liquid-kde\.taskmanager/org.kde.mac.tahoe.liquid.taskmanager/g' \
-    "$f"
+# A separately installable fork must never rewrite stock or upstream Tahoe
+# applet instances. There are no older TajsDesktop applet IDs to migrate.
 exit 0

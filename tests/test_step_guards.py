@@ -35,16 +35,16 @@ def test_kvantum_warns_when_kwriteconfig6_missing(tmp_path, monkeypatch):
     from steps import kvantum
 
     # Point kvantum at an offline source it can read.
-    fake_src = tmp_path / "fake-offline" / "kvantum/mac-tahoe-liquid-kde"
+    fake_src = tmp_path / "fake-offline" / "kvantum/tajsdesktop"
     fake_src.mkdir(parents=True)
-    (fake_src / "mac-tahoe-liquid-kde.kvconfig").write_text("[General]\n")
-    (fake_src / "mac-tahoe-liquid-kde.svg").write_text("<svg/>")
+    (fake_src / "tajsdesktop.kvconfig").write_text("[General]\n")
+    (fake_src / "tajsdesktop.svg").write_text("<svg/>")
     # kvantum.py now installs both light and dark themes
-    (fake_src / "mac-tahoe-liquid-kdeDark.kvconfig").write_text("[General]\n")
-    (fake_src / "mac-tahoe-liquid-kdeDark.svg").write_text("<svg/>")
+    (fake_src / "tajsdesktopDark.kvconfig").write_text("[General]\n")
+    (fake_src / "tajsdesktopDark.svg").write_text("<svg/>")
 
-    dest = tmp_path / "home/.config/Kvantum/mac-tahoe-liquid-kde"
-    dest_dark = tmp_path / "home/.config/Kvantum/mac-tahoe-liquid-kdeDark"
+    dest = tmp_path / "home/.config/Kvantum/tajsdesktop"
+    dest_dark = tmp_path / "home/.config/Kvantum/tajsdesktopDark"
     monkeypatch.setattr(kvantum, "DEST_DIR", dest)
     monkeypatch.setattr(kvantum, "DEST_DIR_DARK", dest_dark)
     monkeypatch.setattr(kvantum, "offline", lambda *_a: fake_src)
@@ -70,14 +70,14 @@ def test_kvantum_does_not_warn_when_kwriteconfig6_present(tmp_path, monkeypatch)
     about kwriteconfig6 — the success path stays clean."""
     from steps import kvantum
 
-    fake_src = tmp_path / "fake-offline" / "kvantum/mac-tahoe-liquid-kde"
+    fake_src = tmp_path / "fake-offline" / "kvantum/tajsdesktop"
     fake_src.mkdir(parents=True)
-    (fake_src / "mac-tahoe-liquid-kde.kvconfig").write_text("[General]\n")
-    (fake_src / "mac-tahoe-liquid-kdeDark.kvconfig").write_text("[General]\n")
-    (fake_src / "mac-tahoe-liquid-kdeDark.svg").write_text("<svg/>")
+    (fake_src / "tajsdesktop.kvconfig").write_text("[General]\n")
+    (fake_src / "tajsdesktopDark.kvconfig").write_text("[General]\n")
+    (fake_src / "tajsdesktopDark.svg").write_text("<svg/>")
 
-    dest = tmp_path / "home/.config/Kvantum/mac-tahoe-liquid-kde"
-    dest_dark = tmp_path / "home/.config/Kvantum/mac-tahoe-liquid-kdeDark"
+    dest = tmp_path / "home/.config/Kvantum/tajsdesktop"
+    dest_dark = tmp_path / "home/.config/Kvantum/tajsdesktopDark"
     monkeypatch.setattr(kvantum, "DEST_DIR", dest)
     monkeypatch.setattr(kvantum, "DEST_DIR_DARK", dest_dark)
     monkeypatch.setattr(kvantum, "offline", lambda *_a: fake_src)
@@ -111,7 +111,7 @@ def test_window_decorations_warns_when_kwinrc_writes_fail(tmp_path, monkeypatch)
     # Build a minimal fake offline tree so install() can iterate.
     fake_src = tmp_path / "fake-offline" / "aurorae"
     for variant in ("Dark", "Light"):
-        d = fake_src / f"MacTahoeLiquidKde-{variant}"
+        d = fake_src / f"TajsDesktop-{variant}"
         d.mkdir(parents=True)
 
     dest = tmp_path / "home/.local/share/aurorae/themes"
@@ -139,13 +139,13 @@ def test_window_decorations_warns_when_kwinrc_writes_fail(tmp_path, monkeypatch)
 
 def test_window_decorations_clean_ok_when_writes_succeed(tmp_path, monkeypatch):
     """Positive control: on the happy path the ok() message
-    ``Window decoration set to MacTahoeLiquidKde-Dark`` fires and no
+    ``Window decoration set to TajsDesktop-Dark`` fires and no
     kwriteconfig6 warning appears."""
     from steps import window_decorations as wd
 
     fake_src = tmp_path / "fake-offline" / "aurorae"
     for variant in ("Dark", "Light"):
-        (fake_src / f"MacTahoeLiquidKde-{variant}").mkdir(parents=True)
+        (fake_src / f"TajsDesktop-{variant}").mkdir(parents=True)
 
     dest = tmp_path / "home/.local/share/aurorae/themes"
     monkeypatch.setattr(wd, "DEST_DIR", dest)
@@ -164,7 +164,7 @@ def test_window_decorations_clean_ok_when_writes_succeed(tmp_path, monkeypatch):
 
     wd.install()
 
-    assert any("Window decoration set to MacTahoeLiquidKde-Dark" in m
+    assert any("Window decoration set to TajsDesktop-Dark" in m
                for m in oks), oks
     assert not any("kwriteconfig6" in w for w in warnings), warnings
 
@@ -304,7 +304,7 @@ def test_run_live_survives_launch_failures(monkeypatch):
 
 def test_theme_switch_launch_failure_warns_and_returns_none(tmp_path,
                                                             monkeypatch):
-    """A non-executable mac-tahoe-theme-switch must surface a warn()
+    """A non-executable tajsdesktop-theme-switch must surface a warn()
     and report failure (None), not crash the apply step."""
     from steps import apply
 
@@ -315,7 +315,7 @@ def test_theme_switch_launch_failure_warns_and_returns_none(tmp_path,
     warnings: list[str] = []
     monkeypatch.setattr(apply, "warn", warnings.append)
 
-    rc = apply._run_theme_switch_install(tmp_path / "mac-tahoe-theme-switch")
+    rc = apply._run_theme_switch_install(tmp_path / "tajsdesktop-theme-switch")
 
     assert rc is None
     assert any("could not run" in w for w in warnings), warnings
@@ -331,7 +331,7 @@ def test_apply_warns_when_theme_switch_missing_or_not_executable(
     home = tmp_path / "home"
     (home / ".local/bin").mkdir(parents=True)
     # Present but not executable.
-    switch = home / ".local/bin/mac-tahoe-theme-switch"
+    switch = home / ".local/bin/tajsdesktop-theme-switch"
     switch.write_text("#!/bin/sh\n")
     switch.chmod(0o644)
 

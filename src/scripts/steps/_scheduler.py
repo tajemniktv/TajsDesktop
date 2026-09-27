@@ -78,7 +78,7 @@ def cron_command(*argv: object) -> str:
 
 
 def _marker(tag: str) -> str:
-    return f"# mac-tahoe-liquid-kde:{tag}"
+    return f"# tajsdesktop:{tag}"
 
 
 def _read_crontab() -> list[str] | None:

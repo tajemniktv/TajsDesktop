@@ -1,0 +1,13 @@
+[Unit]
+Description=MacTahoe Liquid KDE — fire time-based light/dark transitions
+
+[Timer]
+# Fire at 06:00 (light) and 18:00 (dark) every day. Triggers the same
+# service that runs after login — same entry point, same code path.
+OnCalendar=*-*-* 06:00:00
+OnCalendar=*-*-* 18:00:00
+Persistent=true
+Unit=tajsdesktop-theme.service
+
+[Install]
+WantedBy=timers.target

@@ -11,13 +11,13 @@ from steps._helpers import (
 SRC_DIR = offline("plasmoids")
 DEST_DIR = DATA_HOME / "plasma/plasmoids"
 
-TASKMANAGER_SRC = SRC_DIR / "org.kde.mac.tahoe.liquid.taskmanager"
-TASKMANAGER_BUILD = build_dir("plasmoids/org.kde.mac.tahoe.liquid.taskmanager")
+TASKMANAGER_SRC = SRC_DIR / "org.tajemniktv.tajsdesktop.taskmanager"
+TASKMANAGER_BUILD = build_dir("plasmoids/org.tajemniktv.tajsdesktop.taskmanager")
 # Qt6 never scans user paths for plugins/QML — these go under the qmake6-
 # reported libdir. Lazy __getattr__ keeps a missing qmake6 a preflight
 # failure, not a module-import crash.
-_TASKMANAGER_SO_RELPATH = "plasma/applets/org.kde.mac.tahoe.liquid.taskmanager.so"
-_TASKMANAGER_QML_RELPATH = "plasma/applet/org/kde/mac/tahoe/liquid/taskmanager"
+_TASKMANAGER_SO_RELPATH = "plasma/applets/org.tajemniktv.tajsdesktop.taskmanager.so"
+_TASKMANAGER_QML_RELPATH = "plasma/applet/org/tajemniktv/tajsdesktop/taskmanager"
 
 
 def __getattr__(name: str):
@@ -29,13 +29,13 @@ def __getattr__(name: str):
 # Leftover from old sudoless installs under the user path.
 LEGACY_TASKMANAGER_USER_SO = HOME / (
     ".local/lib/qt6/plugins/plasma/applets/"
-    "org.kde.mac.tahoe.liquid.taskmanager.so"
+    "org.tajemniktv.tajsdesktop.taskmanager.so"
 )
 
 LEGACY_DIRS = (
-    "org.kde.mac.tahoe.liquid.taskmanager",
-    "org.kde.mac-tahoe-liquid-kde.taskmanager",
-    "org.kde.mac-tahoe-liquid-kde.icontasks",
+    "org.tajemniktv.tajsdesktop.taskmanager",
+    "org.tajemniktv.tajsdesktop.taskmanager",
+    "org.tajemniktv.tajsdesktop.icontasks",
 )
 # org.kde.plasma.taskmanager / org.kde.plasma.icontasks used to be in this
 # tuple (this project briefly overlaid the stock IDs before it had its own
@@ -46,10 +46,10 @@ LEGACY_DIRS = (
 # user's own override of the same stock plasmoid, so it must not touch
 # them at all rather than risk deleting someone else's customization.
 LEGACY_TASKMANAGER_QML_DIRS = (
-    HOME / ".local/lib/qt6/qml/plasma/applet/org/kde/mac/tahoe/liquid/taskmanager",
-    HOME / ".local/lib/qt6/qml/plasma/applet/org/kde/mac/tahoe/liquid/icontasks",
-    HOME / ".local/lib/qt6/qml/plasma/applet/org/kde/mac-tahoe-liquid-kde/taskmanager",
-    HOME / ".local/lib/qt6/qml/plasma/applet/org/kde/mac-tahoe-liquid-kde/icontasks",
+    HOME / ".local/lib/qt6/qml/plasma/applet/org/tajemniktv/tajsdesktop/taskmanager",
+    HOME / ".local/lib/qt6/qml/plasma/applet/org/tajemniktv/tajsdesktop/icontasks",
+    HOME / ".local/lib/qt6/qml/plasma/applet/org/kde/tajsdesktop/taskmanager",
+    HOME / ".local/lib/qt6/qml/plasma/applet/org/kde/tajsdesktop/icontasks",
 )
 
 def deps():
@@ -85,22 +85,14 @@ def deps():
 
 def build_artifacts() -> list[Path]:
     return [
-        TASKMANAGER_BUILD / "bin/plasma/applets/org.kde.mac.tahoe.liquid.taskmanager.so",
-        TASKMANAGER_BUILD / "bin/plasma/applet/org/kde/mac/tahoe/liquid/taskmanager",
+        TASKMANAGER_BUILD / "bin/plasma/applets/org.tajemniktv.tajsdesktop.taskmanager.so",
+        TASKMANAGER_BUILD / "bin/plasma/applet/org/tajemniktv/tajsdesktop/taskmanager",
     ]
 
 
 def build() -> None:
     if (TASKMANAGER_SRC / "CMakeLists.txt").is_file():
         cmake_build(TASKMANAGER_SRC, TASKMANAGER_BUILD, "Dock Task Manager")
-
-
-def _migrate_appletsrc() -> None:
-    # The rename lives in a bundled kconf_update helper; run just
-    # that one so the upgrade keeps the dock and the user's pinned launchers.
-    from steps.kconf_update import run_migration
-    run_migration("mac-tahoe-migrate-appletsrc.sh")
-    ok("dock config migrated to MacTahoe dock fork")
 
 
 def _install_taskmanager_package() -> bool:
@@ -110,13 +102,13 @@ def _install_taskmanager_package() -> bool:
     metadata = TASKMANAGER_SRC / "metadata.json"
     contents = TASKMANAGER_SRC / "contents"
     if not metadata.is_file():
-        fail("org.kde.mac.tahoe.liquid.taskmanager (missing metadata.json)")
+        fail("org.tajemniktv.tajsdesktop.taskmanager (missing metadata.json)")
         return False
     if not contents.is_dir():
-        fail("org.kde.mac.tahoe.liquid.taskmanager (missing contents/)")
+        fail("org.tajemniktv.tajsdesktop.taskmanager (missing contents/)")
         return False
 
-    with temp_dir("mttkde-taskmanager-package") as tmp:
+    with temp_dir("tajsdesktop-taskmanager-package") as tmp:
         runtime = tmp / TASKMANAGER_SRC.name
         runtime.mkdir(parents=True, exist_ok=True)
         shutil.copy2(metadata, runtime / "metadata.json")
@@ -126,13 +118,13 @@ def _install_taskmanager_package() -> bool:
 
 
 def _install_taskmanager_qml() -> bool:
-    module_src = TASKMANAGER_BUILD / "bin/plasma/applet/org/kde/mac/tahoe/liquid/taskmanager"
+    module_src = TASKMANAGER_BUILD / "bin/plasma/applet/org/tajemniktv/tajsdesktop/taskmanager"
     if not module_src.is_dir():
-        fail("org.kde.mac.tahoe.liquid.taskmanager (missing runtime QML)")
+        fail("org.tajemniktv.tajsdesktop.taskmanager (missing runtime QML)")
         return False
     return sudo_install_tree(
         module_src, qt6_qml_dir() / _TASKMANAGER_QML_RELPATH,
-        "org.kde.mac.tahoe.liquid.taskmanager (installed runtime QML)",
+        "org.tajemniktv.tajsdesktop.taskmanager (installed runtime QML)",
     )
 
 
@@ -155,18 +147,16 @@ def install() -> None:
         except OSError:
             pass
 
-    _migrate_appletsrc()
-
-    artifact = TASKMANAGER_BUILD / "bin/plasma/applets/org.kde.mac.tahoe.liquid.taskmanager.so"
+    artifact = TASKMANAGER_BUILD / "bin/plasma/applets/org.tajemniktv.tajsdesktop.taskmanager.so"
     if artifact.is_file():
         if sudo_install_file(
             artifact, qt6_plugins_dir() / _TASKMANAGER_SO_RELPATH,
-            "org.kde.mac.tahoe.liquid.taskmanager (installed compiled dock base)",
+            "org.tajemniktv.tajsdesktop.taskmanager (installed compiled dock base)",
         ):
             _install_taskmanager_package()
             _install_taskmanager_qml()
     else:
-        fail("org.kde.mac.tahoe.liquid.taskmanager (missing build artifact)")
+        fail("org.tajemniktv.tajsdesktop.taskmanager (missing build artifact)")
 
     n = 0
     for widget in sorted(SRC_DIR.glob("*/")):
@@ -203,10 +193,9 @@ def uninstall() -> None:
         except OSError:
             pass
     targets = [
-        DEST_DIR / "org.kde.mac.tahoe.liquid.taskmanager",
-        DEST_DIR / "org.kde.mac.tahoe.liquid.icontasks",
-        *DEST_DIR.glob("org.kde.mac-tahoe-liquid-kde.*"),
-        *DEST_DIR.glob("org.kde.mactahoe-liquid-kde.*"),
+        DEST_DIR / "org.tajemniktv.tajsdesktop.taskmanager",
+        DEST_DIR / "org.tajemniktv.tajsdesktop.icontasks",
+        *DEST_DIR.glob("org.tajemniktv.tajsdesktop.*"),
     ]
     for d in targets:
         if d.is_dir():

@@ -16,7 +16,7 @@ _APPLETSRC = """\
 launchers=preferred://filemanager,applications:steam.desktop
 
 [Containments][19319][Applets][19322][Configuration][General]
-launchers=preferred://browser,applications:org.kde.mac.tahoe.liquid.globalmenu.desktop,applications:steam.desktop
+launchers=preferred://browser,applications:org.tajemniktv.tajsdesktop.globalmenu.desktop,applications:steam.desktop
 """
 
 
@@ -134,9 +134,9 @@ def test_mac_layout_adds_no_application_launchers_of_its_own():
 
 @pytest.mark.parametrize("relative_path", [
     "layouts/mac-tahoe.js",
-    "look-and-feel/MacTahoeLiquidKde-Light/contents/layouts/"
+    "look-and-feel/TajsDesktop-Light/contents/layouts/"
     "org.kde.plasma.desktop-layout.js",
-    "look-and-feel/MacTahoeLiquidKde-Dark/contents/layouts/"
+    "look-and-feel/TajsDesktop-Dark/contents/layouts/"
     "org.kde.plasma.desktop-layout.js",
 ])
 def test_bundled_layouts_autohide_dock_and_keep_top_bar_visible(
@@ -151,8 +151,8 @@ def test_bundled_layouts_autohide_dock_and_keep_top_bar_visible(
 
 def test_panel_background_keeps_light_dark_surface_parity(offline):
     panel = "widgets/panel-background.svgz"
-    dark = offline / "plasma-theme/MacTahoeLiquidKde-Dark" / panel
-    light = offline / "plasma-theme/MacTahoeLiquidKde-Light" / panel
+    dark = offline / "plasma-theme/TajsDesktop-Dark" / panel
+    light = offline / "plasma-theme/TajsDesktop-Light" / panel
 
     # Both packages map the same neutral SVG through their active color
     # scheme. A separate hardcoded dark asset caused 55% square tiles on the
@@ -440,7 +440,7 @@ def test_uninstall_recognizes_legacy_mac_layout_ids(monkeypatch, tmp_path):
     _write_appletsrc(
         tmp_path,
         "\n".join([
-            "plugin=org.kde.mac-tahoe-liquid-kde.menu",
+            "plugin=org.tajemniktv.tajsdesktop.menu",
             "plugin=org.kde.mac.tahoe.globalmenu",
             "plugin=org.kde.mactahoe-liquid-kde.trash",
         ]),
