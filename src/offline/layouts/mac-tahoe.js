@@ -12,6 +12,10 @@ for (var screen = 0; screen < screenCount; screen++) {
     // Top bar, flush panel with applets-only floating. floatingApplets=1 is
     // reasserted via plasmashellrc after layout apply and every theme switch.
     var bar = new Panel("org.kde.panel");
+    // A dedicated containment marker lets the fork distinguish these panels
+    // from pre-existing KDE or upstream Tahoe panels during scoped removal.
+    bar.currentConfigGroup = ["TajsDesktop"];
+    bar.writeConfig("owner", "tajsdesktop");
     bar.location = "top";
     bar.screen = screen;
     bar.lengthMode = "fill";
@@ -67,6 +71,8 @@ for (var screen = 0; screen < screenCount; screen++) {
     // ── bottom dock ─────────────────────────────────
     // floating, centered, large icons like macOS
     var dock = new Panel("org.kde.panel");
+    dock.currentConfigGroup = ["TajsDesktop"];
+    dock.writeConfig("owner", "tajsdesktop");
     dock.location = "bottom";
     dock.screen = screen;
     dock.alignment = "center";

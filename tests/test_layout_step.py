@@ -374,6 +374,7 @@ def test_first_install_adds_autohide_panels_without_removing_existing(
 
     script = captured["script"]
     assert "old[i].remove()" not in script
+    assert script.count('writeConfig("owner", "tajsdesktop")') == 2
     assert 'dock.hiding = "autohide";' in script
     assert 'bar.hiding = "none";' in script
     assert "writeConfig('launchers', 'preferred://filemanager," in script
