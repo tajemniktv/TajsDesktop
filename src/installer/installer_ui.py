@@ -28,7 +28,7 @@ from cli import (
     fetch_latest_release, load_features, parse_semver,
     save_features as save_user_features, user_features_file,
 )
-from fork_lifecycle import load_state, plan_features
+from fork_lifecycle import load_state, plan_features, upstream_install_present
 from log import DONE_MARKER
 from localization import (
     feature_label, get_language, language_options, set_language, translate,
@@ -825,7 +825,7 @@ def dump_features() -> dict[str, object]:
                 "staging_blocked": True}
     preview = plan_features(
         {key: bool(state.get(key, False)) for key in ALL_FEATURES},
-        installed, read_version(),
+        installed, read_version(), upstream_install_present(),
     )
 
     items = [

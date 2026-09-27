@@ -33,7 +33,7 @@ def _write_colorizer(path, version):
     )
 
 
-def test_ensure_panel_colorizer_upgrades_stale_user_copy(monkeypatch, tmp_path):
+def test_ensure_panel_colorizer_preserves_stale_user_copy(monkeypatch, tmp_path):
     bundled = tmp_path / "bundled"
     user = tmp_path / "user"
     system = tmp_path / "system"
@@ -50,7 +50,7 @@ def test_ensure_panel_colorizer_upgrades_stale_user_copy(monkeypatch, tmp_path):
 
     layout._ensure_panel_colorizer()
 
-    assert calls == [(bundled, user, "Panel Colorizer")]
+    assert calls == []
 
 
 def test_ensure_panel_colorizer_preserves_newer_system_copy(monkeypatch, tmp_path):
@@ -71,6 +71,39 @@ def test_ensure_panel_colorizer_preserves_newer_system_copy(monkeypatch, tmp_pat
     layout._ensure_panel_colorizer()
 
     assert calls == []
+
+
+def test_ensure_panel_colorizer_does_not_shadow_stale_system_copy(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled"
+    user = tmp_path / "user"
+    system = tmp_path / "system"
+    _write_colorizer(bundled, "7.3.0")
+    _write_colorizer(system, "7.0.1")
+    calls = []
+    monkeypatch.setattr(layout, "COLORIZER_SRC", bundled)
+    monkeypatch.setattr(layout, "_colorizer_dirs", lambda: [user, system])
+    monkeypatch.setattr(layout, "install_tree", lambda *args: calls.append(args))
+
+    layout._ensure_panel_colorizer()
+
+    assert calls == []
+
+
+def test_ensure_panel_colorizer_installs_only_when_absent(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled"
+    user = tmp_path / "user"
+    _write_colorizer(bundled, "7.3.0")
+    calls = []
+    monkeypatch.setattr(layout, "COLORIZER_SRC", bundled)
+    monkeypatch.setattr(layout, "_colorizer_dirs", lambda: [user])
+    monkeypatch.setattr(
+        layout, "install_tree",
+        lambda src, dest, label: calls.append((src, dest, label)) or True,
+    )
+
+    layout._ensure_panel_colorizer()
+
+    assert calls == [(bundled, user, "Panel Colorizer")]
 
 
 def test_capture_dedups_and_drops_mactahoe(monkeypatch, tmp_path):

@@ -47,8 +47,8 @@ def deps():
 
 
 def _ensure_panel_colorizer() -> None:
-    # A user package shadows system packages, so check it first. Replace an
-    # outdated user copy; otherwise preserve an equal/newer installed release.
+    # Panel Colorizer has a shared, non-project ID. Never replace or shadow
+    # another installation merely because our bundled version is newer.
     bundled_version = _colorizer_version(COLORIZER_SRC)
     if bundled_version is None:
         warn("Panel Colorizer not installed — bundled metadata is invalid.")
@@ -56,20 +56,15 @@ def _ensure_panel_colorizer() -> None:
 
     dirs = _colorizer_dirs()
     dest = dirs[0]
-    user_version = _colorizer_version(dest)
-    if user_version is not None and user_version >= bundled_version:
-        ok("Panel Colorizer")
-        return
-
-    if user_version is None and not dest.exists():
-        for path in dirs[1:]:
-            installed_version = _colorizer_version(path)
-            if (
-                installed_version is not None
-                and installed_version >= bundled_version
-            ):
-                ok("Panel Colorizer")
-                return
+    for path in dirs:
+        if path.exists() or path.is_symlink():
+            version = _colorizer_version(path)
+            if version is not None and version < bundled_version:
+                warn("Existing Panel Colorizer is older than the bundled copy; "
+                     "preserving the external installation")
+            else:
+                ok("Panel Colorizer (existing installation preserved)")
+            return
 
     if install_tree(COLORIZER_SRC, dest, "Panel Colorizer"):
         return

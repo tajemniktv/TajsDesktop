@@ -23,7 +23,7 @@ from log import (
 )
 from preflight import run_preflight
 from state import RunTracker
-from fork_lifecycle import load_state, plan_features
+from fork_lifecycle import load_state, plan_features, upstream_install_present
 from step_runner import run_phase, step_deps, step_exists, step_has_phase, step_module
 from utils import (
     CancellationRequested, cancellation_requested, cancellation_scope,
@@ -1220,22 +1220,17 @@ def run_install(argv: list[str], tui: bool = False,
         if parsed.only_mode:
             desired.update({feature: False for feature in ALL_FEATURES})
         desired.update(parsed.cli_overrides)
+        upstream_tahoe_present = upstream_install_present()
         try:
             preview = plan_features(
                 {feature: bool(desired.get(feature, False))
                  for feature in ALL_FEATURES},
-                load_state(), read_version(),
+                load_state(), read_version(), upstream_tahoe_present,
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             print(f"Cannot preview TajsDesktop state: {exc}", file=sys.stderr)
             return 1
-        home = Path.home()
-        preview["upstream_tahoe_present"] = any(path.exists() for path in (
-            home / ".local/state/mac-tahoe-liquid-kde",
-            home / ".local/bin/mac-tahoe-theme-switch",
-            home / ".local/share/plasma/look-and-feel/"
-                   "org.kde.mac-tahoe-liquid-kde.light",
-        ))
+        preview["upstream_tahoe_present"] = upstream_tahoe_present
         preview["executable"] = not STAGING_INSTALL_BLOCKED
         print(json.dumps(preview, indent=2))
         return 0

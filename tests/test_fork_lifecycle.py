@@ -5,7 +5,10 @@ import json
 import pytest
 
 import cli
-from fork_lifecycle import InstalledState, load_state, plan_features, save_state
+from fork_lifecycle import (
+    InstalledState, load_state, plan_features, save_state,
+    upstream_install_present,
+)
 
 
 def test_missing_and_invalid_install_state_fail_closed(tmp_path):
@@ -45,6 +48,21 @@ def test_noop_and_version_update_do_not_imply_setting_reset():
     newer = plan_features({"layout": True}, installed, "1.2.4")
     assert newer["operation"] == "update"
     assert newer["enable"] == newer["disable"] == []
+
+
+def test_foreign_tahoe_install_requires_explicit_migration():
+    preview = plan_features({"layout": True}, None, "0.52.0",
+                            foreign_install=True)
+    assert preview["operation"] == "migration-required"
+    assert preview["foreign_install"] is True
+    assert preview["enable"] == ["layout"]
+
+
+def test_foreign_install_detection_does_not_depend_on_tajsdesktop_state(tmp_path):
+    assert not upstream_install_present(tmp_path)
+    marker = tmp_path / ".local/state/mac-tahoe-liquid-kde"
+    marker.mkdir(parents=True)
+    assert upstream_install_present(tmp_path)
 
 
 def test_cli_preview_is_read_only_and_requires_no_root(monkeypatch, capsys):

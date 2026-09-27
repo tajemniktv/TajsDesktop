@@ -278,6 +278,8 @@ Window {
                 Layout.alignment: Qt.AlignHCenter
                 text: "Enable: " + ((featuresWindow.preview.enable || []).length)
                     + "  ·  Disable: " + ((featuresWindow.preview.disable || []).length)
+                    + (featuresWindow.preview.operation === "migration-required"
+                       ? "  ·  Existing Tahoe install: explicit migration required" : "")
                     + (featuresWindow.stagingBlocked ? "  ·  Staging only — not applied" : "")
                 color: Kirigami.Theme.disabledTextColor
                 font.family: featuresWindow.fontFamily

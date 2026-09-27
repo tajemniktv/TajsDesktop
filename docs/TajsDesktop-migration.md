@@ -31,6 +31,10 @@ Do not remove that guard merely because static tests or native builds pass.
   user keys; even an explicit empty value remains user-owned. These profiles
   are **not applied yet**. No browser database, hardware identifier, home
   path, secret, or session value is copied into them.
+- Feature previews classify detected upstream Tahoe as
+  `migration-required`, not a clean first install. Panel Colorizer has a
+  shared external ID, so the layout step now preserves any installed copy
+  rather than replacing or shadowing it with the bundled version.
 
 ## Remaining release gates
 

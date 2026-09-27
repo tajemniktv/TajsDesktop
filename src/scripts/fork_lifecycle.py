@@ -17,6 +17,17 @@ from typing import Mapping
 SCHEMA = 1
 
 
+def upstream_install_present(home: Path | None = None) -> bool:
+    """Conservative indicator only; foreign state never grants ownership."""
+    root = home or Path.home()
+    return any(path.exists() for path in (
+        root / ".local/state/mac-tahoe-liquid-kde",
+        root / ".local/bin/mac-tahoe-theme-switch",
+        root / ".local/share/plasma/look-and-feel/"
+               "org.kde.mac-tahoe-liquid-kde.light",
+    ))
+
+
 def state_file() -> Path:
     root = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state")
     return root / "tajsdesktop/installation.json"
@@ -69,7 +80,8 @@ def save_state(state: InstalledState, path: Path | None = None) -> None:
 
 def plan_features(desired: Mapping[str, bool],
                   installed: InstalledState | None,
-                  version: str) -> dict[str, object]:
+                  version: str,
+                  foreign_install: bool = False) -> dict[str, object]:
     """Describe the smallest feature delta, without pretending it was run."""
     if any(not isinstance(key, str) or not isinstance(value, bool)
            for key, value in desired.items()):
@@ -81,7 +93,8 @@ def plan_features(desired: Mapping[str, bool],
     disable = [name for name in names if previous.get(name, False)
                and not desired.get(name, False)]
     return {
-        "operation": "first-install" if installed is None else
+        "operation": "migration-required" if installed is None and foreign_install else
+                     "first-install" if installed is None else
                      "update" if installed.version != version else "features",
         "installed_version": installed.version if installed else None,
         "target_version": version,
@@ -89,4 +102,5 @@ def plan_features(desired: Mapping[str, bool],
         "disable": disable,
         "unchanged": [name for name in names
                       if name not in enable and name not in disable],
+        "foreign_install": foreign_install,
     }
