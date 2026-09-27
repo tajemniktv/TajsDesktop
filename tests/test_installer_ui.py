@@ -64,6 +64,7 @@ def test_repo_installer_entry_exists(repo):
 @pytest.mark.parametrize("action,expected", [
     ("install", "sudo ./install"),
     ("update-assets", "sudo ./install --update-assets"),
+    ("reconcile", "sudo ./install --reconcile"),
     ("uninstall", "sudo ./uninstall"),
     ("preflight", "sudo ./install --preflight"),
 ])
@@ -76,6 +77,12 @@ def test_gui_update_action_never_suggests_auto_pull_or_reinstall(repo):
     assert 'runAction("update-assets")' in qml
     assert "git pull && ./install" not in qml
     assert "https://github.com/tajemniktv/TajsDesktop/releases" in qml
+
+
+def test_gui_reconciliation_action_remains_staging_blocked(repo):
+    qml = (repo / "src/installer/InstallerWindow.qml").read_text()
+    assert 'runAction("reconcile")' in qml
+    assert 'enabled: installer && !installer.stagingBlocked' in qml
 
 
 def test_launch_action_prefers_first_available_terminal(

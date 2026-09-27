@@ -41,6 +41,7 @@ PREVIEW_QML = Path(__file__).resolve().parent / "preview_installer.qml"
 _ACTION_COMMANDS = {
     "install": "sudo ./install",
     "update-assets": "sudo ./install --update-assets",
+    "reconcile": "sudo ./install --reconcile",
     "uninstall": "sudo ./uninstall",
     "preflight": "sudo ./install --preflight",
 }

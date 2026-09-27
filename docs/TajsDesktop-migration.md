@@ -70,6 +70,9 @@ Do not remove that guard merely because static tests or native builds pass.
   dependencies, skips all phases on a no-op, and records each successful
   feature action independently. It never runs the broad apply or theme
   switch phases. Both executors remain behind the live staging guard.
+  The graphical installer exposes the corresponding disabled-while-staging
+  Apply features action; the feature window already distinguishes requested
+  selections from the installed-state record.
   Wallpaper discovery now matches the fork-namespaced bundles. Cursor updates
   validate and stage the bundled archive before replacing either installed
   theme, so a broken archive leaves the current cursors intact.
@@ -127,7 +130,8 @@ Do not remove that guard merely because static tests or native builds pass.
    restoration in an isolated KDE VM. Keep unproven legacy panels foreign.
 5. Extend reviewed reconciliation beyond Firefox, portal routing, layout,
    and OLED care without replaying broad installation. Connect installed
-   versus requested state and scoped reset actions to the GUI and CLI.
+   versus requested state with executable eligibility in the GUI and add
+   scoped reset actions to the GUI and CLI.
 6. Wire the reviewed profile engine to guarded first-install and explicit
    reset only, then expose local-machine selection and reset confirmation in
    the GUI. Theme and Firefox defaults still need key-by-key review; native

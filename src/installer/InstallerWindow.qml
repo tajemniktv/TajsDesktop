@@ -523,6 +523,12 @@ Window {
                 }
 
                 FlatButton {
+                    text: installerWindow.t("Apply features")
+                    enabled: installer && !installer.stagingBlocked
+                    onClicked: installerWindow.runAction("reconcile")
+                }
+
+                FlatButton {
                     text: installerWindow.t("Uninstall")
                     enabled: installer && !installer.stagingBlocked
                     onClicked: installerWindow.runAction("uninstall")
