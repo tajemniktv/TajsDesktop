@@ -1,19 +1,12 @@
-import shutil
 import subprocess
 
 from steps._helpers import (
-    HOME, fail, have, info, install_tree, offline, ok, qdbus_call, remove_tree,
+    HOME, fail, have, info, install_tree, offline, remove_tree,
 )
 from utils import run_user
 
 DEST_DIR = HOME / ".themes"
 VARIANTS = ("TajsDesktop-Light", "TajsDesktop-Dark")
-GTK4_DEST = HOME / ".config/gtk-4.0"
-GTK4_FILES_TO_REMOVE = (
-    "gtk.css", "gtk-dark.css", "gtk-Dark.css", "gtk-Light.css",
-    "colors.css", "window_decorations.css",
-)
-GTK4_DIRS_TO_REMOVE = ("assets", "windows-assets")
 
 
 def install() -> None:
@@ -45,24 +38,7 @@ def uninstall() -> None:
         if remove_tree(DEST_DIR / v, f"{v} removed"):
             n += 1
 
-    # Wipe ~/.config/gtk-4.0/* — kde-gtk-config regenerates its own files on
-    # the next theme change; ours mixed with KDE's output causes split state.
-    for sub in GTK4_DIRS_TO_REMOVE:
-        shutil.rmtree(GTK4_DEST / sub, ignore_errors=True)
-    for fn in GTK4_FILES_TO_REMOVE:
-        try: (GTK4_DEST / fn).unlink()
-        except FileNotFoundError: pass
-        except OSError: pass
-
-    qdbus_call("org.kde.GtkConfig", "/GtkConfig",
-               "org.kde.GtkConfig.setGtkTheme", "Breeze")
-    if have("gsettings"):
-        for schema, key in (
-            ("org.gnome.desktop.interface", "gtk-theme"),
-            ("org.gnome.desktop.interface", "color-scheme"),
-            ("org.gnome.desktop.wm.preferences", "button-layout"),
-        ):
-            run_user(["gsettings", "reset", schema, key],
-                     check=False,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # This step never created the user's gtk-4.0 config files and did not
+    # snapshot GSettings. Removing or resetting them would destroy choices
+    # made after installation (or choices predating this fork).
     info(f"{n} GTK themes removed")

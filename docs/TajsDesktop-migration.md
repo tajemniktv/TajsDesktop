@@ -38,12 +38,15 @@ Do not remove that guard merely because static tests or native builds pass.
 - KDE portal routing now creates only an absent file and records TajsDesktop
   ownership. Uninstall removes it only while both the ownership marker and
   original content match; user-edited or foreign routing remains untouched.
+- GTK uninstall now removes only the fork-namespaced theme asset trees. It no
+  longer deletes `~/.config/gtk-4.0` files or resets untracked GSettings that
+  may belong to the user or another theme.
 
 ## Configuration-write audit in progress
 
 | Area | Existing behavior requiring lifecycle work |
 | --- | --- |
-| Appearance | `apply`, `theme_switch`, `window_decorations`, `kvantum`, `sounds`, and `gtk` write live KDE/GSettings choices. Updates must install assets without invoking these selectors. |
+| Appearance | `apply`, `theme_switch`, `window_decorations`, `kvantum`, `sounds`, and GTK install write live KDE/GSettings choices. Updates must install assets without invoking these selectors. GTK uninstall no longer deletes unrelated GTK4 files or resets GSettings. |
 | Panels and wallpapers | `layout` rebuilds panels and `apply` can reset wallpapers. Neither is safe as a routine update; explicit scoped reset needs a containment-level preview and backup. |
 | App preferences | `nautilus` sets MIME handlers, bookmarks, overrides, and GSettings. Firefox has its own ownership-aware CSS path. App defaults need per-key absence and ownership checks. |
 | Shared/system integration | Rounded Corners and Panel Colorizer use shared IDs; Plymouth touches boot configuration; OLED/theme schedulers manage user services or cron. Foreign ownership must be preserved. |
