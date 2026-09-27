@@ -92,6 +92,10 @@ INSTALL_ORDER = [
     "layout", "nautilus", "portals", "plymouth",
 ]
 
+# Only these steps have reviewed, scoped enable/disable behavior. Other
+# features must be migrated to ownership-aware phases before reconciliation.
+RECONCILABLE_FEATURES = frozenset({"firefox", "portals", "layout", "oled_care"})
+
 FEATURE_DESC = {
     "wallpapers": "Desktop backgrounds",
     "fonts": "SF Pro and SF Mono",
@@ -171,6 +175,7 @@ Options:
     --plan             Preview feature and profile defaults without writes
     --update-assets    Refresh only owned component files; never reapply KDE
                        settings or rebuild panels
+    --reconcile        Apply only supported feature changes from features.json
     --profile=NAME     Select common or local-laptop defaults explicitly
     --plan-reset-profile  Preview a scoped personal-defaults reset, read-only
   Persistence:
@@ -304,6 +309,7 @@ class ParsedArgs:
         self.reset_wallpapers = False
         self.plan_only = False
         self.update_assets = False
+        self.reconcile = False
         self.plan_profile_reset = False
         self.profile: str | None = None
         self.cli_overrides: dict[str, bool] = {}
@@ -361,6 +367,8 @@ def parse_args(argv: list[str]) -> ParsedArgs:
             p.plan_only = True
         elif arg == "--update-assets":
             p.update_assets = True
+        elif arg == "--reconcile":
+            p.reconcile = True
         elif arg == "--plan-reset-profile":
             p.plan_profile_reset = True
         elif key == "--profile":
@@ -971,6 +979,62 @@ def _run_asset_update_body(feat: dict[str, object], installed: InstalledState | 
     return 0
 
 
+def _run_feature_reconcile_body(feat: dict[str, object],
+                                installed: InstalledState | None) -> int:
+    """Apply a reviewed feature delta without running the broad installer.
+
+    Persist each completed action, so a later failure never records an action
+    that did not finish and a retry can resume from the last successful one.
+    """
+    if installed is None:
+        fail("No TajsDesktop installation record; first install or migration required")
+        return 1
+    version = read_version()
+    if installed.version != version:
+        fail("Update component assets before reconciling feature changes")
+        return 1
+    desired = {name: bool(feat.get(name, False)) for name in ALL_FEATURES}
+    plan = plan_features(desired, installed, version)
+    changed = set(plan["enable"]) | set(plan["disable"])
+    unsupported = sorted(changed - RECONCILABLE_FEATURES)
+    if unsupported:
+        fail("Feature reconciliation has unsupported changes: "
+             + ", ".join(unsupported))
+        return 1
+    if not changed:
+        ok("Requested features already match installed state")
+        return 0
+    if desired["layout"] and (not desired["plasmoids"] or not desired["globalmenu"]):
+        fail("Layout requires the plasmoids and global menu features")
+        return 1
+    selected = {name: name in plan["enable"] for name in (*ALL_FEATURES, "theme_switch")}
+    if not run_preflight("install") or not verify_plasma():
+        fail("Feature-reconciliation preflight failed")
+        return 1
+    if plan["enable"]:
+        if not _check_deps(selected) or not _run_builds_or_abort(selected):
+            return 1
+    # Remove dependents before their prerequisites; install in normal order.
+    order = (*INSTALL_ORDER, "oled_care")
+    actions = ([(name, False) for name in reversed(order) if name in plan["disable"]]
+               + [(name, True) for name in order if name in plan["enable"]])
+    current = dict(installed.features)
+    for name, enabled in actions:
+        check_cancelled()
+        step(f"{'Enabling' if enabled else 'Disabling'} {name.replace('_', ' ')}")
+        if not run_phase(name, "install" if enabled else "uninstall"):
+            fail(f"Feature reconciliation stopped at {name}; remaining changes not recorded")
+            return 1
+        current[name] = enabled
+        try:
+            save_state(InstalledState(version, dict(current)))
+        except (OSError, ValueError) as exc:
+            fail(f"Feature {name} changed but its installed state could not be recorded: {exc}")
+            return 1
+    ok("Feature changes reconciled without broad theme or layout reapplication")
+    return 0
+
+
 _BASE_DEPS = [
     ("fc-cache", "fontconfig"), ("kwriteconfig6", "kconfig"),
     ("cmake", "cmake"), ("g++", "gcc"),
@@ -1368,6 +1432,22 @@ def run_install(argv: list[str], tui: bool = False,
             fail(f"Cannot read installed TajsDesktop state: {exc}")
             return 1
         return _run_asset_update_body(feat, installed)
+
+    if parsed.reconcile:
+        if (parsed.update_assets or parsed.only_mode or parsed.cli_overrides
+                or parsed.do_save or parsed.do_reset or parsed.reset_wallpapers
+                or parsed.profile or parsed.restart_only or parsed.theme_mode is not None
+                or parsed.oled_interval is not None or parsed.oled_max_shift is not None):
+            fail("--reconcile uses features.json and cannot be combined with other actions")
+            return 2
+        feat = load_features()
+        export_env(feat)
+        try:
+            installed = load_state()
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            fail(f"Cannot read installed TajsDesktop state: {exc}")
+            return 1
+        return _run_feature_reconcile_body(feat, installed)
 
     feat = apply_overrides(load_features(), parsed)
     feat["_existing_install"] = _theme_is_already_installed()

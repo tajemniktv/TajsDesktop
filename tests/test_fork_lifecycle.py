@@ -136,6 +136,72 @@ def test_cli_asset_update_stays_behind_live_staging_guard(monkeypatch):
     assert cli.run_install(["--update-assets"]) == 1
 
 
+def _selection(**changes):
+    return {**dict.fromkeys(cli.ALL_FEATURES, False), **changes}
+
+
+def test_reconcile_noop_skips_preflight_and_all_phases(monkeypatch):
+    selected = _selection(firefox=True)
+    installed = InstalledState("1.2.3", selected)
+    monkeypatch.setattr(cli, "read_version", lambda: "1.2.3")
+    monkeypatch.setattr(cli, "run_preflight", lambda *_: pytest.fail("no-op preflight"))
+    monkeypatch.setattr(cli, "run_phase", lambda *_: pytest.fail("no-op phase"))
+    monkeypatch.setattr(cli, "save_state", lambda *_: pytest.fail("no-op save"))
+    assert cli._run_feature_reconcile_body(selected, installed) == 0
+
+
+def test_reconcile_only_changed_feature_and_records_success(monkeypatch):
+    before = _selection(firefox=True, portals=True)
+    after = {**before, "firefox": False, "oled_care": True}
+    phases, saved = [], []
+    monkeypatch.setattr(cli, "read_version", lambda: "1.2.3")
+    monkeypatch.setattr(cli, "run_preflight", lambda *_: True)
+    monkeypatch.setattr(cli, "verify_plasma", lambda: True)
+    monkeypatch.setattr(cli, "_check_deps", lambda *_: True)
+    monkeypatch.setattr(cli, "_run_builds_or_abort", lambda *_: True)
+    monkeypatch.setattr(cli, "run_phase",
+                        lambda name, phase: phases.append((name, phase)) or True)
+    monkeypatch.setattr(cli, "save_state", saved.append)
+    assert cli._run_feature_reconcile_body(after, InstalledState("1.2.3", before)) == 0
+    assert phases == [("firefox", "uninstall"), ("oled_care", "install")]
+    assert saved[0].features["firefox"] is False
+    assert saved[0].features["oled_care"] is False
+    assert saved[-1].features == after
+
+
+def test_reconcile_refuses_unsupported_delta_before_preflight(monkeypatch):
+    before = _selection()
+    monkeypatch.setattr(cli, "read_version", lambda: "1.2.3")
+    monkeypatch.setattr(cli, "run_preflight", lambda *_: pytest.fail("unsafe preflight"))
+    assert cli._run_feature_reconcile_body(
+        {**before, "apply_theme": True}, InstalledState("1.2.3", before)) == 1
+
+
+def test_reconcile_failure_keeps_failed_feature_unrecorded(monkeypatch):
+    before = _selection()
+    after = {**before, "firefox": True, "portals": True}
+    saved = []
+    monkeypatch.setattr(cli, "read_version", lambda: "1.2.3")
+    monkeypatch.setattr(cli, "run_preflight", lambda *_: True)
+    monkeypatch.setattr(cli, "verify_plasma", lambda: True)
+    monkeypatch.setattr(cli, "_check_deps", lambda *_: True)
+    monkeypatch.setattr(cli, "_run_builds_or_abort", lambda *_: True)
+    monkeypatch.setattr(cli, "run_phase", lambda name, *_: name != "portals")
+    monkeypatch.setattr(cli, "save_state", saved.append)
+    assert cli._run_feature_reconcile_body(after, InstalledState("1.2.3", before)) == 1
+    assert len(saved) == 1
+    assert saved[0].features["firefox"] is True
+    assert saved[0].features["portals"] is False
+
+
+def test_cli_reconcile_stays_behind_live_staging_guard(monkeypatch):
+    monkeypatch.setattr(cli, "_require_root_and_drop_to_user", lambda prog: True)
+    monkeypatch.setattr(cli, "_run_feature_reconcile_body",
+                        lambda *_: pytest.fail("staged reconciliation executed live"))
+    assert cli.parse_args(["--reconcile"]).reconcile is True
+    assert cli.run_install(["--reconcile"]) == 1
+
+
 def test_foreign_tahoe_install_requires_explicit_migration():
     preview = plan_features({"layout": True}, None, "0.52.0",
                             foreign_install=True)

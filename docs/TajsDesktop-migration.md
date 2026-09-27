@@ -64,6 +64,12 @@ Do not remove that guard merely because static tests or native builds pass.
   the feature delta, unsupported phases, preflight, dependencies and builds;
   it runs only `update_assets` and records the new version after all selected
   phases succeed. The live staging guard still blocks this action.
+  A separate staged `--reconcile` executor now handles only reviewed
+  Firefox, portal, layout, and OLED-care enable/disable paths. It rejects
+  unsupported changes and version drift before mutation, checks layout
+  dependencies, skips all phases on a no-op, and records each successful
+  feature action independently. It never runs the broad apply or theme
+  switch phases. Both executors remain behind the live staging guard.
   Wallpaper discovery now matches the fork-namespaced bundles. Cursor updates
   validate and stage the bundled archive before replacing either installed
   theme, so a broken archive leaves the current cursors intact.
@@ -119,9 +125,9 @@ Do not remove that guard merely because static tests or native builds pass.
 4. Finish layout lifecycle: expose a preview and confirmed scoped reset for
    modified fork panels, preserve user pins and geometry, and verify backup
    restoration in an isolated KDE VM. Keep unproven legacy panels foreign.
-5. Persist versioned *installed* state only after each successful operation
-   and make the preview executable through safe per-feature reconciliation.
-   Add explicit, scoped reset actions to the GUI and CLI.
+5. Extend reviewed reconciliation beyond Firefox, portal routing, layout,
+   and OLED care without replaying broad installation. Connect installed
+   versus requested state and scoped reset actions to the GUI and CLI.
 6. Wire the reviewed profile engine to guarded first-install and explicit
    reset only, then expose local-machine selection and reset confirmation in
    the GUI. Theme and Firefox defaults still need key-by-key review; native
