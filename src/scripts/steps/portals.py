@@ -115,6 +115,18 @@ def install() -> None:
     _bounce_services()
 
 
+def is_installed() -> bool:
+    """Only a matching marker and unchanged routing prove fork ownership."""
+    if (OWNERSHIP_MARKER.is_symlink() or CONF_FILE.is_symlink()
+            or not OWNERSHIP_MARKER.is_file() or not CONF_FILE.is_file()):
+        return False
+    try:
+        return (OWNERSHIP_MARKER.read_text(encoding="utf-8") == _MARKER_VALUE
+                and CONF_FILE.read_text(encoding="utf-8") == ROUTING)
+    except OSError:
+        return False
+
+
 def uninstall() -> None:
     if OWNERSHIP_MARKER.is_symlink() or not OWNERSHIP_MARKER.is_file():
         warn("KDE portal routing has no TajsDesktop ownership record; preserving it")
@@ -140,6 +152,11 @@ def uninstall() -> None:
         except OSError:
             fail("KDE portal routing")
     else:
+        try:
+            OWNERSHIP_MARKER.unlink()
+        except OSError:
+            fail("KDE portal routing ownership marker could not be removed")
+            return
         ok("KDE portal routing (not installed)")
         return
     _bounce_services()

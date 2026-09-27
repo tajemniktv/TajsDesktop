@@ -94,7 +94,7 @@ INSTALL_ORDER = [
 
 # Only these steps have reviewed, scoped enable/disable behavior. Other
 # features must be migrated to ownership-aware phases before reconciliation.
-RECONCILABLE_FEATURES = frozenset({"firefox", "portals", "layout", "oled_care"})
+RECONCILABLE_FEATURES = frozenset({"portals", "layout"})
 
 FEATURE_DESC = {
     "wallpapers": "Desktop backgrounds",
@@ -1001,6 +1001,11 @@ def _run_feature_reconcile_body(feat: dict[str, object],
         fail("Feature reconciliation has unsupported changes: "
              + ", ".join(unsupported))
         return 1
+    for name in changed:
+        mod = step_module(name)
+        if mod is None or not callable(getattr(mod, "is_installed", None)):
+            fail(f"Feature {name} has no verifiable installed-state probe")
+            return 1
     if not changed:
         ok("Requested features already match installed state")
         return 0
@@ -1024,6 +1029,14 @@ def _run_feature_reconcile_body(feat: dict[str, object],
         step(f"{'Enabling' if enabled else 'Disabling'} {name.replace('_', ' ')}")
         if not run_phase(name, "install" if enabled else "uninstall"):
             fail(f"Feature reconciliation stopped at {name}; remaining changes not recorded")
+            return 1
+        try:
+            verified = bool(step_module(name).is_installed())
+        except (OSError, ValueError) as exc:
+            fail(f"Feature {name} installed state cannot be verified: {exc}")
+            return 1
+        if verified != enabled:
+            fail(f"Feature {name} did not reach its requested state; change not recorded")
             return 1
         current[name] = enabled
         try:

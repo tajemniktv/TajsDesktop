@@ -151,21 +151,27 @@ def test_reconcile_noop_skips_preflight_and_all_phases(monkeypatch):
 
 
 def test_reconcile_only_changed_feature_and_records_success(monkeypatch):
-    before = _selection(firefox=True, portals=True)
-    after = {**before, "firefox": False, "oled_care": True}
+    before = _selection(portals=True, plasmoids=True, globalmenu=True)
+    after = {**before, "portals": False, "layout": True}
     phases, saved = [], []
+    observed = {"portals": True, "layout": False}
     monkeypatch.setattr(cli, "read_version", lambda: "1.2.3")
     monkeypatch.setattr(cli, "run_preflight", lambda *_: True)
     monkeypatch.setattr(cli, "verify_plasma", lambda: True)
     monkeypatch.setattr(cli, "_check_deps", lambda *_: True)
     monkeypatch.setattr(cli, "_run_builds_or_abort", lambda *_: True)
-    monkeypatch.setattr(cli, "run_phase",
-                        lambda name, phase: phases.append((name, phase)) or True)
+    def run(name, phase):
+        phases.append((name, phase))
+        observed[name] = phase == "install"
+        return True
+    monkeypatch.setattr(cli, "run_phase", run)
+    monkeypatch.setattr(cli, "step_module", lambda name: type(
+        "Step", (), {"is_installed": staticmethod(lambda: observed[name])}))
     monkeypatch.setattr(cli, "save_state", saved.append)
     assert cli._run_feature_reconcile_body(after, InstalledState("1.2.3", before)) == 0
-    assert phases == [("firefox", "uninstall"), ("oled_care", "install")]
-    assert saved[0].features["firefox"] is False
-    assert saved[0].features["oled_care"] is False
+    assert phases == [("portals", "uninstall"), ("layout", "install")]
+    assert saved[0].features["portals"] is False
+    assert saved[0].features["layout"] is False
     assert saved[-1].features == after
 
 
@@ -178,20 +184,43 @@ def test_reconcile_refuses_unsupported_delta_before_preflight(monkeypatch):
 
 
 def test_reconcile_failure_keeps_failed_feature_unrecorded(monkeypatch):
-    before = _selection()
-    after = {**before, "firefox": True, "portals": True}
+    before = _selection(plasmoids=True, globalmenu=True)
+    after = {**before, "layout": True, "portals": True}
     saved = []
+    observed = {"layout": False, "portals": False}
     monkeypatch.setattr(cli, "read_version", lambda: "1.2.3")
     monkeypatch.setattr(cli, "run_preflight", lambda *_: True)
     monkeypatch.setattr(cli, "verify_plasma", lambda: True)
     monkeypatch.setattr(cli, "_check_deps", lambda *_: True)
     monkeypatch.setattr(cli, "_run_builds_or_abort", lambda *_: True)
-    monkeypatch.setattr(cli, "run_phase", lambda name, *_: name != "portals")
+    def run(name, phase):
+        if name == "portals":
+            return False
+        observed[name] = phase == "install"
+        return True
+    monkeypatch.setattr(cli, "run_phase", run)
+    monkeypatch.setattr(cli, "step_module", lambda name: type(
+        "Step", (), {"is_installed": staticmethod(lambda: observed[name])}))
     monkeypatch.setattr(cli, "save_state", saved.append)
     assert cli._run_feature_reconcile_body(after, InstalledState("1.2.3", before)) == 1
     assert len(saved) == 1
-    assert saved[0].features["firefox"] is True
+    assert saved[0].features["layout"] is True
     assert saved[0].features["portals"] is False
+
+
+def test_reconcile_warned_noop_is_not_recorded(monkeypatch):
+    before = _selection()
+    monkeypatch.setattr(cli, "read_version", lambda: "1.2.3")
+    monkeypatch.setattr(cli, "run_preflight", lambda *_: True)
+    monkeypatch.setattr(cli, "verify_plasma", lambda: True)
+    monkeypatch.setattr(cli, "_check_deps", lambda *_: True)
+    monkeypatch.setattr(cli, "_run_builds_or_abort", lambda *_: True)
+    monkeypatch.setattr(cli, "run_phase", lambda *_: True)
+    monkeypatch.setattr(cli, "step_module", lambda name: type(
+        "Step", (), {"is_installed": staticmethod(lambda: False)}))
+    monkeypatch.setattr(cli, "save_state", lambda *_: pytest.fail("no-op saved"))
+    assert cli._run_feature_reconcile_body(
+        {**before, "portals": True}, InstalledState("1.2.3", before)) == 1
 
 
 def test_cli_reconcile_stays_behind_live_staging_guard(monkeypatch):

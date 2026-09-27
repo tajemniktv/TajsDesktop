@@ -65,10 +65,11 @@ Do not remove that guard merely because static tests or native builds pass.
   it runs only `update_assets` and records the new version after all selected
   phases succeed. The live staging guard still blocks this action.
   A separate staged `--reconcile` executor now handles only reviewed
-  Firefox, portal, layout, and OLED-care enable/disable paths. It rejects
+  portal-routing and layout enable/disable paths. It rejects
   unsupported changes and version drift before mutation, checks layout
   dependencies, skips all phases on a no-op, and records each successful
-  feature action independently. It never runs the broad apply or theme
+  feature action independently, after verifying its installed-state probe.
+  It never runs the broad apply or theme
   switch phases. Both executors remain behind the live staging guard.
   The graphical installer exposes the corresponding disabled-while-staging
   Apply features action; the feature window already distinguishes requested
@@ -128,8 +129,8 @@ Do not remove that guard merely because static tests or native builds pass.
 4. Finish layout lifecycle: expose a preview and confirmed scoped reset for
    modified fork panels, preserve user pins and geometry, and verify backup
    restoration in an isolated KDE VM. Keep unproven legacy panels foreign.
-5. Extend reviewed reconciliation beyond Firefox, portal routing, layout,
-   and OLED care without replaying broad installation. Connect installed
+5. Extend reviewed reconciliation beyond portal routing and layout,
+   including Firefox and OLED care, without replaying broad installation. Connect installed
    versus requested state with executable eligibility in the GUI and add
    scoped reset actions to the GUI and CLI.
 6. Wire the reviewed profile engine to guarded first-install and explicit
