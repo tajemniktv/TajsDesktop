@@ -20,6 +20,10 @@ Do not remove that guard merely because static tests or native builds pass.
 - Firefox uses distinct ownership markers and skips profiles containing an
   upstream managed block or shared `chrome` symlink instead of converting or
   replacing them automatically.
+- Feature choices now save under the invoking user's config home, leaving the
+  repository's `features.json` baseline untouched. `./install --plan` and the
+  GUI provide a read-only installed-versus-requested delta. The GUI disables
+  live install/uninstall while staging is active.
 
 ## Remaining release gates
 
@@ -39,10 +43,9 @@ Do not remove that guard merely because static tests or native builds pass.
    applet instances, panel geometry, pins, and wallpaper overrides. A reset
    must show exactly which keys or containments it will change and support
    rollback.
-5. Move desired feature state from repository `features.json` to a versioned
-   per-user file without changing the existing local `features.json` edit.
-   Make the GUI show installed versus requested state, an operation preview,
-   and explicit reset actions.
+5. Persist versioned *installed* state only after each successful operation
+   and make the preview executable through safe per-feature reconciliation.
+   Add explicit, scoped reset actions to the GUI and CLI.
 6. Selectively import portable settings for KDE workspace, shortcuts, input,
    power, window behavior, theme, default applications, Dolphin, Konsole,
    Kate, Firefox, and Nautilus into common defaults plus one named local

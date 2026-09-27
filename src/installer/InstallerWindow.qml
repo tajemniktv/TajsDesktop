@@ -512,11 +512,13 @@ Window {
 
                 FlatButton {
                     text: installerWindow.t("Install")
+                    enabled: installer && !installer.stagingBlocked
                     onClicked: installerWindow.runAction("install")
                 }
 
                 FlatButton {
                     text: installerWindow.t("Uninstall")
+                    enabled: installer && !installer.stagingBlocked
                     onClicked: installerWindow.runAction("uninstall")
                 }
 

@@ -22,11 +22,13 @@ from pathlib import Path
 # root ./installer or imported directly.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from paths import CONFIG_FILE, REPO_ROOT, read_version
+from paths import REPO_ROOT, read_version
 from cli import (
-    ALL_FEATURES, DEFAULT_FEATURES, FEATURE_DESC,
-    fetch_latest_release, parse_semver,
+    ALL_FEATURES, FEATURE_DESC, STAGING_INSTALL_BLOCKED,
+    fetch_latest_release, load_features, parse_semver,
+    save_features as save_user_features, user_features_file,
 )
+from fork_lifecycle import load_state, plan_features
 from log import DONE_MARKER
 from localization import (
     feature_label, get_language, language_options, set_language, translate,
@@ -520,6 +522,10 @@ def _make_installer_bridge():
             first paint can show it."""
             return read_version()
 
+        @pyqtProperty(bool, constant=True)
+        def stagingBlocked(self) -> bool:
+            return STAGING_INSTALL_BLOCKED
+
         @pyqtProperty(str, notify=languageChanged)
         def language(self) -> str:
             return self._language
@@ -811,16 +817,16 @@ def launch_preview() -> int:
 
 def dump_features() -> dict[str, object]:
     language = get_language()
-    state: dict[str, object] = dict(DEFAULT_FEATURES)
-    if CONFIG_FILE.is_file():
-        try:
-            saved = json.loads(CONFIG_FILE.read_text())
-            if isinstance(saved, dict):
-                for key, value in saved.items():
-                    if key in state:
-                        state[key] = value
-        except (OSError, ValueError):
-            pass
+    state = load_features()
+    try:
+        installed = load_state()
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return {"items": [], "error": f"Invalid install state: {exc}",
+                "staging_blocked": True}
+    preview = plan_features(
+        {key: bool(state.get(key, False)) for key in ALL_FEATURES},
+        installed, read_version(),
+    )
 
     items = [
         {
@@ -828,32 +834,27 @@ def dump_features() -> dict[str, object]:
             "label": feature_label(key, language),
             "description": translate(FEATURE_DESC.get(key, ""), language),
             "enabled": bool(state.get(key, True)),
+            "installed": bool(installed and installed.features.get(key, False)),
         }
         for key in ALL_FEATURES
         if key != "no_download"
     ]
-    return {"items": items, "config_path": str(CONFIG_FILE)}
+    return {"items": items, "config_path": str(user_features_file()),
+            "preview": preview, "staging_blocked": STAGING_INSTALL_BLOCKED}
 
 
 def save_features(payload: dict[str, object]) -> dict[str, object]:
-    state: dict[str, object] = dict(DEFAULT_FEATURES)
-    if CONFIG_FILE.is_file():
-        try:
-            saved = json.loads(CONFIG_FILE.read_text())
-            if isinstance(saved, dict):
-                state.update({k: v for k, v in saved.items() if k in state})
-        except (OSError, ValueError):
-            pass
+    state = load_features()
 
     for key, value in payload.items():
         if key in state and isinstance(value, bool):
             state[key] = value
 
     try:
-        CONFIG_FILE.write_text(json.dumps(state, indent=2) + "\n")
+        save_user_features(state)
     except OSError as exc:
         return {"ok": False, "message": str(exc)}
-    return {"ok": True, "message": f"Saved to {CONFIG_FILE.name}"}
+    return {"ok": True, "message": f"Saved to {user_features_file()}"}
 
 
 def update_status() -> dict[str, object]:
@@ -900,7 +901,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument(
         "--save-features",
         metavar="JSON",
-        help="Persist a JSON object of {feature: bool} into features.json.",
+        help="Persist feature choices under the invoking user's config home.",
     )
     parser.add_argument(
         "--check-update",

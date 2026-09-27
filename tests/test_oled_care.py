@@ -1406,7 +1406,11 @@ def test_cli_parses_interval_and_max_shift_both_forms():
 def test_cli_settings_survive_save_load_roundtrip(tmp_path, monkeypatch):
     import cli
 
-    monkeypatch.setattr(cli, "CONFIG_FILE", tmp_path / "features.json")
+    baseline = tmp_path / "repo-features.json"
+    baseline.write_text('{"oled_care": false}\n')
+    monkeypatch.setattr(cli, "CONFIG_FILE", baseline)
+    monkeypatch.setattr(cli, "user_features_file",
+                        lambda: tmp_path / "user-features.json")
     feat = dict(cli.DEFAULT_FEATURES)
     feat["oled_care"] = True
     feat["oled_interval"] = 7
@@ -1417,6 +1421,7 @@ def test_cli_settings_survive_save_load_roundtrip(tmp_path, monkeypatch):
     assert loaded["oled_care"] is True
     assert loaded["oled_interval"] == 7
     assert loaded["oled_max_shift"] == 3
+    assert baseline.read_text() == '{"oled_care": false}\n'
 
 
 def test_cli_export_env_publishes_oled_settings(monkeypatch):

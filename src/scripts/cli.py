@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from log import (
 )
 from preflight import run_preflight
 from state import RunTracker
+from fork_lifecycle import load_state, plan_features
 from step_runner import run_phase, step_deps, step_exists, step_has_phase, step_module
 from utils import (
     CancellationRequested, cancellation_requested, cancellation_scope,
@@ -158,6 +160,7 @@ Options:
     --no-grub-modify   Don't auto-edit /etc/default/grub for the boot
                        splash kernel cmdline (prints manual fix instead)
     --reset-wallpapers Let timed theme changes manage the background again
+    --plan             Preview feature changes without root or desktop writes
                        and apply the bundled wallpaper once
   Persistence:
     --save             Save current flags to features.json
@@ -222,6 +225,12 @@ DEFAULT_FEATURES["oled_max_shift"] = 8  # max shift distance in px (1-16)
 DEFAULT_FEATURES["theme_mode"] = "auto"
 
 
+def user_features_file() -> Path:
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or
+                       Path.home() / ".config")
+    return config_home / "tajsdesktop/features.json"
+
+
 def _coerce_int(value: object, default: int, lo: int, hi: int) -> int:
     try:
         n = int(value)  # type: ignore[arg-type]
@@ -231,16 +240,18 @@ def _coerce_int(value: object, default: int, lo: int, hi: int) -> int:
 
 
 def load_features() -> dict[str, object]:
-    if not CONFIG_FILE.is_file():
-        return dict(DEFAULT_FEATURES)
-    try:
-        data = json.loads(CONFIG_FILE.read_text())
-    except (OSError, json.JSONDecodeError):
-        return dict(DEFAULT_FEATURES)
     out = dict(DEFAULT_FEATURES)
-    for k, v in data.items():
-        if k in DEFAULT_FEATURES:
-            out[k] = v
+    for source in (CONFIG_FILE, user_features_file()):
+        try:
+            data = json.loads(source.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if k in ALL_FEATURES and isinstance(v, bool):
+                    out[k] = v
+                elif k in ("oled_interval", "oled_max_shift", "theme_mode"):
+                    out[k] = v
     return out
 
 
@@ -255,7 +266,19 @@ def save_features(feat: dict[str, object]) -> None:
                  f"{_coerce_int(feat.get('oled_max_shift'), 8, 1, 16)},")
     lines.append(f'  "theme_mode":'.ljust(24) + f'"{feat.get("theme_mode", "auto")}"')
     lines.append("}")
-    CONFIG_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    target = user_features_file()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=".features-", suffix=".tmp",
+                                dir=target.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write("\n".join(lines) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(name, target)
+    except BaseException:
+        Path(name).unlink(missing_ok=True)
+        raise
 
 
 class ParsedArgs:
@@ -268,6 +291,7 @@ class ParsedArgs:
         self.preflight_only = False
         self.restart_only = False
         self.reset_wallpapers = False
+        self.plan_only = False
         self.cli_overrides: dict[str, bool] = {}
         self.oled_interval: int | None = None
         self.oled_max_shift: int | None = None
@@ -319,6 +343,8 @@ def parse_args(argv: list[str]) -> ParsedArgs:
             p.restart_only = True
         elif arg == "--reset-wallpapers":
             p.reset_wallpapers = True
+        elif arg == "--plan":
+            p.plan_only = True
         elif arg == "--no-grub-modify":
             # Read by the plymouth step: print manual instructions
             # instead of editing /etc/default/grub.
@@ -1184,6 +1210,35 @@ def run_install(argv: list[str], tui: bool = False,
         return 0
     if parsed.check_update:
         return 1 if check_for_updates(verbose=True) else 0
+
+    if parsed.plan_only:
+        if parsed.do_save or parsed.do_reset:
+            print("--plan cannot be combined with --save or --reset",
+                  file=sys.stderr)
+            return 2
+        desired = load_features()
+        if parsed.only_mode:
+            desired.update({feature: False for feature in ALL_FEATURES})
+        desired.update(parsed.cli_overrides)
+        try:
+            preview = plan_features(
+                {feature: bool(desired.get(feature, False))
+                 for feature in ALL_FEATURES},
+                load_state(), read_version(),
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"Cannot preview TajsDesktop state: {exc}", file=sys.stderr)
+            return 1
+        home = Path.home()
+        preview["upstream_tahoe_present"] = any(path.exists() for path in (
+            home / ".local/state/mac-tahoe-liquid-kde",
+            home / ".local/bin/mac-tahoe-theme-switch",
+            home / ".local/share/plasma/look-and-feel/"
+                   "org.kde.mac-tahoe-liquid-kde.light",
+        ))
+        preview["executable"] = not STAGING_INSTALL_BLOCKED
+        print(json.dumps(preview, indent=2))
+        return 0
 
     # Root required: .so and QML drops go into the qmake6-reported Qt6
     # dirs; user paths aren't discoverable.

@@ -859,3 +859,18 @@ def test_confirm_auto_accepts_in_no_confirm_mode(monkeypatch, capsys):
     import cli
     assert cli.confirm("Install at your own risk.") is True
     assert "auto-accepting" in capsys.readouterr().out
+
+
+def test_gui_feature_save_does_not_edit_repository_baseline(
+        installer_ui_module, monkeypatch, tmp_path):
+    import cli
+    baseline = tmp_path / "features.json"
+    baseline.write_text('{"oled_care": false}\n')
+    desired = tmp_path / "user/features.json"
+    monkeypatch.setattr(cli, "CONFIG_FILE", baseline)
+    monkeypatch.setattr(cli, "user_features_file", lambda: desired)
+
+    result = installer_ui_module.save_features({"oled_care": True})
+    assert result["ok"] is True
+    assert baseline.read_text() == '{"oled_care": false}\n'
+    assert json.loads(desired.read_text())["oled_care"] is True
