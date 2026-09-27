@@ -934,7 +934,7 @@ _UNKNOWN_SCHEMA = {
 }
 
 
-# Canned data for README screenshots (--mock / MAC_TAHOE_ABOUT_MOCK=1) so
+# Canned data for README screenshots (--mock / TAJSDESKTOP_ABOUT_MOCK=1) so
 # captures don't leak the maintainer's MAC / serial / disk model.
 _MOCK_DATA = {
     "vendor": "ASUS",
@@ -953,7 +953,7 @@ _MOCK_DATA = {
 
 def main(argv: list[str]) -> int:
     pretty = "--pretty" in argv
-    mock = "--mock" in argv or os.environ.get("MAC_TAHOE_ABOUT_MOCK") == "1"
+    mock = "--mock" in argv or os.environ.get("TAJSDESKTOP_ABOUT_MOCK") == "1"
 
     if mock:
         data = dict(_MOCK_DATA)

@@ -860,7 +860,7 @@ def save_features(payload: dict[str, object]) -> dict[str, object]:
 def update_status() -> dict[str, object]:
     """Mirror the CLI's ``--check-update`` verdict via the same engine
     pieces so GUI and CLI never disagree. Network failures and the
-    MAC_TAHOE_NO_UPDATE_CHECK opt-out resolve to ``reachable=False``
+    TAJSDESKTOP_NO_UPDATE_CHECK opt-out resolve to ``reachable=False``
     rather than raising — a flaky GitHub must never break the window."""
     current = read_version()
     latest = fetch_latest_release()

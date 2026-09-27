@@ -27,6 +27,6 @@ AboutWindow {
     // Point the data source at the mock-emitter. Same about_info
     // helper, just with ``--mock`` so the JSON it emits is the canned
     // _MOCK_DATA dict instead of live hardware probing.
-    fetcherCommand: "sh -c 'MAC_TAHOE_ABOUT_MOCK=1 ~/.local/bin/tajsdesktop-about-info'"
+    fetcherCommand: "sh -c 'TAJSDESKTOP_ABOUT_MOCK=1 ~/.local/bin/tajsdesktop-about-info'"
     useSystemFont: true
 }

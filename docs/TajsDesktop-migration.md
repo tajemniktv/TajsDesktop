@@ -17,6 +17,9 @@ Do not remove that guard merely because static tests or native builds pass.
 - The automatic upstream `kconf_update` step and stock-applet rewrite have
   been removed from the installation path. Those migrations must not be
   repurposed to overwrite existing upstream or stock KDE applet instances.
+- The remaining Tahoe `kdedefaults` scrub call was removed from the fork's
+  uninstall path. Global Menu's Plasma startup hook now has a fork-owned
+  filename, so a later install or uninstall cannot replace Tahoe's hook.
 - Firefox uses distinct ownership markers and skips profiles containing an
   upstream managed block or shared `chrome` symlink instead of converting or
   replacing them automatically.

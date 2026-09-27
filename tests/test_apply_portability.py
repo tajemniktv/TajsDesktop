@@ -441,7 +441,6 @@ def _seed_uninstall_env(monkeypatch, tmp_path):
     monkeypatch.setattr(apply, "kw_write", lambda *a, **k: True)
     monkeypatch.setattr(apply, "feat_enabled",
                         lambda name, default=True: False)
-    monkeypatch.setattr(apply, "_scrub_kdedefaults", lambda: None)
     monkeypatch.setattr(apply, "_flush_caches", lambda: None)
     monkeypatch.setattr(apply, "_run_live", lambda cmd: None)
     monkeypatch.setattr(apply, "_live_plasma_ready_quick", lambda: False)
@@ -510,7 +509,6 @@ def test_uninstall_resets_icon_theme_even_when_icons_feature_disabled(
     # Every feature flag OFF — including ICONS.
     monkeypatch.setattr(apply, "feat_enabled", lambda name, default=True: False)
     # Stub out everything else uninstall() touches so we isolate the reset.
-    monkeypatch.setattr(apply, "_scrub_kdedefaults", lambda: None)
     monkeypatch.setattr(apply, "_flush_caches", lambda: None)
     monkeypatch.setattr(apply, "_run_live", lambda cmd: None)
     monkeypatch.setattr(apply, "reset_kde_color_scheme_config", lambda s: None)
@@ -551,7 +549,6 @@ def test_uninstall_prefers_official_icon_and_cursor_tools(monkeypatch,
         lambda cmd: calls.append(cmd) or True,
     )
     monkeypatch.setattr(apply, "_live_plasma_ready_quick", lambda: True)
-    monkeypatch.setattr(apply, "_scrub_kdedefaults", lambda: None)
     monkeypatch.setattr(apply, "_flush_caches", lambda: None)
     monkeypatch.setattr(apply, "reset_kde_color_scheme_config", lambda s: True)
     monkeypatch.setattr(apply, "_apply_lookandfeel_live", lambda laf: True)
@@ -585,7 +582,6 @@ def test_uninstall_uses_official_icon_and_cursor_tools_before_shell_ready(
     monkeypatch.setattr(apply, "kw_write", lambda *a, **k: writes.append(a) or True)
     monkeypatch.setattr(apply, "_run_live", lambda cmd: calls.append(cmd) or True)
     monkeypatch.setattr(apply, "_live_plasma_ready_quick", lambda: False)
-    monkeypatch.setattr(apply, "_scrub_kdedefaults", lambda: None)
     monkeypatch.setattr(apply, "_flush_caches", lambda: None)
     monkeypatch.setattr(apply, "reset_kde_color_scheme_config", lambda s: True)
     monkeypatch.setattr(apply, "_apply_lookandfeel_live", lambda laf: True)

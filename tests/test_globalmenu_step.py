@@ -35,7 +35,7 @@ def _stub_sudo_helpers(monkeypatch):
     is real-system territory; in the test we just want to verify the
     install code targets the right paths and copies the right bytes."""
     def fake_install_file(src: Path, dest: Path, label: str, *, user_owned=False) -> bool:
-        assert user_owned == (dest.name == "mac-tahoe-gtk-appmenu.sh")
+        assert user_owned == (dest.name == "tajsdesktop-gtk-appmenu.sh")
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(str(src), str(dest))
         return True
@@ -103,7 +103,7 @@ def test_install_copies_globalmenu_runtime_qml(tmp_path, monkeypatch):
     assert expected_so.is_file()
     assert (expected_qml / "qmldir").is_file()
     assert (expected_qml / "main.qml").is_file()
-    gtk_environment = home / ".config/plasma-workspace/env/mac-tahoe-gtk-appmenu.sh"
+    gtk_environment = home / ".config/plasma-workspace/env/tajsdesktop-gtk-appmenu.sh"
     assert str(gtk_module) in gtk_environment.read_text()
 
     globalmenu.uninstall()

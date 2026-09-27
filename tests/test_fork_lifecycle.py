@@ -1,10 +1,12 @@
 """The fork's feature preview must not become an implicit reinstall."""
 
 import json
+import inspect
 
 import pytest
 
 import cli
+from steps import apply
 from fork_lifecycle import (
     InstalledState, load_state, plan_features, save_state,
     upstream_install_present,
@@ -110,3 +112,8 @@ def test_cli_profile_reset_preview_requires_no_root(monkeypatch, capsys):
     preview = json.loads(capsys.readouterr().out)
     assert preview["reset"] == [{"file": "dolphinrc", "action": "delete"}]
     assert preview["executable"] is False
+
+
+def test_fork_lifecycle_does_not_run_upstream_kconf_migration():
+    assert "kconf_update" not in cli.INSTALL_ORDER
+    assert "run_migration" not in inspect.getsource(apply.uninstall)

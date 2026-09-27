@@ -1130,7 +1130,7 @@ def _live_tool_env() -> dict[str, str]:
 
 
 def _run_live_plasma_tool(cmd: list[str], *, timeout_seconds: int = 20) -> bool:
-    if os.environ.get("MAC_TAHOE_SKIP_LIVE_APPLY", "").lower() == "true":
+    if os.environ.get("TAJSDESKTOP_SKIP_LIVE_APPLY", "").lower() == "true":
         return False
     try:
         return _run_user(cmd, timeout=timeout_seconds,

@@ -221,7 +221,7 @@ when the recovered session still cannot reach the user service manager.
 ## Architecture — Fork Update Safety
 
 `./install` checks the TajsDesktop fork's GitHub releases on launch.
-`MAC_TAHOE_NO_UPDATE_CHECK=true` skips the check; `--check-update`
+`TAJSDESKTOP_NO_UPDATE_CHECK=true` skips the check; `--check-update`
 checks and exits. Installation never runs `git pull` or re-executes newly
 downloaded code. A release notice is informational: review and update the
 fork explicitly before running an installer. Never restore the upstream
@@ -387,7 +387,7 @@ ChatGPT builds explicitly clear `gtk-modules` during Chromium initialization;
 GDB reproduced both reported application offsets at the subsequent GIO crash.
 
 The Global Menu step installs an ownership-marked, per-user Plasma environment
-hook at `$XDG_CONFIG_HOME/plasma-workspace/env/mac-tahoe-gtk-appmenu.sh` when
+hook at `$XDG_CONFIG_HOME/plasma-workspace/env/tajsdesktop-gtk-appmenu.sh` when
 `distro.gtk3_appmenu_module()` finds the native GTK3 module. The hook appends it
 once to `GTK3_MODULES`, preserving existing entries and leaving `GTK_MODULES`
 and GTK2 untouched. Chromium clears `GTK_MODULES`, so the GTK3-specific variable

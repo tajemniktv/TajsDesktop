@@ -25,7 +25,7 @@ _QML_RELPATH = "plasma/applet/org/tajemniktv/tajsdesktop/globalmenu"
 TRANSLATION_DOMAIN = "plasma_applet_org.tajemniktv.tajsdesktop.globalmenu.mo"
 TRANSLATION_LANGUAGES = ("es", "zh_CN")
 GTK_ENV_MARKER = "# Managed by tajsdesktop: GTK appmenu lifetime\n"
-GTK_ENV_TEMPLATE = offline("plasma-env/mac-tahoe-gtk-appmenu.sh.in")
+GTK_ENV_TEMPLATE = offline("plasma-env/tajsdesktop-gtk-appmenu.sh.in")
 
 _LEGACY_SO_BASENAMES = (
     "org.tajemniktv.tajsdesktop.menu.so",
@@ -138,7 +138,7 @@ def install() -> None:
 
 def gtk_appmenu_env_path() -> Path:
     config_home = Path(os.environ.get("XDG_CONFIG_HOME") or HOME / ".config")
-    return config_home / "plasma-workspace/env/mac-tahoe-gtk-appmenu.sh"
+    return config_home / "plasma-workspace/env/tajsdesktop-gtk-appmenu.sh"
 
 
 def _gtk_appmenu_environment(module: Path) -> str:

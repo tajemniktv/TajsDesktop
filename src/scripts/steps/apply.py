@@ -495,14 +495,6 @@ def restart_plasma() -> None:
     else:
         warn("Plasma restart did not produce a running shell")
 
-def _scrub_kdedefaults() -> None:
-    # The scrub lives in a bundled kconf_update helper; run just
-    # that one here — uninstall must not touch appletsrc or install anything.
-    from steps.kconf_update import run_migration
-    run_migration("mac-tahoe-scrub-kdedefaults.sh")
-    ok("kdedefaults cleaned")
-
-
 def _reset_wallpaper(*, live_ready: bool, native_reset: bool) -> None:
     """Restore a system wallpaper through every safe KDE path available."""
     declared = _lookandfeel_default_wallpaper(_BREEZE_LOOK_AND_FEEL)
@@ -566,7 +558,6 @@ def uninstall() -> None:
         kw_write("--file", "kdeglobals", "--group", "KDE",
                  "--key", "LookAndFeelPackage", _BREEZE_LOOK_AND_FEEL)
 
-    _scrub_kdedefaults()
     live_ready = _live_plasma_ready_quick()
 
     plasmarc = HOME / ".config/plasmarc"

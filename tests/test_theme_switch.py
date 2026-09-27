@@ -1317,7 +1317,7 @@ def test_run_live_plasma_tool_drops_privs_and_keeps_timeout(monkeypatch):
 
     monkeypatch.setattr(theme_switch.subprocess, "run", fake_run)
     monkeypatch.setattr(theme_switch, "_sync_session_env", lambda: None)
-    monkeypatch.delenv("MAC_TAHOE_SKIP_LIVE_APPLY", raising=False)
+    monkeypatch.delenv("TAJSDESKTOP_SKIP_LIVE_APPLY", raising=False)
 
     assert theme_switch._run_live_plasma_tool(
         ["plasma-apply-cursortheme", "breeze_cursors"],

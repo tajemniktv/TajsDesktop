@@ -44,7 +44,7 @@ def main() -> int:
             ["cc", "-Wall", "-Wextra", "-Werror", "-o", str(binary),
              str(REPO / "tests/native/gtk_appmenu_lifetime.c"), *shlex.split(flags)],
             check=True, timeout=30)
-        hook = folder / "mac-tahoe-gtk-appmenu.sh"
+        hook = folder / "tajsdesktop-gtk-appmenu.sh"
         hook.write_text(_gtk_appmenu_environment(module), encoding="utf-8")
         runtime = folder / "runtime"
         runtime.mkdir(mode=0o700)

@@ -354,7 +354,7 @@ def restore_desktop_session_env(uid: int | None = None) -> None:
 
 _USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "MacTahoeLiquidKDE/installer"
+    "TajsDesktop/installer"
 )
 
 

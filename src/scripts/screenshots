@@ -11,7 +11,7 @@ into ``src/screenshots/``. The active theme is restored at exit so the
 maintainer's running session is left as it was found.
 
 Mock data:
-    The About panel uses ``MAC_TAHOE_ABOUT_MOCK=1`` against the helper
+    The About panel uses ``TAJSDESKTOP_ABOUT_MOCK=1`` against the helper
     so the captured PNG contains canned values from ``about_info.py:
     _MOCK_DATA`` instead of the real MAC address, serial, hardware,
     etc. — never leak hardware identifiers into a public screenshot.

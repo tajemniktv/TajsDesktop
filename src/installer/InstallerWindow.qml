@@ -33,7 +33,7 @@ Window {
     // Populated by installer.checkForUpdates() → onUpdateChecked. The
     // banner stays hidden unless GitHub reports a strictly newer release,
     // mirroring the CLI's `./install --check-update` verdict. Network
-    // failures (and the MAC_TAHOE_NO_UPDATE_CHECK opt-out) leave
+    // failures (and the TAJSDESKTOP_NO_UPDATE_CHECK opt-out) leave
     // updateAvailable false, so the banner simply never appears.
     property bool updateAvailable: false
     property string updateCurrent: ""

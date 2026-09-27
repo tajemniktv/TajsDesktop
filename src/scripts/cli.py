@@ -406,7 +406,7 @@ def parse_semver(version: str) -> tuple[int, int, int]:
 def fetch_latest_release(timeout: float = 2.5) -> str | None:
     """Latest release tag (bare version string) from GitHub, or ``None``
     if anything goes wrong — offline, rate-limited, JSON shape changed."""
-    if os.environ.get("MAC_TAHOE_NO_UPDATE_CHECK", "").lower() == "true":
+    if os.environ.get("TAJSDESKTOP_NO_UPDATE_CHECK", "").lower() == "true":
         return None
     try:
         import urllib.request
