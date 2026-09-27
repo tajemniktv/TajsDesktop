@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -156,6 +157,40 @@ def test_install_and_uninstall_profile_without_existing_chrome(firefox_home):
     assert not (profile / "chrome").exists()
     assert not (profile / "user.js").exists()
     assert (profile / "prefs.js").is_file()
+
+
+def test_asset_update_only_refreshes_unchanged_installed_profile(
+    firefox_home, monkeypatch, tmp_path, offline,
+):
+    source = tmp_path / "source"
+    shutil.copytree(offline / "firefox" / firefox.THEME_DIRNAME,
+                    source / "firefox" / firefox.THEME_DIRNAME)
+    monkeypatch.setattr(firefox, "offline", lambda *parts: source.joinpath(*parts))
+    first = _seed_profile(firefox_home / ".mozilla/firefox")
+    firefox.install()
+    chrome = first / "chrome"
+    css = chrome / "userChrome.css"
+    user_js = first / "user.js"
+    css_before, user_before = css.read_bytes(), user_js.read_bytes()
+    payload = source / "firefox" / firefox.THEME_DIRNAME / "customChrome.css"
+    payload.write_bytes(payload.read_bytes() + b"\n/* new bundled asset */\n")
+    second = first.parent / "new.default"
+    second.mkdir()
+    (second / "prefs.js").write_text("", encoding="utf-8")
+
+    firefox.update_assets()
+
+    assert b"new bundled asset" in (chrome / firefox.THEME_DIRNAME / "customChrome.css").read_bytes()
+    assert css.read_bytes() == css_before
+    assert user_js.read_bytes() == user_before
+    assert not (second / "chrome").exists()
+
+    installed = chrome / firefox.THEME_DIRNAME / "customChrome.css"
+    installed.write_bytes(installed.read_bytes() + b"/* user edit */\n")
+    payload.write_bytes(payload.read_bytes() + b"/* another release */\n")
+    firefox.update_assets()
+    firefox.install()
+    assert installed.read_bytes().endswith(b"/* user edit */\n")
 
 
 def test_shared_chrome_symlink_is_left_untouched(firefox_home):

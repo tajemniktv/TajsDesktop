@@ -56,6 +56,30 @@ def test_nautilus_css_user_edit_survives_uninstall(monkeypatch, tmp_path):
     assert css.read_text() == "/* my edit */"
 
 
+def test_nautilus_asset_update_refreshes_only_unmodified_owned_css(
+        monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    source = tmp_path / "source"
+    source.mkdir()
+    bundled = source / "gtk.css"
+    bundled.write_text("/* v1 */")
+    monkeypatch.setattr(nautilus, "HOME", home)
+    monkeypatch.setattr(nautilus, "offline", lambda *args: source)
+    monkeypatch.setattr(nautilus, "_apply_gsettings", lambda: (_ for _ in ()).throw(
+        AssertionError("asset refresh must not set app preferences")))
+    nautilus._apply_overrides()
+    css = home / ".config/nautilus/gtk.css"
+    bundled.write_text("/* v2 */")
+
+    nautilus.update_assets()
+
+    assert css.read_text() == "/* v2 */"
+    css.write_text("/* user edit */")
+    bundled.write_text("/* v3 */")
+    nautilus.update_assets()
+    assert css.read_text() == "/* user edit */"
+
+
 def test_nautilus_gsettings_respects_explicit_dconf_values(monkeypatch):
     monkeypatch.setattr(nautilus, "have", lambda _tool: True)
     calls = []

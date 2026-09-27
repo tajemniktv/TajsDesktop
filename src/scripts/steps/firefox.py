@@ -18,7 +18,7 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from steps._helpers import HOME, info, offline, ok, warn
+from steps._helpers import HOME, fail, info, offline, ok, warn
 
 
 THEME_DIRNAME = "TajsDesktop"
@@ -67,6 +67,23 @@ def _manifest_path() -> Path:
 
 def _theme_source() -> Path:
     return offline(THEME_SOURCE_NAME, THEME_DIRNAME)
+
+
+def _theme_digest(directory: Path) -> str:
+    """Hash the whole managed payload so an edited copy becomes user-owned."""
+    digest = hashlib.sha256()
+    for path in sorted(directory.rglob("*")):
+        relative = path.relative_to(directory).as_posix().encode()
+        digest.update(relative + b"\0")
+        if path.is_symlink():
+            digest.update(b"L" + os.fsencode(os.readlink(path)) + b"\0")
+        elif path.is_file():
+            digest.update(b"F" + hashlib.sha256(path.read_bytes()).digest())
+        elif path.is_dir():
+            digest.update(b"D")
+        else:
+            raise ValueError(f"Unsupported Firefox theme node: {path}")
+    return digest.hexdigest()
 
 
 def _xdg_config_home() -> Path:
@@ -505,9 +522,17 @@ def _install_profile(profile: Path, manifest: dict[str, object]) -> bool:
     try:
         record = profiles[key]
         assert isinstance(record, dict)
+        existing_theme = profile / "chrome" / THEME_DIRNAME
+        if existing_theme.exists() and record.get("theme_hash"):
+            if (existing_theme.is_symlink() or
+                    _theme_digest(existing_theme) != record["theme_hash"]):
+                warn(f"Firefox: {profile.name} theme was customized; skipped")
+                return False
         migrate_legacy = record.get("chrome_kind") == "legacy-theme-symlink"
         chrome = _prepare_chrome_dir(profile, migrate_legacy=migrate_legacy)
         _install_payload(chrome)
+        record["theme_hash"] = _theme_digest(chrome / THEME_DIRNAME)
+        _save_manifest(manifest)
         for name, block in CHROME_BLOCKS.items():
             _prepend_css_block(chrome / name, block)
         if migrate_legacy:
@@ -596,6 +621,53 @@ def install() -> None:
     changed = sum(_install_profile(profile, manifest) for profile in profiles)
     _save_manifest(manifest)
     info(f"Firefox theme: {changed}/{len(profiles)} profiles installed; restart browsers to apply")
+
+
+def update_assets() -> None:
+    """Refresh only previously installed, unchanged theme payloads.
+
+    Profile discovery, userChrome/userContent, and user.js are not changed.
+    Newly created browser profiles stay user-owned until explicit enable.
+    """
+    manifest_path = _manifest_path()
+    if not manifest_path.exists() and not manifest_path.is_symlink():
+        return
+    if manifest_path.is_symlink():
+        fail("Firefox ownership manifest is a symlink; update refused")
+        return
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        profiles = manifest["profiles"]
+        if not isinstance(profiles, dict):
+            raise ValueError("invalid profile records")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        fail(f"Firefox ownership manifest invalid; update refused ({exc})")
+        return
+    discovered = {str(profile) for profile in discover_profiles()}
+    updated = 0
+    for name, record in profiles.items():
+        if name not in discovered or not isinstance(record, dict):
+            continue
+        profile = Path(name)
+        chrome = profile / "chrome"
+        theme = chrome / THEME_DIRNAME
+        expected = record.get("theme_hash")
+        if (chrome.is_symlink() or theme.is_symlink() or not theme.is_dir()
+                or not isinstance(expected, str)):
+            warn(f"Firefox: {profile.name} theme ownership uncertain; skipped")
+            continue
+        try:
+            if _theme_digest(theme) != expected:
+                warn(f"Firefox: {profile.name} theme was customized; skipped")
+                continue
+            _install_payload(chrome)
+            record["theme_hash"] = _theme_digest(chrome / THEME_DIRNAME)
+            _save_manifest(manifest)
+            updated += 1
+        except (OSError, ValueError) as exc:
+            fail(f"Firefox: {profile.name} theme update failed ({exc})")
+            return
+    info(f"Firefox theme assets: {updated} profile(s) updated")
 
 
 def uninstall() -> None:

@@ -3,6 +3,7 @@ import hashlib
 import os
 import re
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 from urllib.parse import quote
@@ -142,6 +143,39 @@ def _apply_overrides() -> None:
         warn(f"Nautilus CSS not initialized: {exc}")
         return
     ok("Nautilus CSS initialized")
+
+
+def update_assets() -> None:
+    """Refresh only a fork-owned, unmodified CSS payload; no app preferences."""
+    css = HOME / ".config/nautilus/gtk.css"
+    marker = css.with_name("gtk.css.tajsdesktop-owned")
+    if marker.is_symlink() or not marker.is_file() or css.is_symlink() or not css.is_file():
+        return
+    try:
+        previous = marker.read_text(encoding="utf-8").strip()
+        if (not re.fullmatch(r"[0-9a-f]{64}", previous)
+                or hashlib.sha256(css.read_bytes()).hexdigest() != previous):
+            warn("Nautilus CSS was customized; asset update skipped")
+            return
+        source = offline("nautilus") / "gtk.css"
+        content = source.read_bytes()
+        digest = hashlib.sha256(content).hexdigest()
+        if digest == previous:
+            return
+        fd, name = tempfile.mkstemp(prefix=".gtk.css.tajsdesktop-", dir=css.parent)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(name, css)
+        except BaseException:
+            Path(name).unlink(missing_ok=True)
+            raise
+        marker.write_text(digest + "\n", encoding="utf-8")
+        ok("Nautilus CSS payload updated")
+    except OSError as exc:
+        fail(f"Nautilus CSS asset update failed: {exc}")
 
 
 _FINDER_GSETTINGS = (
