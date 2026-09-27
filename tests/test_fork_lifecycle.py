@@ -81,6 +81,61 @@ def test_update_refreshes_core_switcher_only_when_phase_is_available():
     assert preview["pending_refresh"] == []
 
 
+def test_asset_update_executes_only_refresh_phases_and_saves_on_success(monkeypatch):
+    installed = InstalledState("1.2.3", {"wallpapers": True})
+    phases = []
+    saved = []
+    monkeypatch.setattr(cli, "read_version", lambda: "1.2.4")
+    monkeypatch.setattr(cli, "step_has_phase",
+                        lambda name, phase: name in {"wallpapers", "theme_switch"})
+    monkeypatch.setattr(cli, "run_preflight", lambda mode: True)
+    monkeypatch.setattr(cli, "verify_plasma", lambda: True)
+    monkeypatch.setattr(cli, "_check_deps", lambda selected: True)
+    monkeypatch.setattr(cli, "_run_builds_or_abort", lambda selected: True)
+    monkeypatch.setattr(cli, "run_phase", lambda name, phase: phases.append((name, phase)) or True)
+    monkeypatch.setattr(cli, "save_state", saved.append)
+
+    assert cli._run_asset_update_body({"wallpapers": True}, installed) == 0
+    assert phases == [("wallpapers", "update_assets"),
+                      ("theme_switch", "update_assets")]
+    assert saved == [InstalledState("1.2.4", {"wallpapers": True})]
+
+
+def test_asset_update_refuses_pending_phase_before_mutation(monkeypatch):
+    installed = InstalledState("1.2.3", {"rounded_corners": True})
+    monkeypatch.setattr(cli, "read_version", lambda: "1.2.4")
+    monkeypatch.setattr(cli, "step_has_phase",
+                        lambda name, phase: name == "theme_switch")
+    monkeypatch.setattr(cli, "run_preflight",
+                        lambda mode: pytest.fail("preflight ran before plan rejection"))
+    monkeypatch.setattr(cli, "save_state", lambda state: pytest.fail("partial update saved"))
+
+    assert cli._run_asset_update_body({"rounded_corners": True}, installed) == 1
+
+
+def test_asset_update_failure_does_not_advance_installed_version(monkeypatch):
+    installed = InstalledState("1.2.3", {"wallpapers": True})
+    monkeypatch.setattr(cli, "read_version", lambda: "1.2.4")
+    monkeypatch.setattr(cli, "step_has_phase",
+                        lambda name, phase: name in {"wallpapers", "theme_switch"})
+    monkeypatch.setattr(cli, "run_preflight", lambda mode: True)
+    monkeypatch.setattr(cli, "verify_plasma", lambda: True)
+    monkeypatch.setattr(cli, "_check_deps", lambda selected: True)
+    monkeypatch.setattr(cli, "_run_builds_or_abort", lambda selected: True)
+    monkeypatch.setattr(cli, "run_phase", lambda name, phase: name != "wallpapers")
+    monkeypatch.setattr(cli, "save_state", lambda state: pytest.fail("partial update saved"))
+
+    assert cli._run_asset_update_body({"wallpapers": True}, installed) == 1
+
+
+def test_cli_asset_update_stays_behind_live_staging_guard(monkeypatch):
+    monkeypatch.setattr(cli, "_require_root_and_drop_to_user", lambda prog: True)
+    monkeypatch.setattr(cli, "_run_asset_update_body",
+                        lambda *_: pytest.fail("staged asset update executed live"))
+    assert cli.parse_args(["--update-assets"]).update_assets is True
+    assert cli.run_install(["--update-assets"]) == 1
+
+
 def test_foreign_tahoe_install_requires_explicit_migration():
     preview = plan_features({"layout": True}, None, "0.52.0",
                             foreign_install=True)

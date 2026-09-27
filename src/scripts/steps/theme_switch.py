@@ -1,9 +1,12 @@
 """Installer step: copy the Python theme-switch + schedulers into ~/.local."""
 
+import hashlib
+import json
 import os
 import signal
 import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -18,6 +21,70 @@ from utils import run_user
 BIN_DEST = HOME / ".local/bin/tajsdesktop-theme-switch"
 SVC_DIR = HOME / ".config/systemd/user"
 PY_SRC = REPO_ROOT / "src/scripts/theme_switch.py"
+
+
+def _asset_record_path() -> Path:
+    state_home = Path(os.environ.get("XDG_STATE_HOME") or HOME / ".local/state")
+    return state_home / "tajsdesktop/theme-switch-assets.json"
+
+
+def _asset_sources() -> dict[str, tuple[Path, Path]]:
+    return {"binary": (PY_SRC, BIN_DEST), **{
+        unit: (offline(unit), SVC_DIR / unit) for unit in UNITS
+    }}
+
+
+def _asset_hash(path: Path) -> str:
+    if path.is_symlink() or not path.is_file():
+        raise OSError(f"not a regular theme-switch asset: {path}")
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _load_asset_record() -> dict[str, str] | None:
+    path = _asset_record_path()
+    if not path.exists() and not path.is_symlink():
+        return None
+    if path.is_symlink() or path.parent.is_symlink():
+        raise ValueError("symlinked theme-switch ownership record")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assets = data.get("assets") if isinstance(data, dict) else None
+    if (not isinstance(data, dict) or data.get("schema") != 1
+            or not isinstance(assets, dict) or "binary" not in assets
+            or not set(assets) <= set(_asset_sources())
+            or any(not isinstance(value, str) or len(value) != 64
+                   or any(char not in "0123456789abcdef" for char in value)
+                   for value in assets.values())):
+        raise ValueError("invalid theme-switch ownership record")
+    return assets
+
+
+def _save_asset_record(assets: dict[str, str]) -> None:
+    path = _asset_record_path()
+    if path.is_symlink() or path.parent.is_symlink():
+        raise OSError("symlinked theme-switch state path")
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=".theme-switch-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump({"schema": 1, "assets": assets}, stream, sort_keys=True)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(name, path)
+    except BaseException:
+        Path(name).unlink(missing_ok=True)
+        raise
+
+
+def _record_installed_assets() -> None:
+    sources = _asset_sources()
+    assets = {name: _asset_hash(target) for name, (_, target) in sources.items()
+              if target.is_file() or target.is_symlink()}
+    if "binary" not in assets:
+        raise OSError("theme-switch binary was not installed")
+    _save_asset_record(assets)
+
+
 def _managed_state_files() -> tuple[Path, ...]:
     state_home = Path(os.environ.get("XDG_STATE_HOME") or
                       HOME / ".local/state")
@@ -237,6 +304,21 @@ def _teardown_gtk_sync_autostart() -> None:
 
 
 def install() -> None:
+    try:
+        if _load_asset_record() is not None:
+            fail("Theme switcher is already owned; use asset update or feature reconciliation")
+            return
+        _asset_hash(PY_SRC)
+        if theme_mode() == "auto" and is_systemd():
+            for unit in UNITS:
+                _asset_hash(offline(unit))
+        for _, target in _asset_sources().values():
+            if target.exists() or target.is_symlink():
+                fail(f"Existing theme-switch asset has no ownership record: {target}")
+                return
+    except (OSError, ValueError) as exc:
+        fail(f"Theme-switch ownership preflight failed: {exc}")
+        return
     # 0.36.x-0.38.x installed a portal watcher that could replay a stale
     # appearance value over the scheduled/install target. It is no longer part
     # of the product: kill it and remove its autostart on every upgrade.
@@ -254,28 +336,33 @@ def install() -> None:
     SVC_DIR.mkdir(parents=True, exist_ok=True)
 
     auto = theme_mode() == "auto"
+    schedule_ok = True
 
     if auto:
         if is_systemd():
             # A previous OpenRC boot may have left our marked cron lines.
             cron_status = remove_periodic(CRON_TAG)
             if not _cron_removal_complete(cron_status):
-                warn("Theme switch: previous cron schedule could not be "
+                fail("Theme switch: previous cron schedule could not be "
                      "removed; duplicate auto transitions may remain")
+                schedule_ok = False
             if not _install_units():
-                warn("Theme switch: user timer could not be enabled")
+                fail("Theme switch: user timer could not be enabled")
+                schedule_ok = False
         else:
             # Conversely, remove stale user units before scheduling cron.
             if not _teardown_units():
-                warn("Theme switch: stale systemd unit files could not be "
+                fail("Theme switch: stale systemd unit files could not be "
                      "removed")
+                schedule_ok = False
             # OpenRC: fixed-time cron lines at 06:00/18:00. There is no
             # login-time oneshot equivalent, but the binary is idempotent
             # and the timed flips are what matter.
             command = cron_command(BIN_DEST, "auto")
             if not install_at_times(CRON_TAG, CRON_TIMES, command):
-                warn("Theme switch: crontab write failed — "
+                fail("Theme switch: crontab write failed — "
                      "is a cron daemon installed?")
+                schedule_ok = False
     else:
         # Pinned --light/--dark: tear down any schedule a previous --auto
         # install left so it can't fight the pinned mode at next login.
@@ -297,9 +384,66 @@ def install() -> None:
             return
 
     if BIN_DEST.is_file() and BIN_DEST.stat().st_mode & 0o111:
-        ok("Theme switcher installed")
+        try:
+            _record_installed_assets()
+        except (OSError, ValueError) as exc:
+            fail(f"Theme-switch ownership record failed: {exc}")
+            return
+        if schedule_ok:
+            ok("Theme switcher installed")
     else:
-        warn("Theme switcher not installed")
+        fail("Theme switcher not installed")
+
+
+def update_assets() -> None:
+    """Refresh only unchanged fork-owned script/unit files, never schedules.
+
+    A changed or missing asset blocks the whole refresh before any write.
+    Each replacement has a recovery copy and a durable new ownership hash.
+    """
+    try:
+        record = _load_asset_record()
+        if record is None:
+            raise ValueError("missing theme-switch ownership record")
+        sources = _asset_sources()
+        for name, previous in record.items():
+            if _asset_hash(sources[name][1]) != previous:
+                raise ValueError(f"{name} was modified outside TajsDesktop")
+            _asset_hash(sources[name][0])
+    except (OSError, ValueError) as exc:
+        fail(f"Theme-switch asset update refused: {exc}")
+        return
+
+    changed = [name for name, previous in record.items()
+               if _asset_hash(sources[name][0]) != previous]
+    if not changed:
+        ok("Theme-switch assets already current")
+        return
+    state = _asset_record_path()
+    backup_dir = Path(tempfile.mkdtemp(prefix="theme-switch-backup-", dir=state.parent))
+    try:
+        for name in changed:
+            source, target = sources[name]
+            shutil.copy2(target, backup_dir / name)
+            fd, staged = tempfile.mkstemp(prefix=f".{target.name}-", dir=target.parent)
+            os.close(fd)
+            try:
+                shutil.copy2(source, staged)
+                if name == "binary":
+                    os.chmod(staged, 0o755)
+                os.replace(staged, target)
+            except BaseException:
+                Path(staged).unlink(missing_ok=True)
+                raise
+            record[name] = _asset_hash(target)
+            _save_asset_record(record)
+        if any(name in UNITS for name in record) and is_systemd():
+            if not _user_service("daemon-reload"):
+                raise OSError("systemd user daemon-reload failed")
+    except (OSError, ValueError) as exc:
+        fail(f"Theme-switch asset update incomplete: {exc}; backups: {backup_dir}")
+        return
+    ok(f"Theme-switch assets refreshed ({len(changed)})")
 
 
 def _running_switcher_pids() -> set[int] | None:
@@ -355,9 +499,23 @@ def _wait_for_switchers(timeout: float = _SWITCHER_DRAIN_SECONDS) -> bool:
 
 
 def uninstall() -> None:
+    try:
+        owned = _load_asset_record()
+        sources = _asset_sources()
+        if owned is None:
+            if any(target.exists() or target.is_symlink()
+                   for _, target in sources.values()):
+                raise ValueError("installed files lack a fork ownership record")
+            owned = {}
+        for name, expected in owned.items():
+            if _asset_hash(sources[name][1]) != expected:
+                raise ValueError(f"{name} was modified outside TajsDesktop")
+    except (OSError, ValueError) as exc:
+        fail(f"Theme-switch removal refused; preserving assets ({exc})")
+        return
     # Uninstall only fork-namespaced units. The old Tahoe names are foreign
     # unless a separate migration recorded proof of ownership.
-    units_stopped = _teardown_units(UNITS)
+    units_stopped = _teardown_units(tuple(unit for unit in UNITS if unit in owned))
     # Strip the OpenRC cron line too, so an uninstall on either init leaves
     # no orphaned schedule behind.
     cron_status = remove_periodic(CRON_TAG)
@@ -365,7 +523,7 @@ def uninstall() -> None:
     stop_gtk_sync_watcher()
     _teardown_gtk_sync_autostart()
     binaries_neutralized = True
-    for p in (BIN_DEST,):
+    for p in ((BIN_DEST,) if "binary" in owned else ()):
         try: p.unlink()
         except FileNotFoundError: pass
         except OSError:
@@ -400,4 +558,10 @@ def uninstall() -> None:
     if not state_cleanup_ok:
         fail("Theme switch removal incomplete — local state could not be cleared")
         return
+    if owned:
+        try:
+            _asset_record_path().unlink()
+        except OSError as exc:
+            fail(f"Theme-switch ownership state could not be removed: {exc}")
+            return
     ok("Theme switcher removed")

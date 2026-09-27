@@ -23,7 +23,10 @@ from log import (
 )
 from preflight import run_preflight
 from state import RunTracker
-from fork_lifecycle import load_state, plan_features, upstream_install_present
+from fork_lifecycle import (
+    InstalledState, load_state, plan_features, save_state,
+    upstream_install_present,
+)
 from personal_defaults import (
     load_profile,
     preview_missing as preview_profile_defaults,
@@ -166,6 +169,8 @@ Options:
                        splash kernel cmdline (prints manual fix instead)
     --reset-wallpapers Let timed theme changes manage the background again
     --plan             Preview feature and profile defaults without writes
+    --update-assets    Refresh only owned component files; never reapply KDE
+                       settings or rebuild panels
     --profile=NAME     Select common or local-laptop defaults explicitly
     --plan-reset-profile  Preview a scoped personal-defaults reset, read-only
   Persistence:
@@ -298,6 +303,7 @@ class ParsedArgs:
         self.restart_only = False
         self.reset_wallpapers = False
         self.plan_only = False
+        self.update_assets = False
         self.plan_profile_reset = False
         self.profile: str | None = None
         self.cli_overrides: dict[str, bool] = {}
@@ -353,6 +359,8 @@ def parse_args(argv: list[str]) -> ParsedArgs:
             p.reset_wallpapers = True
         elif arg == "--plan":
             p.plan_only = True
+        elif arg == "--update-assets":
+            p.update_assets = True
         elif arg == "--plan-reset-profile":
             p.plan_profile_reset = True
         elif key == "--profile":
@@ -915,6 +923,54 @@ def _run_builds_or_abort(feat: dict[str, object]) -> bool:
     return True
 
 
+def _run_asset_update_body(feat: dict[str, object], installed: InstalledState | None) -> int:
+    """Refresh owned payloads without calling install, apply, or layout.
+
+    Do not advance the installed version for a partial update. In particular,
+    any enabled component without a safe asset phase blocks the transaction.
+    """
+    if installed is None:
+        fail("No TajsDesktop installation record; first install or explicit migration required")
+        return 1
+    desired = {name: bool(feat.get(name, False)) for name in ALL_FEATURES}
+    version = read_version()
+    plan = plan_features(
+        desired, installed, version,
+        refreshable=(name for name in (*ALL_FEATURES, "theme_switch")
+                     if step_has_phase(name, "update_assets")),
+    )
+    if plan["enable"] or plan["disable"]:
+        fail("Asset update cannot change features; reconcile the feature delta separately")
+        return 1
+    if plan["pending_refresh"]:
+        fail("Asset update has unsupported enabled components: "
+             + ", ".join(plan["pending_refresh"]))
+        return 1
+    if installed.version == version:
+        ok("Component assets already at the recorded version")
+        return 0
+    selected = list(plan["refresh_assets"])
+    selected_feat = {name: name in selected for name in ALL_FEATURES}
+    if not run_preflight("install") or not verify_plasma():
+        fail("Asset-update preflight failed")
+        return 1
+    if not _check_deps(selected_feat) or not _run_builds_or_abort(selected_feat):
+        return 1
+    for name in selected:
+        check_cancelled()
+        step(f"Refreshing {name.replace('_', ' ')} assets")
+        if not run_phase(name, "update_assets"):
+            fail(f"Asset update stopped at {name}; installed version remains unchanged")
+            return 1
+    try:
+        save_state(InstalledState(version, dict(installed.features)))
+    except (OSError, ValueError) as exc:
+        fail(f"Assets refreshed but installed version could not be recorded: {exc}")
+        return 1
+    ok("Component assets refreshed; desktop settings and panels preserved")
+    return 0
+
+
 _BASE_DEPS = [
     ("fc-cache", "fontconfig"), ("kwriteconfig6", "kconfig"),
     ("cmake", "cmake"), ("g++", "gcc"),
@@ -1260,8 +1316,10 @@ def run_install(argv: list[str], tui: bool = False,
                 {feature: bool(desired.get(feature, False))
                  for feature in ALL_FEATURES},
                 installed, read_version(), upstream_tahoe_present,
-                refreshable=(feature for feature in ALL_FEATURES
-                             if step_has_phase(feature, "update_assets")),
+                refreshable=(
+                    feature for feature in (*ALL_FEATURES, "theme_switch")
+                    if step_has_phase(feature, "update_assets")
+                ),
             )
             preview["profile"] = parsed.profile or "common"
             preview["profile_defaults"] = (
@@ -1293,6 +1351,23 @@ def run_install(argv: list[str], tui: bool = False,
         print("  Installer lifecycle and configuration migration remain incomplete.",
               file=sys.stderr)
         return 1
+
+    if parsed.update_assets:
+        if (parsed.cli_overrides or parsed.only_mode or parsed.do_save
+                or parsed.do_reset or parsed.reset_wallpapers or parsed.profile
+                or parsed.restart_only or parsed.theme_mode is not None
+                or parsed.oled_interval is not None
+                or parsed.oled_max_shift is not None):
+            fail("--update-assets cannot be combined with feature or reset options")
+            return 2
+        feat = load_features()
+        export_env(feat)
+        try:
+            installed = load_state()
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            fail(f"Cannot read installed TajsDesktop state: {exc}")
+            return 1
+        return _run_asset_update_body(feat, installed)
 
     feat = apply_overrides(load_features(), parsed)
     feat["_existing_install"] = _theme_is_already_installed()

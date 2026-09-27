@@ -1562,6 +1562,7 @@ def test_switch_step_removes_old_watcher_before_replacing_binary(
     monkeypatch.setattr(step, "PY_SRC", source)
     monkeypatch.setattr(step, "BIN_DEST", destination)
     monkeypatch.setattr(step, "SVC_DIR", tmp_path / "systemd")
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
     monkeypatch.setattr(step, "stop_gtk_sync_watcher",
                         lambda: events.append("stop"))
     monkeypatch.setattr(step, "_watcher_pids", lambda: [])
@@ -1595,6 +1596,7 @@ def test_pinned_switch_mode_neutralizes_binary_when_cron_cleanup_fails(
     monkeypatch.setattr(step, "PY_SRC", source)
     monkeypatch.setattr(step, "BIN_DEST", destination)
     monkeypatch.setattr(step, "SVC_DIR", tmp_path / "systemd")
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
     monkeypatch.setattr(step, "AUTOSTART_DIR", tmp_path / "autostart")
     monkeypatch.setattr(step, "stop_gtk_sync_watcher", lambda: None)
     monkeypatch.setattr(step, "_watcher_pids", lambda: [])
@@ -1698,7 +1700,7 @@ def test_switch_systemd_probe_requires_inactive_and_not_enabled(monkeypatch):
     assert step._systemd_unit_stopped_and_disabled("unproven.service") is False
 
 
-def test_switch_uninstall_retains_state_when_execution_cannot_be_neutralized(
+def test_switch_uninstall_retains_state_when_binary_ownership_is_unknown(
         monkeypatch, tmp_path):
     import steps.theme_switch as step
 
@@ -1718,6 +1720,8 @@ def test_switch_uninstall_retains_state_when_execution_cannot_be_neutralized(
     failures: list[str] = []
     config_writes: list[tuple[str, ...]] = []
     monkeypatch.setattr(step, "BIN_DEST", binary)
+    monkeypatch.setattr(step, "SVC_DIR", tmp_path / "systemd")
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
     monkeypatch.setattr(step, "_managed_state_files", lambda: state_files)
     monkeypatch.setattr(step, "_teardown_units", lambda _units: False)
     monkeypatch.setattr(
@@ -1733,7 +1737,7 @@ def test_switch_uninstall_retains_state_when_execution_cannot_be_neutralized(
     assert all(path.read_text(encoding="utf-8") == "owned\n"
                for path in state_files)
     assert config_writes == []
-    assert any("could not be neutralized" in message for message in failures)
+    assert any("ownership record" in message for message in failures)
 
 
 def test_switch_uninstall_reports_state_cleanup_failure(monkeypatch, tmp_path):
@@ -1856,7 +1860,7 @@ def test_switch_step_install_uninstall_reinstall(sandbox, tmp_path):
     tahoe_bin.write_text("foreign Tahoe executable\n")
 
     state_dir = sandbox / ".local/state/tajsdesktop"
-    state_dir.mkdir(parents=True)
+    state_dir.mkdir(parents=True, exist_ok=True)
     wallpaper_state = state_dir / "wallpapers.json"
     layout_marker = state_dir / "layout-installed"
     wallpaper_state.write_text("{}\n")
@@ -1883,6 +1887,91 @@ def test_switch_step_install_uninstall_reinstall(sandbox, tmp_path):
     assert not wallpaper_state.exists()
     assert layout_marker.exists()
     assert "AutomaticLookAndFeel=true" in (sandbox / ".config/kdeglobals").read_text()
+
+
+def test_switch_asset_update_refreshes_owned_files_without_rescheduling(
+        monkeypatch, tmp_path):
+    import steps.theme_switch as step
+
+    source = tmp_path / "source"
+    source.mkdir()
+    binary_source = source / "theme_switch.py"
+    binary_source.write_text("new switcher\n")
+    destination = tmp_path / "bin/tajsdesktop-theme-switch"
+    destination.parent.mkdir()
+    destination.write_text("old switcher\n")
+    service_dir = tmp_path / "systemd"
+    service_dir.mkdir()
+    for unit in step.UNITS:
+        (source / unit).write_text("new " + unit)
+        (service_dir / unit).write_text("old " + unit)
+    monkeypatch.setattr(step, "PY_SRC", binary_source)
+    monkeypatch.setattr(step, "BIN_DEST", destination)
+    monkeypatch.setattr(step, "SVC_DIR", service_dir)
+    monkeypatch.setattr(step, "offline", lambda name: source / name)
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
+    step._record_installed_assets()
+    services = []
+    monkeypatch.setattr(step, "is_systemd", lambda: True)
+    monkeypatch.setattr(step, "_user_service", lambda *args: services.append(args) or True)
+    monkeypatch.setattr(step, "remove_periodic", lambda *_: pytest.fail("schedule changed"))
+    monkeypatch.setattr(step, "_teardown_units", lambda *_: pytest.fail("units disabled"))
+
+    step.update_assets()
+
+    assert destination.read_text() == "new switcher\n"
+    assert all((service_dir / unit).read_text() == "new " + unit for unit in step.UNITS)
+    assert services == [("daemon-reload",)]
+    assert step._load_asset_record()["binary"] == step._asset_hash(destination)
+    backups = list((tmp_path / "state").glob("theme-switch-backup-*"))
+    assert len(backups) == 1
+    assert (backups[0] / "binary").read_text() == "old switcher\n"
+
+
+def test_switch_asset_update_preserves_user_modified_file(monkeypatch, tmp_path):
+    import steps.theme_switch as step
+
+    source = tmp_path / "source.py"
+    source.write_text("new release\n")
+    destination = tmp_path / "bin/tajsdesktop-theme-switch"
+    destination.parent.mkdir()
+    destination.write_text("old release\n")
+    monkeypatch.setattr(step, "PY_SRC", source)
+    monkeypatch.setattr(step, "BIN_DEST", destination)
+    monkeypatch.setattr(step, "SVC_DIR", tmp_path / "empty-systemd")
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
+    step._record_installed_assets()
+    destination.write_text("user edit\n")
+    failures = []
+    monkeypatch.setattr(step, "fail", failures.append)
+
+    step.update_assets()
+
+    assert destination.read_text() == "user edit\n"
+    assert failures and "modified outside TajsDesktop" in failures[0]
+    monkeypatch.setattr(step, "_teardown_units", lambda *_: pytest.fail("edited units removed"))
+    step.uninstall()
+    assert destination.read_text() == "user edit\n"
+    assert any("removal refused" in message for message in failures)
+
+
+def test_switch_install_refuses_unrecorded_existing_binary(monkeypatch, tmp_path):
+    import steps.theme_switch as step
+
+    destination = tmp_path / "bin/tajsdesktop-theme-switch"
+    destination.parent.mkdir()
+    destination.write_text("foreign content\n")
+    monkeypatch.setattr(step, "BIN_DEST", destination)
+    monkeypatch.setattr(step, "SVC_DIR", tmp_path / "systemd")
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
+    monkeypatch.setattr(step, "stop_gtk_sync_watcher", lambda: pytest.fail("live process touched"))
+    failures = []
+    monkeypatch.setattr(step, "fail", failures.append)
+
+    step.install()
+
+    assert destination.read_text() == "foreign content\n"
+    assert failures and "no ownership record" in failures[0]
 
 
 def test_switch_step_openrc_schedules_via_crontab_not_systemd(sandbox, tmp_path):
