@@ -24,6 +24,13 @@ Do not remove that guard merely because static tests or native builds pass.
   repository's `features.json` baseline untouched. `./install --plan` and the
   GUI provide a read-only installed-versus-requested delta. The GUI disables
   live install/uninstall while staging is active.
+- `profiles/common.json` and the explicitly selectable
+  `profiles/local-laptop.json` contain a reviewed, portable subset of this
+  desktop's Dolphin, Konsole, Kate, MIME, workspace, shortcut, input, and
+  power choices. `personal_defaults.preview_missing()` reports only absent
+  user keys; even an explicit empty value remains user-owned. These profiles
+  are **not applied yet**. No browser database, hardware identifier, home
+  path, secret, or session value is copied into them.
 
 ## Remaining release gates
 
@@ -46,11 +53,10 @@ Do not remove that guard merely because static tests or native builds pass.
 5. Persist versioned *installed* state only after each successful operation
    and make the preview executable through safe per-feature reconciliation.
    Add explicit, scoped reset actions to the GUI and CLI.
-6. Selectively import portable settings for KDE workspace, shortcuts, input,
-   power, window behavior, theme, default applications, Dolphin, Konsole,
-   Kate, Firefox, and Nautilus into common defaults plus one named local
-   profile. Review each imported key; exclude credentials, browser databases,
-   caches, session state, and machine identifiers.
+6. Complete the selective import and wire it to guarded first-install/reset
+   only. Theme, Firefox, and Nautilus settings still need key-by-key review;
+   native GSettings and application-specific ownership must not be inferred
+   from a KConfig file. Preserve user edits on all later updates.
 7. Reconcile remaining shared names, branding, and packaged paths; verify
    Qt/KWin builds and relevant systemd/OpenRC paths. Run the full test suite
    and a disposable KDE VM migration/rollback before allowing live use.
