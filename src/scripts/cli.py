@@ -1260,6 +1260,8 @@ def run_install(argv: list[str], tui: bool = False,
                 {feature: bool(desired.get(feature, False))
                  for feature in ALL_FEATURES},
                 installed, read_version(), upstream_tahoe_present,
+                refreshable=(feature for feature in ALL_FEATURES
+                             if step_has_phase(feature, "update_assets")),
             )
             preview["profile"] = parsed.profile or "common"
             preview["profile_defaults"] = (

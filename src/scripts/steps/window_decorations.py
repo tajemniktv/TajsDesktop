@@ -9,11 +9,11 @@ DEST_DIR = DATA_HOME / "aurorae/themes"
 VARIANTS = ("Dark", "Light")
 
 
-def install() -> None:
+def _copy_assets() -> tuple[int, int] | None:
     src = offline("aurorae")
     if not src.is_dir():
         fail(f"Aurorae source not found at {src}")
-        return
+        return None
 
     DEST_DIR.mkdir(parents=True, exist_ok=True)
     n_inst = n_re = 0
@@ -43,6 +43,22 @@ def install() -> None:
             reinstall(name); n_re += 1
         else:
             ok(f"{name} (installed)"); n_inst += 1
+
+    return n_inst, n_re
+
+
+def update_assets() -> None:
+    counts = _copy_assets()
+    if counts is not None:
+        n_inst, n_re = counts
+        info(f"{n_inst + n_re} Aurorae themes — {n_inst} installed, {n_re} reinstalled")
+
+
+def install() -> None:
+    counts = _copy_assets()
+    if counts is None:
+        return
+    n_inst, n_re = counts
 
     chosen = "TajsDesktop-Light" if theme_mode() == "light" else "TajsDesktop-Dark"
     write_failures = 0

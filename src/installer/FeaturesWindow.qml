@@ -278,6 +278,10 @@ Window {
                 Layout.alignment: Qt.AlignHCenter
                 text: "Enable: " + ((featuresWindow.preview.enable || []).length)
                     + "  ·  Disable: " + ((featuresWindow.preview.disable || []).length)
+                    + "  ·  Refresh assets: "
+                    + ((featuresWindow.preview.refresh_assets || []).length)
+                    + "  ·  Pending refresh: "
+                    + ((featuresWindow.preview.pending_refresh || []).length)
                     + (featuresWindow.preview.operation === "migration-required"
                        ? "  ·  Existing Tahoe install: explicit migration required" : "")
                     + (featuresWindow.stagingBlocked ? "  ·  Staging only — not applied" : "")

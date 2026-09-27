@@ -52,6 +52,26 @@ def test_noop_and_version_update_do_not_imply_setting_reset():
     assert newer["enable"] == newer["disable"] == []
 
 
+def test_update_only_refreshes_steps_with_an_asset_phase():
+    installed = InstalledState("1.2.3", {
+        "wallpapers": True, "layout": True, "gtk": True,
+    })
+    preview = plan_features(installed.features, installed, "1.2.4",
+                            refreshable={"wallpapers"})
+    assert preview["refresh_assets"] == ["wallpapers"]
+    assert preview["pending_refresh"] == ["gtk"]
+    assert preview["enable"] == preview["disable"] == []
+
+
+def test_update_does_not_refresh_settings_only_features():
+    previous = InstalledState("1.2.3", {
+        "layout": True, "apply_theme": True, "apps": True, "portals": True,
+    })
+    preview = plan_features(previous.features, previous, "1.2.4")
+    assert preview["refresh_assets"] == []
+    assert preview["pending_refresh"] == []
+
+
 def test_foreign_tahoe_install_requires_explicit_migration():
     preview = plan_features({"layout": True}, None, "0.52.0",
                             foreign_install=True)

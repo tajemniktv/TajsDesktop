@@ -26,6 +26,10 @@ def install() -> None:
     info(f"{n_inst + n_re} color schemes — {n_inst} installed, {n_re} reinstalled")
 
 
+def update_assets() -> None:
+    install()
+
+
 def uninstall() -> None:
     n = 0
     for cs in DEST_DIR.glob("TajsDesktop*.colors"):

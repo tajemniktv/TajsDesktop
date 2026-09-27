@@ -9,11 +9,11 @@ DEST_DIR = HOME / ".themes"
 VARIANTS = ("TajsDesktop-Light", "TajsDesktop-Dark")
 
 
-def install() -> None:
+def _copy_assets() -> int | None:
     src = offline("gtk")
     if not src.is_dir():
         fail(f"GTK theme source not found at {src}")
-        return
+        return None
 
     DEST_DIR.mkdir(parents=True, exist_ok=True)
     n = 0
@@ -22,6 +22,19 @@ def install() -> None:
             continue
         if install_tree(src / v, DEST_DIR / v, v):
             n += 1
+    return n
+
+
+def update_assets() -> None:
+    n = _copy_assets()
+    if n is not None:
+        info(f"{n} GTK themes installed/reinstalled")
+
+
+def install() -> None:
+    n = _copy_assets()
+    if n is None:
+        return
     if have("gsettings"):
         run_user(
             ["gsettings", "set", "org.gnome.desktop.wm.preferences",

@@ -136,6 +136,10 @@ def install() -> None:
     _install_gtk_appmenu_environment()
 
 
+def update_assets() -> None:
+    install()
+
+
 def gtk_appmenu_env_path() -> Path:
     config_home = Path(os.environ.get("XDG_CONFIG_HOME") or HOME / ".config")
     return config_home / "plasma-workspace/env/tajsdesktop-gtk-appmenu.sh"

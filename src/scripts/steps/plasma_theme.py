@@ -22,6 +22,10 @@ def install() -> None:
     info(f"{n} Plasma themes installed/reinstalled")
 
 
+def update_assets() -> None:
+    install()
+
+
 def uninstall() -> None:
     n = 0
     for v in VARIANTS:

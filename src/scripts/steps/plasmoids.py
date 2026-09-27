@@ -178,6 +178,10 @@ def install() -> None:
     info(f"{n} {label} installed/reinstalled")
 
 
+def update_assets() -> None:
+    install()
+
+
 def uninstall() -> None:
     n = 0
     dest_so = qt6_plugins_dir() / _TASKMANAGER_SO_RELPATH

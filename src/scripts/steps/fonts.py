@@ -55,6 +55,10 @@ def install() -> None:
         _refresh_font_cache()
 
 
+def update_assets() -> None:
+    install()
+
+
 def _refresh_font_cache() -> None:
     """Rebuild the fontconfig cache so new fonts show without a logout.
     fc-cache is optional on minimal installs — fonts then appear at next login."""

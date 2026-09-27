@@ -54,6 +54,13 @@ Do not remove that guard merely because static tests or native builds pass.
   `bookmarks.mac-tahoe-backup` is foreign state and is never consumed. MIME
   associations remain untouched on uninstall because the old path recorded
   no pre-install value; explicit reset still needs a scoped ownership record.
+- The update planner now separates asset refresh from settings-only features.
+  Asset-only phases exist for the bundled visual packages and compiled Global
+  Menu, Dock Task Manager, Kvantum, and Acrylic payloads; an update preview
+  lists unsupported refreshes instead of silently replaying install actions.
+  Wallpaper discovery now matches the fork-namespaced bundles. Cursor updates
+  validate and stage the bundled archive before replacing either installed
+  theme, so a broken archive leaves the current cursors intact.
 
 ## Configuration-write audit in progress
 
@@ -69,7 +76,8 @@ Do not remove that guard merely because static tests or native builds pass.
 
 1. Replace the old all-in-one install/uninstall flow with first-install,
    asset-update, feature-reconciliation, and explicit scoped reset operations.
-   A no-op feature change must not call the theme switcher or rebuild panels.
+   The asset refresh phases are not yet dispatched by the CLI. A no-op feature
+   change must not call the theme switcher or rebuild panels.
 2. Audit every config-writing step, including KWin, look-and-feel, Kvantum,
    GTK, Firefox, Nautilus, Plymouth, portals, theme scheduling, and OLED care.
    Store versioned per-user ownership state; apply defaults only where KDE or

@@ -29,6 +29,7 @@ from cli import (
     save_features as save_user_features, user_features_file,
 )
 from fork_lifecycle import load_state, plan_features, upstream_install_present
+from step_runner import step_has_phase
 from log import DONE_MARKER
 from localization import (
     feature_label, get_language, language_options, set_language, translate,
@@ -826,6 +827,8 @@ def dump_features() -> dict[str, object]:
     preview = plan_features(
         {key: bool(state.get(key, False)) for key in ALL_FEATURES},
         installed, read_version(), upstream_install_present(),
+        refreshable=(feature for feature in ALL_FEATURES
+                     if step_has_phase(feature, "update_assets")),
     )
 
     items = [

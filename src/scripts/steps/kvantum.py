@@ -293,14 +293,14 @@ def _install_one(name: str) -> None:
             warn(f"Kvantum file {f.name} not found")
 
 
-def install() -> None:
+def _copy_assets() -> bool:
     src = offline("kvantum/tajsdesktop")
     if not src.is_dir():
         fail(f"Kvantum theme source not found at {src}")
-        return
+        return False
 
     if not _install_bundled_engine():
-        return
+        return False
 
     existed = any(
         (d.is_dir() and any(d.glob("*.kvconfig")))
@@ -314,7 +314,7 @@ def install() -> None:
         ok("tajsdesktop theme (installed)")
     else:
         fail("tajsdesktop theme (copy failed)")
-        return
+        return False
 
     if any((DEST_DIR_DARK / f"{_THEMES[1]}{e}").is_file() for e in (".kvconfig", ".svg")):
         if existed:
@@ -323,6 +323,18 @@ def install() -> None:
             ok("tajsdesktopDark theme (installed)")
     else:
         fail("tajsdesktopDark theme (copy failed)")
+        return False
+
+    return True
+
+
+def update_assets() -> None:
+    if _copy_assets():
+        info("Kvantum Qt styling assets installed")
+
+
+def install() -> None:
+    if not _copy_assets():
         return
 
     if kw_write("--file", "kdeglobals", "--group", "KDE",

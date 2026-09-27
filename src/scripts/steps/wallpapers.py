@@ -19,7 +19,7 @@ def install() -> None:
     DEST_DIR.mkdir(parents=True, exist_ok=True)
 
     n_inst = n_re = 0
-    for wp in sorted(OFFLINE_DIR.glob("Mac*/")):
+    for wp in sorted(OFFLINE_DIR.glob("TajsDesktop-*/")):
         if not wp.is_dir():
             continue
         # metadata.json is what Plasma lists the wallpaper by — skip the
@@ -35,6 +35,10 @@ def install() -> None:
         else:
             ok(f"{wp.name} (installed)"); n_inst += 1
     info(f"{n_inst + n_re} wallpapers — {n_inst} installed, {n_re} reinstalled")
+
+
+def update_assets() -> None:
+    install()
 
 
 _FIXED_NAMES = (

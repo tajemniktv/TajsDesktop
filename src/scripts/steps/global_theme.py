@@ -23,6 +23,10 @@ def install() -> None:
         install_tree(theme, DEST_DIR / theme_id, theme.name)
 
 
+def update_assets() -> None:
+    install()
+
+
 def uninstall() -> None:
     for theme in DEST_DIR.glob("org.tajemniktv.tajsdesktop.*"):
         remove_tree(theme)

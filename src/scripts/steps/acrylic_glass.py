@@ -116,6 +116,29 @@ _PRESET = (
 )
 
 
+def update_assets() -> None:
+    """Replace compiled payloads without cycling or reconfiguring live KWin.
+
+    KWin may keep the old loaded inode until the next session. A routine
+    update must not disable the effect or rewrite its user-tuned preset.
+    """
+    system_dir = _plugin_dir()
+    effect_so = BUILD / "src/tajsdesktopglass.so"
+    config_so = BUILD / "src/kcm/kwin_tajsdesktopglass_config.so"
+    if not effect_so.is_file() or not config_so.is_file():
+        fail("Acrylic Glass update artefacts missing")
+        return
+    if not sudo_install_file(
+            effect_so, system_dir / "kwin/effects/plugins/tajsdesktopglass.so",
+            "Acrylic Glass payload updated"):
+        return
+    if not sudo_install_file(
+            config_so, system_dir / "kwin/effects/configs/kwin_tajsdesktopglass_config.so",
+            "Acrylic Glass KCM updated"):
+        return
+    ok("Acrylic Glass update staged; reload at next login")
+
+
 def install() -> None:
     system_dir = _plugin_dir()
     effect_so = BUILD / "src/tajsdesktopglass.so"

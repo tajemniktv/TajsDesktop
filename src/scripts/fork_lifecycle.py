@@ -11,10 +11,13 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import Iterable, Mapping
 
 
 SCHEMA = 1
+SETTINGS_ONLY_FEATURES = frozenset({
+    "apply_theme", "layout", "apps", "nautilus_bookmarks", "portals", "sddm",
+})
 
 
 def upstream_install_present(home: Path | None = None) -> bool:
@@ -81,7 +84,8 @@ def save_state(state: InstalledState, path: Path | None = None) -> None:
 def plan_features(desired: Mapping[str, bool],
                   installed: InstalledState | None,
                   version: str,
-                  foreign_install: bool = False) -> dict[str, object]:
+                  foreign_install: bool = False,
+                  refreshable: Iterable[str] = ()) -> dict[str, object]:
     """Describe the smallest feature delta, without pretending it was run."""
     if any(not isinstance(key, str) or not isinstance(value, bool)
            for key, value in desired.items()):
@@ -92,15 +96,24 @@ def plan_features(desired: Mapping[str, bool],
               and not previous.get(name, False)]
     disable = [name for name in names if previous.get(name, False)
                and not desired.get(name, False)]
+    unchanged = [name for name in names if name not in enable and name not in disable]
+    update = installed is not None and installed.version != version
+    eligible = set(refreshable)
+    refresh = [name for name in unchanged if update and desired.get(name, False)
+               and name in eligible]
+    pending_refresh = [name for name in unchanged
+                       if update and desired.get(name, False) and name not in eligible
+                       and name not in SETTINGS_ONLY_FEATURES]
     return {
         "operation": "migration-required" if installed is None and foreign_install else
                      "first-install" if installed is None else
-                     "update" if installed.version != version else "features",
+                     "update" if update else "features",
         "installed_version": installed.version if installed else None,
         "target_version": version,
         "enable": enable,
         "disable": disable,
-        "unchanged": [name for name in names
-                      if name not in enable and name not in disable],
+        "unchanged": unchanged,
+        "refresh_assets": refresh,
+        "pending_refresh": pending_refresh,
         "foreign_install": foreign_install,
     }
