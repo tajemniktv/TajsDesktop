@@ -3,11 +3,9 @@
 // Applied per-screen so multi-monitor setups get a matching bar + dock on
 // every display, not just the primary one.
 
-// ── remove existing panels ──────────────────────
-var old = panels();
-for (var i = 0; i < old.length; i++) {
-    old[i].remove();
-}
+// A first install adds project panels alongside existing user panels. Never
+// delete existing panels here: their applet instances and geometry are owned
+// by the user, including when Tahoe is installed on the same desktop.
 
 for (var screen = 0; screen < screenCount; screen++) {
     // ── top menu bar ────────────────────────────────

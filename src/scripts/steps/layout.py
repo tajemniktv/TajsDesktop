@@ -364,9 +364,12 @@ def _reset_plasmashellrc() -> bool:
 
 
 def install() -> None:
-    # A failed rebuild must leave is_installed() false so cli.py retries after
-    # Plasma restarts instead of trusting a marker from the previous run.
-    _clear_layout_marker()
+    # The panel layout is an initial default, not an update migration. A
+    # marker alone can be stale, but live project widgets are definitive:
+    # neither case authorizes replacing existing applet instances or geometry.
+    if _layout_marker().is_file() or _layout_has_any_theme_widget():
+        ok("Existing layout preserved")
+        return
     _ensure_panel_colorizer()
     if not LAYOUT_SCRIPT.is_file():
         warn("Layout script not found — skipping")
@@ -382,8 +385,9 @@ def install() -> None:
     else:
         warn("layout failed — set layout manually")
         return
-    time.sleep(3)
-    _patch_plasmashellrc()
+    # _patch_plasmashellrc() edits every panel view, including panels that
+    # predate this install. Defer those optional glass overrides until the
+    # fork can identify its own panel IDs rather than touching user panels.
 
 
 def is_installed() -> bool:

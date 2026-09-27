@@ -337,7 +337,7 @@ def _quiet_layout_install(monkeypatch, tmp_path):
     monkeypatch.setattr(layout.time, "sleep", lambda seconds: None)
 
 
-def test_install_always_rebuilds_layout_from_user_pins(monkeypatch, tmp_path):
+def test_install_preserves_existing_layout_and_user_pins(monkeypatch, tmp_path):
     _quiet_layout_install(monkeypatch, tmp_path)
     _write_appletsrc(tmp_path, _APPLETSRC)
     marker = layout._layout_marker()
@@ -353,24 +353,19 @@ def test_install_always_rebuilds_layout_from_user_pins(monkeypatch, tmp_path):
 
     layout.install()
 
-    assert calls == [(
-        layout.LAYOUT_SCRIPT,
-        [
-            "preferred://filemanager",
-            "applications:steam.desktop",
-            "preferred://browser",
-        ],
-        layout.MAC_TASKS_ID,
-    )]
+    assert calls == []
     assert marker.is_file()
 
 
-def test_reinstall_applies_autohide_with_preserved_pins(monkeypatch, tmp_path):
+def test_first_install_adds_autohide_panels_without_removing_existing(
+        monkeypatch, tmp_path):
     _quiet_layout_install(monkeypatch, tmp_path)
     _write_appletsrc(tmp_path, _APPLETSRC)
     marker = layout._layout_marker()
-    marker.parent.mkdir(parents=True)
-    marker.write_text("1\n")
+    appletsrc = tmp_path / ".config/plasma-org.kde.plasma.desktop-appletsrc"
+    before = appletsrc.read_bytes()
+    prc = tmp_path / ".config/plasmashellrc"
+    prc.write_text("[PlasmaViews][Panel 17]\npanelOpacity=0\n")
     captured = _capture_evaluated_script(monkeypatch)
     monkeypatch.setattr(layout, "_discover_is_installed", lambda: False)
     monkeypatch.setattr(layout, "_wait_for_layout_install", lambda: True)
@@ -378,18 +373,19 @@ def test_reinstall_applies_autohide_with_preserved_pins(monkeypatch, tmp_path):
     layout.install()
 
     script = captured["script"]
+    assert "old[i].remove()" not in script
     assert 'dock.hiding = "autohide";' in script
     assert 'bar.hiding = "none";' in script
     assert "writeConfig('launchers', 'preferred://filemanager," in script
     assert "applications:steam.desktop,preferred://browser')" in script
     assert marker.is_file()
+    assert appletsrc.read_bytes() == before
+    assert prc.read_text() == "[PlasmaViews][Panel 17]\npanelOpacity=0\n"
 
 
-def test_failed_install_clears_stale_marker_for_retry(monkeypatch, tmp_path):
+def test_failed_first_install_does_not_create_marker(monkeypatch, tmp_path):
     _quiet_layout_install(monkeypatch, tmp_path)
     marker = layout._layout_marker()
-    marker.parent.mkdir(parents=True)
-    marker.write_text("1\n")
     monkeypatch.setattr(
         layout, "_evaluate_layout_with_launchers",
         lambda script, pins, widget: False,
