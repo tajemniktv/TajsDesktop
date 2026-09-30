@@ -11,26 +11,24 @@ from steps._helpers import (
     sudo_install_file, sudo_install_tree, sudo_remove, temp_dir, warn,
 )
 
-SRC = offline("plasmoids/org.kde.mac.tahoe.liquid.globalmenu")
-BUILD = build_dir("plasmoids/org.kde.mac.tahoe.liquid.globalmenu")
+SRC = offline("plasmoids/org.tajemniktv.tajsdesktop.globalmenu")
+BUILD = build_dir("plasmoids/org.tajemniktv.tajsdesktop.globalmenu")
 
 # AboutWindow shells out to this helper; it lives in ~/.local/bin so the
 # script side stays sudoless (only the C++ .so install needs root).
 ABOUT_INFO_SRC = REPO_ROOT / "src/scripts/about_info.py"
-ABOUT_INFO_DEST = HOME / ".local/bin/mac-tahoe-about-info"
+ABOUT_INFO_DEST = HOME / ".local/bin/tajsdesktop-about-info"
 # Qt6 never scans user paths for plugins/QML — the .so + QML module MUST
 # live under the qmake6-reported libdir (qt6_*_dir() handles per-distro).
-_SO_RELPATH = "plasma/applets/org.kde.mac.tahoe.liquid.globalmenu.so"
-_QML_RELPATH = "plasma/applet/org/kde/mac/tahoe/liquid/globalmenu"
-TRANSLATION_DOMAIN = "plasma_applet_org.kde.mac.tahoe.liquid.globalmenu.mo"
+_SO_RELPATH = "plasma/applets/org.tajemniktv.tajsdesktop.globalmenu.so"
+_QML_RELPATH = "plasma/applet/org/tajemniktv/tajsdesktop/globalmenu"
+TRANSLATION_DOMAIN = "plasma_applet_org.tajemniktv.tajsdesktop.globalmenu.mo"
 TRANSLATION_LANGUAGES = ("es", "zh_CN")
-GTK_ENV_MARKER = "# Managed by mac-tahoe-liquid-kde: GTK appmenu lifetime\n"
-GTK_ENV_TEMPLATE = offline("plasma-env/mac-tahoe-gtk-appmenu.sh.in")
+GTK_ENV_MARKER = "# Managed by tajsdesktop: GTK appmenu lifetime\n"
+GTK_ENV_TEMPLATE = offline("plasma-env/tajsdesktop-gtk-appmenu.sh.in")
 
 _LEGACY_SO_BASENAMES = (
-    "org.kde.mac.tahoe.liquid.menu.so",
-    "org.kde.mac.tahoe.globalmenu.so",
-    "org.kde.mac.tahoe.menu.so",
+    "org.tajemniktv.tajsdesktop.menu.so",
 )
 
 
@@ -48,16 +46,13 @@ def __getattr__(name: str):
 # Leftovers from old sudoless installs under user paths. Plain unlink, no
 # sudo — they belong to the invoking user.
 LEGACY_SOS_USER = (
-    HOME / ".local/lib/qt6/plugins/plasma/applets/org.kde.mac.tahoe.liquid.menu.so",
-    HOME / ".local/lib/qt6/plugins/plasma/applets/org.kde.mac.tahoe.globalmenu.so",
-    HOME / ".local/lib/qt6/plugins/plasma/applets/org.kde.mac.tahoe.menu.so",
-    HOME / ".local/lib/qt6/plugins/plasma/applets/org.kde.mac.tahoe.liquid.globalmenu.so",
+    HOME / ".local/lib/qt6/plugins/plasma/applets/org.tajemniktv.tajsdesktop.menu.so",
+    HOME / ".local/lib/qt6/plugins/plasma/applets/org.tajemniktv.tajsdesktop.globalmenu.so",
 )
-LEGACY_QML = DATA_HOME / "plasma/plasmoids/org.kde.mac-tahoe-liquid-kde.menu"
+LEGACY_QML = DATA_HOME / "plasma/plasmoids/org.tajemniktv.tajsdesktop.menu"
 LEGACY_QML_MODULES_USER = (
-    HOME / ".local/lib/qt6/qml/plasma/applet/org/kde/mac/tahoe/liquid/menu",
-    HOME / ".local/lib/qt6/qml/plasma/applet/org/kde/mac/tahoe/globalmenu",
-    HOME / ".local/lib/qt6/qml/plasma/applet/org/kde/mac/tahoe/liquid/globalmenu",
+    HOME / ".local/lib/qt6/qml/plasma/applet/org/tajemniktv/tajsdesktop/menu",
+    HOME / ".local/lib/qt6/qml/plasma/applet/org/tajemniktv/tajsdesktop/globalmenu",
 )
 
 
@@ -87,8 +82,8 @@ def deps():
 
 def build_artifacts() -> list[Path]:
     return [
-        BUILD / "bin/plasma/applets/org.kde.mac.tahoe.liquid.globalmenu.so",
-        BUILD / "bin/plasma/applet/org/kde/mac/tahoe/liquid/globalmenu",
+        BUILD / "bin/plasma/applets/org.tajemniktv.tajsdesktop.globalmenu.so",
+        BUILD / "bin/plasma/applet/org/tajemniktv/tajsdesktop/globalmenu",
     ]
 
 
@@ -121,7 +116,7 @@ def install() -> None:
         shutil.rmtree(LEGACY_QML, ignore_errors=True)
         ok("Removed old QML menu")
 
-    artifact = BUILD / "bin/plasma/applets/org.kde.mac.tahoe.liquid.globalmenu.so"
+    artifact = BUILD / "bin/plasma/applets/org.tajemniktv.tajsdesktop.globalmenu.so"
     if not artifact.is_file():
         fail("Global Menu build artifact missing")
         return
@@ -129,7 +124,7 @@ def install() -> None:
     if not sudo_install_file(artifact, dest_so, "Global Menu installed"):
         return
 
-    module_src = BUILD / "bin/plasma/applet/org/kde/mac/tahoe/liquid/globalmenu"
+    module_src = BUILD / "bin/plasma/applet/org/tajemniktv/tajsdesktop/globalmenu"
     if not module_src.is_dir():
         fail("Global Menu runtime QML missing")
         return
@@ -141,9 +136,13 @@ def install() -> None:
     _install_gtk_appmenu_environment()
 
 
+def update_assets() -> None:
+    install()
+
+
 def gtk_appmenu_env_path() -> Path:
     config_home = Path(os.environ.get("XDG_CONFIG_HOME") or HOME / ".config")
-    return config_home / "plasma-workspace/env/mac-tahoe-gtk-appmenu.sh"
+    return config_home / "plasma-workspace/env/tajsdesktop-gtk-appmenu.sh"
 
 
 def _gtk_appmenu_environment(module: Path) -> str:
@@ -175,7 +174,7 @@ def _install_gtk_appmenu_environment() -> None:
                 _gtk_appmenu_environment_owned(destination):
             warn(f"Custom GTK environment file preserved: {destination}")
             return
-        with temp_dir("mttkde-gtk-appmenu-") as staging:
+        with temp_dir("tajsdesktop-gtk-appmenu-") as staging:
             source = staging / destination.name
             source.write_text(_gtk_appmenu_environment(module), encoding="utf-8")
             source.chmod(0o644)

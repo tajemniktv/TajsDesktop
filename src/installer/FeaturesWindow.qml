@@ -2,8 +2,8 @@
     Features picker — a glass companion window for InstallerWindow.
 
     Reads the current feature state by shelling out to
-    ``installer_ui.py --dump-features`` (which already knows where
-    ``features.json`` lives), renders one toggle per entry, and saves
+    ``installer_ui.py --dump-features`` (which reads the repository baseline
+    and per-user choices), renders one toggle per entry, and saves
     back via ``installer_ui.py --save-features '<json>'``.
 
     The Python side is the single source of truth for the feature list
@@ -26,6 +26,8 @@ Window {
 
     property string launcherScriptPath: ""
     property var items: []
+    property var preview: ({})
+    property bool stagingBlocked: true
     property bool loaded: false
     property string statusMessage: ""
     property string statusKind: "idle"
@@ -77,7 +79,7 @@ Window {
     // rather than replacing an in-flight one; two calls fired close
     // together (rapid toggles) race as independent async processes with
     // no ordering guarantee, so the one holding the *older* snapshot of
-    // items can finish last and clobber the newer one in features.json.
+    // items can finish last and clobber the newer per-user choices.
     // Serialize instead: while a save is running, just remember that
     // another is owed and re-issue it (with then-current items) once
     // the running one reports back, so the last write always reflects
@@ -89,6 +91,18 @@ Window {
         }
         saveInFlight = true;
         _runSave();
+    }
+
+    function updatePreview(): void {
+        const enable = [];
+        const disable = [];
+        for (let i = 0; i < items.length; ++i) {
+            if (items[i].enabled && !items[i].installed)
+                enable.push(items[i].key);
+            else if (!items[i].enabled && items[i].installed)
+                disable.push(items[i].key);
+        }
+        preview = Object.assign({}, preview, {enable: enable, disable: disable});
     }
 
     function _runSave(): void {
@@ -111,7 +125,14 @@ Window {
             if (!stdout) return;
             try {
                 const parsed = JSON.parse(stdout);
+                if (parsed.error) {
+                    featuresWindow.statusKind = "error";
+                    featuresWindow.statusMessage = parsed.error;
+                    return;
+                }
                 featuresWindow.items = parsed.items || [];
+                featuresWindow.preview = parsed.preview || {};
+                featuresWindow.stagingBlocked = parsed.staging_blocked === true;
                 featuresWindow.loaded = true;
             } catch (e) {
                 featuresWindow.statusKind = "error";
@@ -253,6 +274,22 @@ Window {
                 font.pointSize: Kirigami.Theme.defaultFont.pointSize * 0.9
             }
 
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: "Enable: " + ((featuresWindow.preview.enable || []).length)
+                    + "  ·  Disable: " + ((featuresWindow.preview.disable || []).length)
+                    + "  ·  Refresh assets: "
+                    + ((featuresWindow.preview.refresh_assets || []).length)
+                    + "  ·  Pending refresh: "
+                    + ((featuresWindow.preview.pending_refresh || []).length)
+                    + (featuresWindow.preview.operation === "migration-required"
+                       ? "  ·  Existing Tahoe install: explicit migration required" : "")
+                    + (featuresWindow.stagingBlocked ? "  ·  Staging only — not applied" : "")
+                color: Kirigami.Theme.disabledTextColor
+                font.family: featuresWindow.fontFamily
+                font.pointSize: Kirigami.Theme.defaultFont.pointSize * 0.82
+            }
+
             Item { Layout.preferredHeight: 18 }
 
             GridLayout {
@@ -306,6 +343,14 @@ Window {
                                 maximumLineCount: 2
                                 elide: Text.ElideRight
                             }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.installed ? "Installed" : "Not installed"
+                                color: Kirigami.Theme.disabledTextColor
+                                font.family: featuresWindow.fontFamily
+                                font.pointSize: Kirigami.Theme.defaultFont.pointSize * 0.75
+                            }
                         }
 
                         // Fixed gap between the text block and the switch.
@@ -320,6 +365,7 @@ Window {
                                 items[index] = Object.assign({}, items[index],
                                                              {enabled: checked});
                                 featuresWindow.items = items;
+                                featuresWindow.updatePreview();
                                 featuresWindow.save();
                             }
 

@@ -1,5 +1,12 @@
 # AGENTS.md
 
+> **TajsDesktop staging status (2026-09-27):** This file still contains the
+> upstream Tahoe architecture as a historical baseline. The fork is not
+> install-ready: `cli.py` blocks live install/uninstall until the separate-ID
+> migration and configuration-preserving lifecycle are complete. Never bypass
+> that guard or deploy this branch to the live desktop. The existing local
+> `features.json` edit is user-owned and must remain separate from commits.
+
 This file is the authoritative reference for working on
 **macos-tahoe-liquid-kde**. Mirrors at `CLAUDE.md`, `CODEX.md`, and
 `GEMINI.md` point back here so each agent finds the same content under
@@ -25,11 +32,11 @@ install a systemd user timer under systemd and a per-user `crontab`
 line under OpenRC, chosen by `init_system()` in the distro layer.
 OpenRC is supported generically across distros; it is verified by hand
 in a Gentoo OpenRC VM (`./vm`), not in the container matrix. The
-container matrix covers Arch, CachyOS, Manjaro, EndeavourOS, Garuda,
-Gentoo, Fedora, Nobara, openSUSE Tumbleweed, and KDE neon on their default
-(systemd) profiles; of these only **Arch and CachyOS are marked
-*tested* in the README — every other distro is *testing* / work in
-progress**. Immutable rpm-ostree distros
+automatic container coverage targets **CachyOS only**, with the full core
+pytest suite plus package/path/native-build probes. Other distro Dockerfiles
+and VM definitions are retained for optional manual use, not CI coverage.
+Containers do not exercise a running init system or live KDE session.
+Immutable rpm-ostree distros
 (Silverblue, Kinoite) are explicitly out of scope: the installer
 writes into `/usr/lib*` and `/usr/share`, which are read-only on those
 systems and need either an rpm/Flatpak-extension wrapper or an
@@ -211,17 +218,14 @@ custom Plasma sessions and sudo's empty/stale environment without requiring
 manual DBus variable forwarding (issue #85). Keep OLED retirement fail-closed
 when the recovered session still cannot reach the user service manager.
 
-## Architecture — Auto-Update on Install
+## Architecture — Fork Update Safety
 
-`./install` checks GitHub releases on every launch.
-`MAC_TAHOE_NO_UPDATE_CHECK=true` skips the check; `--check-update`
-checks and exits. When a newer release exists and the repo is a clean
-git checkout, `auto_update_and_reexec` pulls `--ff-only` as the
-invoking user (never root — root-owned objects would wreck the user's
-repo) and re-execs `./install` so the freshly-pulled code performs the
-install. `MAC_TAHOE_UPDATED=1` is the recursion guard. A dirty
-checkout, missing git, or a failed pull falls back to installing the
-current version with a manual `git pull && ./install` hint.
+`./install` checks the TajsDesktop fork's GitHub releases on launch.
+`TAJSDESKTOP_NO_UPDATE_CHECK=true` skips the check; `--check-update`
+checks and exits. Installation never runs `git pull` or re-executes newly
+downloaded code. A release notice is informational: review and update the
+fork explicitly before running an installer. Never restore the upstream
+auto-update path in this personal fork.
 
 ## Architecture — Optional Online Rounded Corners
 
@@ -394,7 +398,7 @@ ChatGPT builds explicitly clear `gtk-modules` during Chromium initialization;
 GDB reproduced both reported application offsets at the subsequent GIO crash.
 
 The Global Menu step installs an ownership-marked, per-user Plasma environment
-hook at `$XDG_CONFIG_HOME/plasma-workspace/env/mac-tahoe-gtk-appmenu.sh` when
+hook at `$XDG_CONFIG_HOME/plasma-workspace/env/tajsdesktop-gtk-appmenu.sh` when
 `distro.gtk3_appmenu_module()` finds the native GTK3 module. The hook appends it
 once to `GTK3_MODULES`, preserving existing entries and leaving `GTK_MODULES`
 and GTK2 untouched. Chromium clears `GTK_MODULES`, so the GTK3-specific variable
@@ -475,15 +479,15 @@ invoking it and surfaces a `warn()` when it doesn't:
 the fc-cache missing path; `tests/test_plymouth_step.py` covers the
 bootloader probe.
 
-## Architecture — Container CI Matrix
+## Architecture — CachyOS Container CI
 
 | File                         | Role |
 | ---------------------------- | ---- |
-| `tests/containers/Dockerfile.<distro>` | One per supported distro. CachyOS pulls both `archlinux-keyring` and `cachyos-keyring` after `pacman-key --init && pacman-key --populate archlinux cachyos`. |
-| `tests/containers/Dockerfile.arch-kdeunstable` | Canary against Arch's `[kde-unstable]` staging repo — catches the next Plasma release early. `continue-on-error` in CI (like Gentoo). |
-| `tests/containers/Dockerfile.gentoo-base` | Builds the GHCR base image `ghcr.io/lestercorderomurillo/mttkde-gentoo-base` so qtbase doesn't compile from source on every PR. |
+| `tests/containers/Dockerfile.<distro>` | CachyOS is the automatic CI target; other fixtures are manual-only. CachyOS pulls both `archlinux-keyring` and `cachyos-keyring` after `pacman-key --init && pacman-key --populate archlinux cachyos`. |
+| `tests/containers/Dockerfile.arch-kdeunstable` | Optional manual canary against Arch's `[kde-unstable]` staging repo; not run by CI. |
+| `tests/containers/Dockerfile.gentoo-base` | Optional Gentoo base-image fixture; its workflow is manual-only and is not part of CachyOS CI. |
 | `tests/containers/run_in_container.py` | Per-distro probe: qmake6 resolves, the distro layer agrees with what qmake6 reports, every `package_for()` token resolves in the distro's repo (with a "transient network" skip so flaky upstream CDN edges don't tank CI), preflight destination checks, pytest. |
-| `tests/containers/run_matrix.sh` | Local runner. CI runs the same workflow via `.github/workflows/test.yml`. |
+| `tests/containers/run_matrix.sh` | Optional local runner; pass `cachyos` to match the CI distro target. |
 
 When a probe fails, the script scans stderr for transient-network
 markers (`"Failed to retrieve"`, `"Could not resolve host"`, repo
@@ -641,7 +645,8 @@ Highlights:
 - `tests/test_rounded_corners_step.py` — immutable upstream pin, checksum
   and traversal rejection, best-effort orchestration, enabled state,
   v0.38 preset cleanup without effect-state changes, and lifecycle.
-- `tests/containers/run_matrix.sh` — full per-distro probe.
+- `tests/containers/run_matrix.sh cachyos` — the CI package/path/native probes.
+  Other distro arguments are optional manual checks.
 
 ## What NOT to Do
 

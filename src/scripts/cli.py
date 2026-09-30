@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -22,6 +23,16 @@ from log import (
 )
 from preflight import run_preflight
 from state import RunTracker
+from fork_lifecycle import (
+    InstalledState, load_state, plan_features, save_state,
+    upstream_install_present,
+)
+from personal_defaults import (
+    load_profile, reset_profile_defaults,
+    preview_missing as preview_profile_defaults,
+    preview_profile_reset,
+    profile_state_file,
+)
 from step_runner import run_phase, step_deps, step_exists, step_has_phase, step_module
 from utils import (
     CancellationRequested, cancellation_requested, cancellation_scope,
@@ -61,8 +72,15 @@ ALL_FEATURES = [
     "rounded_corners",
     "global_theme", "layout", "sounds", "gtk", "firefox", "sddm", "plymouth", "apps",
     "nautilus", "nautilus_bookmarks", "portals", "oled_care", "apply_theme",
-    "kconf_update",
 ]
+
+# Read-only compatibility with existing features.json files. The upstream
+# kconf_update migration must not run in a separately installed fork.
+LEGACY_IGNORED_FEATURES = ("kconf_update",)
+
+# The fork is being staged, not deployed. Its component-ID migration is not
+# enough to make the old installer lifecycle safe for an existing desktop.
+STAGING_INSTALL_BLOCKED = True
 
 # ``layout`` is listed but skipped in the loop — it runs after apply so it
 # sees the new panel/dock packages, and may be retried once after the restart.
@@ -70,10 +88,13 @@ INSTALL_ORDER = [
     "fonts", "color_schemes", "plasma_theme", "window_decorations",
     "kvantum", "gtk", "firefox", "icons", "cursors", "global_theme", "wallpapers",
     "sounds",
-    "kconf_update",
     "plasmoids", "globalmenu", "acrylic_glass", "rounded_corners",
     "layout", "nautilus", "portals", "plymouth",
 ]
+
+# Only these steps have reviewed, scoped enable/disable behavior. Other
+# features must be migrated to ownership-aware phases before reconciliation.
+RECONCILABLE_FEATURES = frozenset({"portals", "layout"})
 
 FEATURE_DESC = {
     "wallpapers": "Desktop backgrounds",
@@ -101,7 +122,6 @@ FEATURE_DESC = {
     "portals": "KDE file dialogs",
     "oled_care": "Panel pixel shift",
     "apply_theme": "Activate after install",
-    "kconf_update": "Settings migrations",
 }
 
 INSTALL_HELP = """\
@@ -139,8 +159,7 @@ Options:
     --plymouth         Boot splash screen (Plymouth)
     --apps             App configuration tweaks
     --nautilus         Install Nautilus and set as default file manager
-    --nautilus-bookmarks  macOS-style sidebar bookmarks (backs up the
-                       existing bookmarks; uninstall restores them)
+    --nautilus-bookmarks  Initialize sidebar bookmarks only when absent
     --portals          Route FileChooser/AppChooser to KDE (fixes stale dialogs)
     --oled-care        OLED burn-in care: pixel-shift the panels every
                        5 minutes (top bar height, dock offset). Default: off
@@ -153,10 +172,17 @@ Options:
     --no-grub-modify   Don't auto-edit /etc/default/grub for the boot
                        splash kernel cmdline (prints manual fix instead)
     --reset-wallpapers Let timed theme changes manage the background again
-                       and apply the bundled wallpaper once
+    --plan             Preview feature and profile defaults without writes
+    --update-assets    Refresh only owned component files; never reapply KDE
+                       settings or rebuild panels
+    --reconcile        Apply only supported feature changes from features.json
+    --profile=NAME     Select common or local-laptop defaults explicitly
+    --plan-reset-profile  Preview a scoped personal-defaults reset, read-only
+    --reset-profile-defaults  Remove only unchanged profile-initialized keys
+    --confirm-profile-reset  Explicitly confirm --reset-profile-defaults
   Persistence:
-    --save             Save current flags to features.json
-    --reset            Reset features.json to all-true defaults
+    --save             Save current flags to the per-user feature file
+    --reset            Reset per-user feature choices to defaults
     --check-update     Check GitHub for a newer release and exit
     --preflight        Run preflight checks (sudo, paths, Qt6, IDs) and exit
     --restart          Restart Plasma shell. Standalone (no other flags)
@@ -217,6 +243,12 @@ DEFAULT_FEATURES["oled_max_shift"] = 8  # max shift distance in px (1-16)
 DEFAULT_FEATURES["theme_mode"] = "auto"
 
 
+def user_features_file() -> Path:
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or
+                       Path.home() / ".config")
+    return config_home / "tajsdesktop/features.json"
+
+
 def _coerce_int(value: object, default: int, lo: int, hi: int) -> int:
     try:
         n = int(value)  # type: ignore[arg-type]
@@ -226,16 +258,18 @@ def _coerce_int(value: object, default: int, lo: int, hi: int) -> int:
 
 
 def load_features() -> dict[str, object]:
-    if not CONFIG_FILE.is_file():
-        return dict(DEFAULT_FEATURES)
-    try:
-        data = json.loads(CONFIG_FILE.read_text())
-    except (OSError, json.JSONDecodeError):
-        return dict(DEFAULT_FEATURES)
     out = dict(DEFAULT_FEATURES)
-    for k, v in data.items():
-        if k in DEFAULT_FEATURES:
-            out[k] = v
+    for source in (CONFIG_FILE, user_features_file()):
+        try:
+            data = json.loads(source.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if k in ALL_FEATURES and isinstance(v, bool):
+                    out[k] = v
+                elif k in ("oled_interval", "oled_max_shift", "theme_mode"):
+                    out[k] = v
     return out
 
 
@@ -250,7 +284,19 @@ def save_features(feat: dict[str, object]) -> None:
                  f"{_coerce_int(feat.get('oled_max_shift'), 8, 1, 16)},")
     lines.append(f'  "theme_mode":'.ljust(24) + f'"{feat.get("theme_mode", "auto")}"')
     lines.append("}")
-    CONFIG_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    target = user_features_file()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=".features-", suffix=".tmp",
+                                dir=target.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write("\n".join(lines) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(name, target)
+    except BaseException:
+        Path(name).unlink(missing_ok=True)
+        raise
 
 
 class ParsedArgs:
@@ -263,6 +309,13 @@ class ParsedArgs:
         self.preflight_only = False
         self.restart_only = False
         self.reset_wallpapers = False
+        self.plan_only = False
+        self.update_assets = False
+        self.reconcile = False
+        self.plan_profile_reset = False
+        self.reset_profile_defaults = False
+        self.confirm_profile_reset = False
+        self.profile: str | None = None
         self.cli_overrides: dict[str, bool] = {}
         self.oled_interval: int | None = None
         self.oled_max_shift: int | None = None
@@ -314,10 +367,30 @@ def parse_args(argv: list[str]) -> ParsedArgs:
             p.restart_only = True
         elif arg == "--reset-wallpapers":
             p.reset_wallpapers = True
+        elif arg == "--plan":
+            p.plan_only = True
+        elif arg == "--update-assets":
+            p.update_assets = True
+        elif arg == "--reconcile":
+            p.reconcile = True
+        elif arg == "--plan-reset-profile":
+            p.plan_profile_reset = True
+        elif arg == "--reset-profile-defaults":
+            p.reset_profile_defaults = True
+        elif arg == "--confirm-profile-reset":
+            p.confirm_profile_reset = True
+        elif key == "--profile":
+            if "=" in arg:
+                p.profile = inline_value
+            elif i + 1 < len(args) and not args[i + 1].startswith("--"):
+                i += 1
+                p.profile = args[i]
+            else:
+                p.profile = ""
         elif arg == "--no-grub-modify":
             # Read by the plymouth step: print manual instructions
             # instead of editing /etc/default/grub.
-            os.environ["MTTKDE_NO_GRUB_MODIFY"] = "1"
+            os.environ["TAJSDESKTOP_NO_GRUB_MODIFY"] = "1"
         elif arg.startswith("--no-"):
             key = arg[5:].replace("-", "_")
             if key in ALL_FEATURES:
@@ -332,7 +405,7 @@ def parse_args(argv: list[str]) -> ParsedArgs:
 # ── version checker ─────────────────────────────────────────────────────
 GITHUB_RELEASES_URL = (
     "https://api.github.com/repos/"
-    "lestercorderomurillo/macos-tahoe-liquid-kde/releases/latest"
+    "tajemniktv/TajsDesktop/releases/latest"
 )
 
 
@@ -357,14 +430,14 @@ def parse_semver(version: str) -> tuple[int, int, int]:
 def fetch_latest_release(timeout: float = 2.5) -> str | None:
     """Latest release tag (bare version string) from GitHub, or ``None``
     if anything goes wrong — offline, rate-limited, JSON shape changed."""
-    if os.environ.get("MAC_TAHOE_NO_UPDATE_CHECK", "").lower() == "true":
+    if os.environ.get("TAJSDESKTOP_NO_UPDATE_CHECK", "").lower() == "true":
         return None
     try:
         import urllib.request
         req = urllib.request.Request(
             GITHUB_RELEASES_URL,
             headers={"Accept": "application/vnd.github+json",
-                     "User-Agent": "mac-tahoe-liquid-kde-installer"},
+                     "User-Agent": "TajsDesktop-installer"},
         )
         with urllib.request.urlopen(req, timeout=timeout) as r:
             data = json.loads(r.read().decode("utf-8"))
@@ -405,7 +478,7 @@ def check_for_updates(verbose: bool = False, inline: bool = False) -> bool:
               f" Kvantum upstream changes\033[0m")
         print(f"  \033[2mbreak our overrides, plus crash fixes for"
               f" custom plasmoids.\033[0m")
-        print(f"  \033[2mRun: git pull && ./install\033[0m")
+        print(f"  \033[2mReview the fork release and update explicitly.\033[0m")
         if inline:
             time.sleep(_VERSION_CHECK_READ_PAUSE)
         return True
@@ -415,72 +488,6 @@ def check_for_updates(verbose: bool = False, inline: bool = False) -> bool:
     if inline:
         time.sleep(_VERSION_CHECK_READ_PAUSE)
     return False
-
-
-def _git(*args: str, capture: bool = False):
-    """Run git in the repo as the invoking user — pulling as root would leave
-    root-owned objects. Returns the CompletedProcess, or None on failure."""
-    if not have("git"):
-        return None
-    try:
-        return run_user(
-            ["git", "-C", str(REPO_ROOT), *args],
-            check=False,
-            capture_output=capture,
-            text=True,
-            timeout=120,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-
-
-def _repo_is_clean_git_checkout() -> bool:
-    """True only when REPO_ROOT is a git working tree with no uncommitted
-    changes — never auto-pull over local edits."""
-    if not (REPO_ROOT / ".git").exists():
-        return False
-    inside = _git("rev-parse", "--is-inside-work-tree", capture=True)
-    if inside is None or inside.returncode != 0 or inside.stdout.strip() != "true":
-        return False
-    status = _git("status", "--porcelain", capture=True)
-    if status is None or status.returncode != 0:
-        return False
-    return status.stdout.strip() == ""
-
-
-def auto_update_and_reexec(argv: list[str], prog: str = "install") -> None:
-    """Pull the newer release and re-exec ``./install`` — a git pull can't
-    upgrade the already-loaded installer. ``MAC_TAHOE_UPDATED`` guards against
-    a pull/re-exec loop; every bail falls through to installing the current
-    version with a one-line reason and the manual command."""
-    if os.environ.get("MAC_TAHOE_UPDATED") == "1":
-        return  # already re-exec'd after a successful pull; just install
-
-    if not _repo_is_clean_git_checkout():
-        note("Not a clean git checkout — skipping auto-update")
-        print(f"  \033[2mUpdate manually: git pull && ./{prog}\033[0m")
-        return
-
-    print("  \033[2mPulling the latest release…\033[0m")
-    pull = _git("pull", "--ff-only", capture=True)
-    if pull is None or pull.returncode != 0:
-        warn("git pull failed — installing the current version")
-        if pull is not None and pull.stderr:
-            print(f"  \033[2m{pull.stderr.strip().splitlines()[-1]}\033[0m")
-        print(f"  \033[2mUpdate manually: git pull && ./{prog}\033[0m")
-        return
-
-    ok(f"Updated to {read_version()} — restarting installer")
-
-    # Real UID is still 0, so the re-exec'd wrapper stays root and repeats
-    # the same euid-drop hop.
-    installer = REPO_ROOT / prog
-    os.environ["MAC_TAHOE_UPDATED"] = "1"
-    try:
-        os.execv(str(installer), [str(installer), *argv])
-    except OSError as exc:
-        warn(f"could not restart installer ({exc}) — installing current version")
-        os.environ.pop("MAC_TAHOE_UPDATED", None)
 
 
 def apply_overrides(feat: dict[str, object], parsed: ParsedArgs) -> dict[str, object]:
@@ -523,9 +530,9 @@ def export_env(feat: dict[str, object]) -> None:
         _coerce_int(feat.get("oled_interval"), 5, 1, 59))
     os.environ["OLED_MAX_SHIFT"] = str(
         _coerce_int(feat.get("oled_max_shift"), 8, 1, 16))
-    os.environ["MTTKDE_EXISTING_INSTALL"] = _b(
+    os.environ["TAJSDESKTOP_EXISTING_INSTALL"] = _b(
         feat.get("_existing_install", False))
-    os.environ["MTTKDE_RESET_WALLPAPERS"] = _b(
+    os.environ["TAJSDESKTOP_RESET_WALLPAPERS"] = _b(
         feat.get("_reset_wallpapers", False))
     for k in ALL_FEATURES:
         os.environ[f"FEAT_{k.upper()}"] = _b(feat.get(k, True))
@@ -571,12 +578,12 @@ def _detect_plasma_version() -> str | None:
 def verify_plasma() -> bool:
     # VM boot-splash harness bypass (Plymouth needs no Plasma). NEVER set
     # on real installs — it would write KDE configs to a Plasma-less system.
-    if os.environ.get("MTTKDE_SKIP_PLASMA_CHECK") == "1":
-        warn("MTTKDE_SKIP_PLASMA_CHECK=1 — bypassing Plasma version check (test mode)")
+    if os.environ.get("TAJSDESKTOP_SKIP_PLASMA_CHECK") == "1":
+        warn("TAJSDESKTOP_SKIP_PLASMA_CHECK=1 — bypassing Plasma version check (test mode)")
         return True
     if not have("plasmashell"):
         fail("KDE Plasma not found")
-        print("     MacTahoe Liquid KDE requires KDE Plasma 6.6+.", file=sys.stderr)
+        print("     TajsDesktop requires KDE Plasma 6.6+.", file=sys.stderr)
         return False
     ver = _detect_plasma_version()
     if not ver:
@@ -599,8 +606,8 @@ def confirm(msg: str) -> bool:
     print()
     # VM harness bypass — non-tty ``input()`` reads the SSH heredoc and
     # can deadlock.
-    if os.environ.get("MTTKDE_NO_CONFIRM") == "1":
-        print("  MTTKDE_NO_CONFIRM=1 — auto-accepting (test mode)")
+    if os.environ.get("TAJSDESKTOP_NO_CONFIRM") == "1":
+        print("  TAJSDESKTOP_NO_CONFIRM=1 — auto-accepting (test mode)")
         print()
         return True
     try:
@@ -632,7 +639,7 @@ def _tui_active(argv: list[str], tui: bool) -> bool:
     ``legacy-install`` / ``legacy-uninstall`` entries never pass tui."""
     if not tui or argv:
         return False
-    if os.environ.get("MTTKDE_NO_CONFIRM") == "1":
+    if os.environ.get("TAJSDESKTOP_NO_CONFIRM") == "1":
         return False
     try:
         return sys.stdin.isatty() and sys.stdout.isatty()
@@ -662,13 +669,13 @@ def _theme_is_already_installed() -> bool:
     """
     home = Path.home()
     candidates = (
-        home / ".local/state/mac-tahoe-liquid-kde/wallpapers.json",
-        home / ".local/state/mac-tahoe-liquid-kde/layout-installed",
-        home / ".local/bin/mac-tahoe-theme-switch",
+        home / ".local/state/tajsdesktop/wallpapers.json",
+        home / ".local/state/tajsdesktop/layout-installed",
+        home / ".local/bin/tajsdesktop-theme-switch",
         home / ".local/share/plasma/look-and-feel/"
-        "org.kde.mac-tahoe-liquid-kde.light",
+        "org.tajemniktv.tajsdesktop.light",
         home / ".local/share/plasma/look-and-feel/"
-        "org.kde.mac-tahoe-liquid-kde.dark",
+        "org.tajemniktv.tajsdesktop.dark",
     )
     if any(path.exists() for path in candidates):
         return True
@@ -677,7 +684,7 @@ def _theme_is_already_installed() -> bool:
         text = appletsrc.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
-    return "org.kde.mac-tahoe" in text or "org.kde.mac.tahoe" in text
+    return "org.tajemniktv.tajsdesktop." in text
 
 
 def _restore_user_session_env(uid: int) -> None:
@@ -755,15 +762,15 @@ def _require_root_and_drop_to_user(op: str = "install") -> bool:
 
 _VERIFY_CHECKS = [
     ("icons", "kdeglobals", "Icons", "Theme",
-     "MacTahoeLiquidKde-Icons", "Icon theme"),
+     "TajsDesktop-Icons", "Icon theme"),
     ("color_schemes", "kdeglobals", "General", "ColorScheme",
-     "MacTahoeLiquidKde", "Color scheme"),
+     "TajsDesktop", "Color scheme"),
     ("cursors", "kcminputrc", "Mouse", "cursorTheme",
-     "MacTahoeLiquidKde", "Cursor theme"),
+     "TajsDesktop", "Cursor theme"),
     ("plasma_theme", "plasmarc", "Theme", "name",
-     "MacTahoeLiquidKde", "Plasma theme"),
+     "TajsDesktop", "Plasma theme"),
     ("window_decorations", "kwinrc", "org.kde.kdecoration2", "theme",
-     "__aurorae__svg__MacTahoeLiquidKde", "Window decorations"),
+     "__aurorae__svg__TajsDesktop", "Window decorations"),
     ("rounded_corners", "kwinrc", "Plugins", "shapecornersEnabled",
      "true", "KDE Rounded Corners"),
     ("rounded_corners", "kwinrc", "Round-Corners", "Size",
@@ -932,6 +939,144 @@ def _run_builds_or_abort(feat: dict[str, object]) -> bool:
     return True
 
 
+def _run_asset_update_body(feat: dict[str, object], installed: InstalledState | None) -> int:
+    """Refresh owned payloads without calling install, apply, or layout.
+
+    Do not advance the installed version for a partial update. In particular,
+    any enabled component without a safe asset phase blocks the transaction.
+    """
+    if installed is None:
+        fail("No TajsDesktop installation record; first install or explicit migration required")
+        return 1
+    desired = {name: bool(feat.get(name, False)) for name in ALL_FEATURES}
+    version = read_version()
+    plan = plan_features(
+        desired, installed, version,
+        refreshable=(name for name in (*ALL_FEATURES, "theme_switch")
+                     if step_has_phase(name, "update_assets")),
+    )
+    if plan["enable"] or plan["disable"]:
+        fail("Asset update cannot change features; reconcile the feature delta separately")
+        return 1
+    if plan["pending_refresh"]:
+        fail("Asset update has unsupported enabled components: "
+             + ", ".join(plan["pending_refresh"]))
+        return 1
+    if installed.version == version:
+        ok("Component assets already at the recorded version")
+        return 0
+    selected = list(plan["refresh_assets"])
+    selected_feat = {name: name in selected for name in ALL_FEATURES}
+    if not run_preflight("install") or not verify_plasma():
+        fail("Asset-update preflight failed")
+        return 1
+    if not _check_deps(selected_feat) or not _run_builds_or_abort(selected_feat):
+        return 1
+    for name in selected:
+        check_cancelled()
+        step(f"Refreshing {name.replace('_', ' ')} assets")
+        if not run_phase(name, "update_assets"):
+            fail(f"Asset update stopped at {name}; installed version remains unchanged")
+            return 1
+    try:
+        save_state(InstalledState(version, dict(installed.features)))
+    except (OSError, ValueError) as exc:
+        fail(f"Assets refreshed but installed version could not be recorded: {exc}")
+        return 1
+    ok("Component assets refreshed; desktop settings and panels preserved")
+    return 0
+
+
+def _run_feature_reconcile_body(feat: dict[str, object],
+                                installed: InstalledState | None) -> int:
+    """Apply a reviewed feature delta without running the broad installer.
+
+    Persist each completed action, so a later failure never records an action
+    that did not finish and a retry can resume from the last successful one.
+    """
+    if installed is None:
+        fail("No TajsDesktop installation record; first install or migration required")
+        return 1
+    version = read_version()
+    if installed.version != version:
+        fail("Update component assets before reconciling feature changes")
+        return 1
+    desired = {name: bool(feat.get(name, False)) for name in ALL_FEATURES}
+    plan = plan_features(desired, installed, version)
+    changed = set(plan["enable"]) | set(plan["disable"])
+    unsupported = sorted(changed - RECONCILABLE_FEATURES)
+    if unsupported:
+        fail("Feature reconciliation has unsupported changes: "
+             + ", ".join(unsupported))
+        return 1
+    for name in changed:
+        mod = step_module(name)
+        if mod is None or not callable(getattr(mod, "is_installed", None)):
+            fail(f"Feature {name} has no verifiable installed-state probe")
+            return 1
+    if not changed:
+        ok("Requested features already match installed state")
+        return 0
+    if desired["layout"] and (not desired["plasmoids"] or not desired["globalmenu"]):
+        fail("Layout requires the plasmoids and global menu features")
+        return 1
+    selected = {name: name in plan["enable"] for name in (*ALL_FEATURES, "theme_switch")}
+    if not run_preflight("install") or not verify_plasma():
+        fail("Feature-reconciliation preflight failed")
+        return 1
+    if plan["enable"]:
+        if not _check_deps(selected) or not _run_builds_or_abort(selected):
+            return 1
+    # Remove dependents before their prerequisites; install in normal order.
+    order = (*INSTALL_ORDER, "oled_care")
+    actions = ([(name, False) for name in reversed(order) if name in plan["disable"]]
+               + [(name, True) for name in order if name in plan["enable"]])
+    current = dict(installed.features)
+    for name, enabled in actions:
+        check_cancelled()
+        step(f"{'Enabling' if enabled else 'Disabling'} {name.replace('_', ' ')}")
+        if not run_phase(name, "install" if enabled else "uninstall"):
+            fail(f"Feature reconciliation stopped at {name}; remaining changes not recorded")
+            return 1
+        try:
+            verified = bool(step_module(name).is_installed())
+        except (OSError, ValueError) as exc:
+            fail(f"Feature {name} installed state cannot be verified: {exc}")
+            return 1
+        if verified != enabled:
+            fail(f"Feature {name} did not reach its requested state; change not recorded")
+            return 1
+        current[name] = enabled
+        try:
+            save_state(InstalledState(version, dict(current)))
+        except (OSError, ValueError) as exc:
+            fail(f"Feature {name} changed but its installed state could not be recorded: {exc}")
+            return 1
+    ok("Feature changes reconciled without broad theme or layout reapplication")
+    return 0
+
+
+def _run_profile_reset_body(*, confirmed: bool) -> int:
+    """Explicit rollback of only unchanged, ledger-owned initial defaults."""
+    if not confirmed:
+        fail("Profile reset requires --confirm-profile-reset; preview it first")
+        return 2
+    try:
+        preview = preview_profile_reset()
+        if not preview:
+            ok("No recorded personal defaults to reset")
+            return 0
+        for entry in preview:
+            note(f"{entry['action']}: {entry['file']} [{entry['group']}] {entry['key']}")
+        result = reset_profile_defaults(confirmed=True)
+    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+        fail(f"Personal-defaults reset stopped: {exc}")
+        return 1
+    ok(f"Personal-defaults reset complete; "
+       f"{sum(entry['action'] == 'delete' for entry in result)} key(s) removed")
+    return 0
+
+
 _BASE_DEPS = [
     ("fc-cache", "fontconfig"), ("kwriteconfig6", "kconfig"),
     ("cmake", "cmake"), ("g++", "gcc"),
@@ -1018,8 +1163,8 @@ def _print_done(verb: str) -> None:
     print()
     print(f"\033[0;32m\033[1m  ── Done\033[0m")
     if not errors:
-        ok(f"MacTahoe Liquid KDE {verb} successfully")
-        print(f"  \033[0;90mReport bugs at: https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/issues/new\033[0m")
+        ok(f"TajsDesktop {verb} successfully")
+        print(f"  \033[0;90mReport bugs at: https://github.com/tajemniktv/TajsDesktop/issues/new\033[0m")
         print()
         return
     # Snapshot: fail() appends to errors, so iterating the live list while
@@ -1028,7 +1173,7 @@ def _print_done(verb: str) -> None:
     warn(f"{len(issues)} issue(s):")
     for e in issues:
         print(f"  \033[0;31m✗\033[0m  {e}", file=sys.stderr)
-    print(f"  \033[0;90mReport bugs at: https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/issues/new\033[0m")
+    print(f"  \033[0;90mReport bugs at: https://github.com/tajemniktv/TajsDesktop/issues/new\033[0m")
     print()
 
 
@@ -1246,21 +1391,123 @@ def run_install(argv: list[str], tui: bool = False,
     if parsed.check_update:
         return 1 if check_for_updates(verbose=True) else 0
 
+    if parsed.plan_profile_reset:
+        if (parsed.plan_only or parsed.do_save or parsed.do_reset
+                or parsed.reset_profile_defaults or parsed.confirm_profile_reset):
+            print("--plan-reset-profile cannot be combined with mutation options",
+                  file=sys.stderr)
+            return 2
+        try:
+            print(json.dumps({"reset": preview_profile_reset(),
+                              "executable": not STAGING_INSTALL_BLOCKED}, indent=2))
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"Cannot preview personal-defaults reset: {exc}", file=sys.stderr)
+            return 1
+        return 0
+
+    if parsed.plan_only:
+        if parsed.do_save or parsed.do_reset:
+            print("--plan cannot be combined with --save or --reset",
+                  file=sys.stderr)
+            return 2
+        desired = load_features()
+        if parsed.only_mode:
+            desired.update({feature: False for feature in ALL_FEATURES})
+        desired.update(parsed.cli_overrides)
+        upstream_tahoe_present = upstream_install_present()
+        try:
+            if parsed.profile is not None:
+                load_profile(parsed.profile)
+            installed = load_state()
+            preview = plan_features(
+                {feature: bool(desired.get(feature, False))
+                 for feature in ALL_FEATURES},
+                installed, read_version(), upstream_tahoe_present,
+                refreshable=(
+                    feature for feature in (*ALL_FEATURES, "theme_switch")
+                    if step_has_phase(feature, "update_assets")
+                ),
+            )
+            preview["profile"] = parsed.profile or "common"
+            preview["profile_defaults"] = (
+                preview_profile_defaults(parsed.profile)
+                if installed is None and not profile_state_file().exists() else []
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"Cannot preview TajsDesktop state: {exc}", file=sys.stderr)
+            return 1
+        preview["upstream_tahoe_present"] = upstream_tahoe_present
+        preview["executable"] = not STAGING_INSTALL_BLOCKED
+        print(json.dumps(preview, indent=2))
+        return 0
+
     # Root required: .so and QML drops go into the qmake6-reported Qt6
     # dirs; user paths aren't discoverable.
     if not _require_root_and_drop_to_user(prog):
         return 1
     check_cancelled()
 
-    feat = apply_overrides(load_features(), parsed)
-    feat["_existing_install"] = _theme_is_already_installed()
-    export_env(feat)
-
     if parsed.preflight_only:
         banner(read_version())
         result = run_preflight("install")
         check_cancelled()
         return 0 if result else 1
+
+    if STAGING_INSTALL_BLOCKED:
+        fail("TajsDesktop is staged but not safe for live installation yet")
+        print("  Installer lifecycle and configuration migration remain incomplete.",
+              file=sys.stderr)
+        return 1
+
+    if parsed.confirm_profile_reset and not parsed.reset_profile_defaults:
+        fail("--confirm-profile-reset requires --reset-profile-defaults")
+        return 2
+    if parsed.reset_profile_defaults:
+        if (parsed.update_assets or parsed.reconcile or parsed.only_mode
+                or parsed.cli_overrides or parsed.do_save or parsed.do_reset
+                or parsed.reset_wallpapers or parsed.profile or parsed.restart_only
+                or parsed.theme_mode is not None or parsed.oled_interval is not None
+                or parsed.oled_max_shift is not None):
+            fail("--reset-profile-defaults cannot be combined with other actions")
+            return 2
+        return _run_profile_reset_body(confirmed=parsed.confirm_profile_reset)
+
+    if parsed.update_assets:
+        if (parsed.cli_overrides or parsed.only_mode or parsed.do_save
+                or parsed.do_reset or parsed.reset_wallpapers or parsed.profile
+                or parsed.restart_only or parsed.theme_mode is not None
+                or parsed.oled_interval is not None
+                or parsed.oled_max_shift is not None):
+            fail("--update-assets cannot be combined with feature or reset options")
+            return 2
+        feat = load_features()
+        export_env(feat)
+        try:
+            installed = load_state()
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            fail(f"Cannot read installed TajsDesktop state: {exc}")
+            return 1
+        return _run_asset_update_body(feat, installed)
+
+    if parsed.reconcile:
+        if (parsed.update_assets or parsed.only_mode or parsed.cli_overrides
+                or parsed.do_save or parsed.do_reset or parsed.reset_wallpapers
+                or parsed.profile or parsed.restart_only or parsed.theme_mode is not None
+                or parsed.oled_interval is not None or parsed.oled_max_shift is not None):
+            fail("--reconcile uses features.json and cannot be combined with other actions")
+            return 2
+        feat = load_features()
+        export_env(feat)
+        try:
+            installed = load_state()
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            fail(f"Cannot read installed TajsDesktop state: {exc}")
+            return 1
+        return _run_feature_reconcile_body(feat, installed)
+
+    feat = apply_overrides(load_features(), parsed)
+    feat["_existing_install"] = _theme_is_already_installed()
+    export_env(feat)
 
     # Standalone --restart just kicks plasmashell. Combined with install
     # flags it is implicit — the install already ends with restart_plasma.
@@ -1287,8 +1534,7 @@ def run_install(argv: list[str], tui: bool = False,
         if _tui_active(argv, tui):
             # Update + re-exec BEFORE the wizard so a pull never throws
             # away selections the user just made.
-            if check_for_updates(inline=True):
-                auto_update_and_reexec(argv, prog)
+            check_for_updates(inline=True)
             wizard = _tui_wizard(feat, "install")
         else:
             wizard = _TUI_UNAVAILABLE
@@ -1302,8 +1548,8 @@ def run_install(argv: list[str], tui: bool = False,
                            "  Do not install on production / work systems."):
                 tracker.mark_aborted()
                 return 0
-            if not _tui_active(argv, tui) and check_for_updates(inline=True):
-                auto_update_and_reexec(argv, prog)
+            if not _tui_active(argv, tui):
+                check_for_updates(inline=True)
             rc = _run_install_body(feat)
         else:
             # The wizard's summary screen already confirmed.
@@ -1344,6 +1590,10 @@ def run_uninstall(argv: list[str], tui: bool = False,
     if not _require_root_and_drop_to_user(prog):
         return 1
     check_cancelled()
+
+    if STAGING_INSTALL_BLOCKED:
+        fail("TajsDesktop is staged but not safe for live removal yet")
+        return 1
 
     feat = apply_overrides(load_features(), parsed)
     export_env(feat)

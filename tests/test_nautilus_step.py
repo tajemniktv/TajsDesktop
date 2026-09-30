@@ -154,9 +154,8 @@ def test_bookmarks_flag_disabled_skips_generation(tmp_path, monkeypatch):
     assert not bookmarks.exists()
 
 
-def test_bookmarks_backup_created_before_overwrite(tmp_path, monkeypatch):
-    """A pre-existing bookmarks file is backed up (content intact)
-    before ours is written over it."""
+def test_existing_bookmarks_are_not_overwritten(tmp_path, monkeypatch):
+    """An existing GTK bookmark list is user-owned, even at first install."""
     home = tmp_path / "home"
     (home / ".config/gtk-3.0").mkdir(parents=True)
     original = "file:///home/user/MyStuff MyStuff\n"
@@ -166,33 +165,27 @@ def test_bookmarks_backup_created_before_overwrite(tmp_path, monkeypatch):
         tmp_path, monkeypatch, user_dirs_text=_EN_DIRS,
     )
 
-    backup = bookmarks.parent / "bookmarks.mac-tahoe-backup"
-    assert backup.is_file(), "backup was not created"
-    assert backup.read_text() == original
-    assert "Desktop" in bookmarks.read_text()
+    assert bookmarks.read_text() == original
+    assert not (bookmarks.parent / "bookmarks.tajsdesktop-owned").exists()
 
 
-def test_bookmarks_backup_not_clobbered_on_reinstall(tmp_path, monkeypatch):
-    """A second install must not overwrite the backup with our own
-    generated file — the true original survives reinstalls."""
+def test_bookmarks_reinstall_preserves_user_changes(tmp_path, monkeypatch):
+    """A later install must never rebuild a user's edited bookmark list."""
     home = tmp_path / "home"
     (home / ".config/gtk-3.0").mkdir(parents=True)
-    original = "file:///home/user/MyStuff MyStuff\n"
-    (home / ".config/gtk-3.0/bookmarks").write_text(original)
-
     bookmarks = _run_generate_bookmarks(
         tmp_path, monkeypatch, user_dirs_text=_EN_DIRS,
     )
+    bookmarks.write_text("file:///home/user/MyStuff MyStuff\n")
     from steps import nautilus
     nautilus._generate_bookmarks()  # reinstall
 
-    backup = bookmarks.parent / "bookmarks.mac-tahoe-backup"
-    assert backup.read_text() == original
+    assert bookmarks.read_text() == "file:///home/user/MyStuff MyStuff\n"
 
 
 def _run_uninstall_bookmarks(tmp_path, monkeypatch):
     """Wire nautilus.py to a fake home and run uninstall(). Returns the
-    (bookmarks, backup) paths."""
+    (bookmarks, ownership marker) paths."""
     from steps import nautilus
 
     home = tmp_path / "home"
@@ -207,35 +200,62 @@ def _run_uninstall_bookmarks(tmp_path, monkeypatch):
     nautilus.uninstall()
 
     dest = home / ".config/gtk-3.0"
-    return dest / "bookmarks", dest / "bookmarks.mac-tahoe-backup"
+    return dest / "bookmarks", dest / "bookmarks.tajsdesktop-owned"
 
 
-def test_uninstall_restores_backed_up_bookmarks(tmp_path, monkeypatch):
-    """uninstall() puts the original bookmarks back and removes the
-    backup file."""
+def test_uninstall_preserves_legacy_tahoe_backup_and_bookmarks(tmp_path, monkeypatch):
+    """A Tahoe backup is foreign state, not fork ownership evidence."""
     home = tmp_path / "home"
     (home / ".config/gtk-3.0").mkdir(parents=True)
     original = "file:///home/user/MyStuff MyStuff\n"
     (home / ".config/gtk-3.0/bookmarks").write_text("file:///gen Generated\n")
     (home / ".config/gtk-3.0/bookmarks.mac-tahoe-backup").write_text(original)
 
-    bookmarks, backup = _run_uninstall_bookmarks(tmp_path, monkeypatch)
+    bookmarks, marker = _run_uninstall_bookmarks(tmp_path, monkeypatch)
 
-    assert bookmarks.read_text() == original
-    assert not backup.exists()
+    assert bookmarks.read_text() == "file:///gen Generated\n"
+    assert (bookmarks.parent / "bookmarks.mac-tahoe-backup").read_text() == original
+    assert not marker.exists()
 
 
-def test_uninstall_removes_generated_bookmarks_without_backup(tmp_path, monkeypatch):
-    """When no backup exists (the user had no bookmarks pre-install),
-    uninstall() removes the generated file instead of leaving ours."""
+def test_uninstall_preserves_unmarked_bookmarks(tmp_path, monkeypatch):
+    """An unmarked file is foreign even if it looks generated."""
     home = tmp_path / "home"
     (home / ".config/gtk-3.0").mkdir(parents=True)
     (home / ".config/gtk-3.0/bookmarks").write_text("file:///gen Generated\n")
 
-    bookmarks, backup = _run_uninstall_bookmarks(tmp_path, monkeypatch)
+    bookmarks, marker = _run_uninstall_bookmarks(tmp_path, monkeypatch)
+
+    assert bookmarks.read_text() == "file:///gen Generated\n"
+    assert not marker.exists()
+
+
+def test_uninstall_removes_only_unchanged_fork_bookmarks(tmp_path, monkeypatch):
+    bookmarks = _run_generate_bookmarks(
+        tmp_path, monkeypatch, user_dirs_text=_EN_DIRS,
+    )
+    from steps import nautilus
+    marker = bookmarks.parent / "bookmarks.tajsdesktop-owned"
+    assert marker.is_file()
+
+    nautilus._restore_bookmarks()
 
     assert not bookmarks.exists()
-    assert not backup.exists()
+    assert not marker.exists()
+
+
+def test_uninstall_preserves_edited_fork_bookmarks(tmp_path, monkeypatch):
+    bookmarks = _run_generate_bookmarks(
+        tmp_path, monkeypatch, user_dirs_text=_EN_DIRS,
+    )
+    from steps import nautilus
+    marker = bookmarks.parent / "bookmarks.tajsdesktop-owned"
+    bookmarks.write_text(bookmarks.read_text() + "file:///custom Custom\n")
+
+    nautilus._restore_bookmarks()
+
+    assert bookmarks.read_text().endswith("file:///custom Custom\n")
+    assert marker.is_file()
 
 
 def test_bookmarks_cjk_labels(tmp_path, monkeypatch):

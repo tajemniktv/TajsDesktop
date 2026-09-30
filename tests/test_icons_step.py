@@ -13,7 +13,7 @@ if str(SCRIPTS) not in sys.path:
 
 
 def _existing_themes(dest: Path) -> None:
-    for name in ("MacTahoeLiquidKde-Icons", "MacTahoeLiquidKde-Icons-dark"):
+    for name in ("TajsDesktop-Icons", "TajsDesktop-Icons-dark"):
         theme = dest / name
         theme.mkdir(parents=True)
         (theme / "index.theme").write_text("old\n")
@@ -28,7 +28,7 @@ def test_install_stages_archive_before_replacing_active_themes(
     dest.mkdir()
     offline.mkdir()
     _existing_themes(dest)
-    (offline / "MacTahoeLiquidKde-Icons.tar.zst").touch()
+    (offline / "TajsDesktop-Icons.tar.zst").touch()
 
     def fake_tar(args, **_kwargs):
         # The active themes must remain resolvable during the entire extraction.
@@ -67,7 +67,7 @@ def test_failed_icon_extraction_preserves_active_themes(monkeypatch, tmp_path):
     dest.mkdir()
     offline.mkdir()
     _existing_themes(dest)
-    (offline / "MacTahoeLiquidKde-Icons.tar.zst").touch()
+    (offline / "TajsDesktop-Icons.tar.zst").touch()
 
     monkeypatch.setattr(icons, "DEST_DIR", dest)
     monkeypatch.setattr(icons, "OFFLINE_DIR", offline)

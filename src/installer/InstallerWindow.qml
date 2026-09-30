@@ -33,7 +33,7 @@ Window {
     // Populated by installer.checkForUpdates() → onUpdateChecked. The
     // banner stays hidden unless GitHub reports a strictly newer release,
     // mirroring the CLI's `./install --check-update` verdict. Network
-    // failures (and the MAC_TAHOE_NO_UPDATE_CHECK opt-out) leave
+    // failures (and the TAJSDESKTOP_NO_UPDATE_CHECK opt-out) leave
     // updateAvailable false, so the banner simply never appears.
     property bool updateAvailable: false
     property string updateCurrent: ""
@@ -48,7 +48,7 @@ Window {
         return (bg.r * 0.299 + bg.g * 0.587 + bg.b * 0.114) < 0.5;
     }
 
-    title: t("MacTahoe Liquid KDE Installer")
+    title: t("TajsDesktop Installer")
     width: 1000
     height: 684
     minimumWidth: 1000
@@ -103,6 +103,49 @@ Window {
         currentAction = action;
         viewMode = "installing";
         installer.start(action);
+    }
+
+    function openProfileReset(): void {
+        if (!installer || installer.stagingBlocked)
+            return;
+        const preview = installer.profileResetPreview();
+        profileResetDialog.confirmAvailable = preview.ok === true
+            && (preview.actions || []).some(item => item.action === "delete");
+        if (preview.ok !== true) {
+            profileResetDialog.previewText = preview.error || t("Cannot preview reset");
+        } else {
+            const actions = preview.actions || [];
+            profileResetDialog.previewText = actions.length === 0
+                ? t("No profile-initialized keys to reset.")
+                : actions.map(item => item.action + ": " + item.file
+                    + " [" + item.group + "] " + item.key).join("\n");
+        }
+        profileResetDialog.open();
+    }
+
+    QQC2.Dialog {
+        id: profileResetDialog
+        parent: installerWindow.contentItem
+        anchors.centerIn: parent
+        modal: true
+        title: installerWindow.t("Reset personal defaults?")
+        standardButtons: QQC2.Dialog.Ok | QQC2.Dialog.Cancel
+        property string previewText: ""
+        property bool confirmAvailable: false
+        onAccepted: {
+            if (confirmAvailable && installer && !installer.stagingBlocked)
+                installerWindow.runAction("reset-profile-defaults");
+        }
+        contentItem: QQC2.ScrollView {
+            implicitWidth: 560
+            implicitHeight: 260
+            QQC2.Label {
+                width: 540
+                wrapMode: Text.Wrap
+                text: installerWindow.t("Only unchanged TajsDesktop-initialized keys will be removed. A backup is made before reset.")
+                    + "\n\n" + profileResetDialog.previewText
+            }
+        }
     }
 
     Connections {
@@ -271,8 +314,8 @@ Window {
             // ── update banner ─────────────────────────────────────────────
             // A quiet macOS-style pill that fades in only when GitHub has a
             // strictly newer release. Same verdict and copy as the CLI's
-            // `./install --check-update`. Clicking it copies the upgrade
-            // command; the user still upgrades via git pull && ./install.
+            // `./install --check-update`. It links to the fork release for
+            // review; fetching code never silently installs or reapplies it.
             Rectangle {
                 id: updateBanner
                 Layout.alignment: Qt.AlignHCenter
@@ -304,7 +347,7 @@ Window {
                         anchors.verticalCenter: parent.verticalCenter
                         text: installerWindow.t("Update available:") + " " + installerWindow.updateCurrent
                             + " → " + installerWindow.updateLatest
-                            + "   ·   run git pull && ./install"
+                            + "   ·   review the TajsDesktop release"
                         color: Kirigami.Theme.textColor
                         font.family: installerWindow.fontFamily
                         font.pointSize: Kirigami.Theme.defaultFont.pointSize * 0.95
@@ -319,7 +362,7 @@ Window {
                 TapHandler {
                     enabled: !installerWindow.busy
                     onTapped: {
-                        updateClipboard.text = "git pull && ./install";
+                        updateClipboard.text = "https://github.com/tajemniktv/TajsDesktop/releases";
                         updateClipboard.selectAll();
                         updateClipboard.copy();
                         updateClipboard.deselect();
@@ -512,11 +555,31 @@ Window {
 
                 FlatButton {
                     text: installerWindow.t("Install")
+                    enabled: installer && !installer.stagingBlocked
                     onClicked: installerWindow.runAction("install")
                 }
 
                 FlatButton {
+                    text: installerWindow.t("Update components")
+                    enabled: installer && !installer.stagingBlocked
+                    onClicked: installerWindow.runAction("update-assets")
+                }
+
+                FlatButton {
+                    text: installerWindow.t("Apply features")
+                    enabled: installer && !installer.stagingBlocked
+                    onClicked: installerWindow.runAction("reconcile")
+                }
+
+                FlatButton {
+                    text: installerWindow.t("Reset defaults")
+                    enabled: installer && !installer.stagingBlocked
+                    onClicked: installerWindow.openProfileReset()
+                }
+
+                FlatButton {
                     text: installerWindow.t("Uninstall")
+                    enabled: installer && !installer.stagingBlocked
                     onClicked: installerWindow.runAction("uninstall")
                 }
 

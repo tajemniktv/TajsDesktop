@@ -1,6 +1,6 @@
 # Firefox theme provenance
 
-The CSS and SVG assets in `MacTahoeLiquidKde/` are a maintained, data-only
+The CSS and SVG assets in `TajsDesktop/` are a maintained, data-only
 fork of the [`other/firefox`](https://github.com/vinceliuice/MacTahoe-gtk-theme/tree/main/other/firefox)
 assets from `vinceliuice/MacTahoe-gtk-theme`, pinned from commit
 `aaac1c5451fc2f14e02ec1d9b606baa41589cd41` (archive SHA-256

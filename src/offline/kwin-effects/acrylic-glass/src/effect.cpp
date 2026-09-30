@@ -51,15 +51,15 @@
 
 #include <KDecoration3/Decoration>
 
-Q_LOGGING_CATEGORY(KWIN_BLUR, "kwin_effect_liquidglass", QtWarningMsg)
+Q_LOGGING_CATEGORY(KWIN_BLUR, "kwin_effect_tajsdesktopglass", QtWarningMsg)
 
 // File-scope helpers
 
 /// One-shot Qt resource initialiser. Called from the constructor so the
-/// :/effects/liquidglass/* paths resolve at runtime.
+/// :/effects/tajsdesktopglass/* paths resolve at runtime.
 static void ensureResources()
 {
-    Q_INIT_RESOURCE(liquidglass);
+    Q_INIT_RESOURCE(tajsdesktopglass);
 }
 
 namespace KWin {
@@ -134,7 +134,7 @@ BlurEffect::BlurEffect()
 
     // Onscreen pass: SDF + drift + lens + rim, the user-facing surface
     m_roundedOnscreenPass.shader = ShaderManager::instance()->generateShaderFromFile(
-        ShaderTrait::MapTexture, QStringLiteral(":/effects/liquidglass/shaders/glass.vert"), QStringLiteral(":/effects/liquidglass/shaders/glass.frag"));
+        ShaderTrait::MapTexture, QStringLiteral(":/effects/tajsdesktopglass/shaders/glass.vert"), QStringLiteral(":/effects/tajsdesktopglass/shaders/glass.frag"));
     if (!m_roundedOnscreenPass.shader) {
         qCWarning(KWIN_BLUR) << "Failed to load onscreen pass shader (null)";
         return;
@@ -170,7 +170,7 @@ BlurEffect::BlurEffect()
 
     // Dual Kawase downsample pass
     m_downsamplePass.shader = ShaderManager::instance()->generateShaderFromFile(
-        ShaderTrait::MapTexture, QStringLiteral(":/effects/liquidglass/shaders/vertex.vert"), QStringLiteral(":/effects/liquidglass/shaders/downsample.frag"));
+        ShaderTrait::MapTexture, QStringLiteral(":/effects/tajsdesktopglass/shaders/vertex.vert"), QStringLiteral(":/effects/tajsdesktopglass/shaders/downsample.frag"));
     if (!m_downsamplePass.shader) {
         qCWarning(KWIN_BLUR) << "Failed to load downsampling pass shader";
         return;
@@ -182,7 +182,7 @@ BlurEffect::BlurEffect()
 
     // Dual Kawase upsample pass
     m_upsamplePass.shader = ShaderManager::instance()->generateShaderFromFile(
-        ShaderTrait::MapTexture, QStringLiteral(":/effects/liquidglass/shaders/vertex.vert"), QStringLiteral(":/effects/liquidglass/shaders/upsample.frag"));
+        ShaderTrait::MapTexture, QStringLiteral(":/effects/tajsdesktopglass/shaders/vertex.vert"), QStringLiteral(":/effects/tajsdesktopglass/shaders/upsample.frag"));
     if (!m_upsamplePass.shader) {
         qCWarning(KWIN_BLUR) << "Failed to load upsampling pass shader";
         return;
@@ -194,7 +194,7 @@ BlurEffect::BlurEffect()
 
     // Noise pass (grain over the blurred result)
     m_noisePass.shader = ShaderManager::instance()->generateShaderFromFile(
-        ShaderTrait::MapTexture, QStringLiteral(":/effects/liquidglass/shaders/vertex.vert"), QStringLiteral(":/effects/liquidglass/shaders/noise.frag"));
+        ShaderTrait::MapTexture, QStringLiteral(":/effects/tajsdesktopglass/shaders/vertex.vert"), QStringLiteral(":/effects/tajsdesktopglass/shaders/noise.frag"));
     if (!m_noisePass.shader) {
         qCWarning(KWIN_BLUR) << "Failed to load noise pass shader";
         return;

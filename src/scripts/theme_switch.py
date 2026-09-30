@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Light/dark theme switcher: `mac-tahoe-theme-switch {light|dark|auto}
+"""Light/dark theme switcher: `tajsdesktop-theme-switch {light|dark|auto}
 [install]`. Covers what Plasma's lookandfeelautoswitcher does NOT switch
 (Kvantum, GTK 2/3/4, icon caches). Color schemes go through KDE's own
 plasma-apply-colorscheme (correct [Colors:*] groups + ColorSchemeHash so
@@ -22,10 +22,10 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-LAF_LIGHT = "org.kde.mac-tahoe-liquid-kde.light"
-LAF_DARK = "org.kde.mac-tahoe-liquid-kde.dark"
-KVANTUM_THEME_LIGHT = "mac-tahoe-liquid-kde"
-KVANTUM_THEME_DARK = "mac-tahoe-liquid-kdeDark"
+LAF_LIGHT = "org.tajemniktv.tajsdesktop.light"
+LAF_DARK = "org.tajemniktv.tajsdesktop.dark"
+KVANTUM_THEME_LIGHT = "tajsdesktop"
+KVANTUM_THEME_DARK = "tajsdesktopDark"
 KVANTUM_STYLE = "kvantum"
 _PROC_ROOT = Path("/proc")
 
@@ -188,10 +188,10 @@ def _theme_transition_lock_path() -> Path:
         uid = os.getuid()
     runtime = Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{uid}")
     if runtime.is_dir():
-        return runtime / "mac-tahoe-liquid-kde-theme-apply.lock"
+        return runtime / "tajsdesktop-theme-apply.lock"
     state = Path(os.environ.get("XDG_STATE_HOME") or
                  str(Path.home() / ".local/state"))
-    return state / "mac-tahoe-liquid-kde" / "theme-apply.lock"
+    return state / "tajsdesktop" / "theme-apply.lock"
 
 
 @contextmanager
@@ -426,51 +426,6 @@ def detect_mode_by_system() -> str | None:
     return None
 
 
-_PRC_PANEL_RE = re.compile(
-    r"(\[PlasmaViews\]\[Panel \d+\]\n(?:[^\[]*\n)*)", re.MULTILINE,
-)
-
-
-def patch_dock_transparency() -> bool:
-    """Re-assert panel glass settings after a Global Theme apply.
-
-    Every panel is explicitly translucent so Plasma's Adaptive mode cannot
-    turn the top bar opaque when a window touches it. Non-floating panels also
-    keep applets-only floating. Global Theme applies can drop these view-state
-    keys, so every theme switch restores them. Returns True if the file changed.
-    """
-    prc = _xdg_config() / "plasmashellrc"
-    if not prc.is_file():
-        return False
-    try:
-        text = prc.read_text()
-    except OSError:
-        return False
-
-    def fix(m: "re.Match[str]") -> str:
-        section = m.group(0)
-        if "panelOpacity=" in section:
-            section = re.sub(r"panelOpacity=\d+", "panelOpacity=2", section)
-        else:
-            section = section.rstrip() + "\npanelOpacity=2\n"
-        if "floating=0" in section:
-            if "floatingApplets=" in section:
-                section = re.sub(r"floatingApplets=\d+", "floatingApplets=1",
-                                 section)
-            else:
-                section = section.rstrip() + "\nfloatingApplets=1\n"
-        return section
-
-    new_text = _PRC_PANEL_RE.sub(fix, text)
-    if new_text != text:
-        try:
-            prc.write_text(new_text)
-        except OSError:
-            return False
-        return True
-    return False
-
-
 def _read_portal_color_scheme() -> int | None:
     """The freedesktop appearance ``color-scheme`` as an int (0 no-pref,
     1 prefer-dark, 2 prefer-light), or None if the portal can't be read."""
@@ -506,10 +461,10 @@ def _wallpaper_path(mode: str) -> Path | None:
     data_home = Path(os.environ.get("XDG_DATA_HOME") or
                      str(Path.home() / ".local/share"))
     base = data_home / "wallpapers"
-    auto = base / "MacTahoe"
+    auto = base / "TajsDesktop-Tahoe"
     if auto.is_dir():
         return auto
-    legacy = base / ("MacTahoe-Dark" if mode == "dark" else "MacTahoe-Light")
+    legacy = base / ("TajsDesktop-Tahoe-Dark" if mode == "dark" else "TajsDesktop-Tahoe-Light")
     return legacy if legacy.is_dir() else None
 
 
@@ -519,7 +474,7 @@ _WALLPAPER_STATE_VERSION = 3
 def _wallpaper_state_file() -> Path:
     state_home = Path(os.environ.get("XDG_STATE_HOME") or
                       str(Path.home() / ".local/state"))
-    return state_home / "mac-tahoe-liquid-kde" / "wallpapers.json"
+    return state_home / "tajsdesktop" / "wallpapers.json"
 
 
 def _empty_wallpaper_state() -> dict:
@@ -784,7 +739,7 @@ def _wallpaper_image_is_theme_managed(
     base = Path(os.environ.get("XDG_DATA_HOME") or
                 str(Path.home() / ".local/share")) / "wallpapers"
     managed = [str(base / name).rstrip("/") for name in (
-        "MacTahoe", "MacTahoe-Light", "MacTahoe-Dark")]
+        "TajsDesktop-Tahoe", "TajsDesktop-Tahoe-Light", "TajsDesktop-Tahoe-Dark")]
     if image.startswith("file://"):
         image = image[7:]
     image = image.rstrip("/")
@@ -826,8 +781,8 @@ def _apply_wallpaper(
     was_enabled = bool(state["enabled"])
     feature = _env_bool("FEAT_WALLPAPERS")
     enabled = was_enabled if feature is None else feature
-    reset = _env_bool("MTTKDE_RESET_WALLPAPERS") is True
-    existing_env = _env_bool("MTTKDE_EXISTING_INSTALL")
+    reset = _env_bool("TAJSDESKTOP_RESET_WALLPAPERS") is True
+    existing_env = _env_bool("TAJSDESKTOP_EXISTING_INSTALL")
     existing = (was_initialized or context != "install") \
         if existing_env is None else existing_env
     current = (_current_wallpapers() if current_snapshot is None
@@ -881,7 +836,7 @@ def _apply_wallpaper(
             screen = int(item["screen"])
             if screen in current_user_screens:
                 item["image"] = current_by_screen[screen]
-        # Reapply even when the package URL is unchanged: MacTahoe contains
+        # Reapply even when the package URL is unchanged: TajsDesktop-Tahoe contains
         # both images/ and images_dark/, so rewriting the mixed snapshot makes
         # Plasma refresh the managed screens after the color-mode transition.
         success = bool(applied) and _apply_wallpaper_snapshot(applied)
@@ -972,7 +927,7 @@ def _gtk4_css_is_replaceable(path: Path, themes_root: Path) -> bool:
         return True
     if text.endswith(import_line):
         text = text[:-len(import_line)].rstrip()
-    for variant in ("MacTahoeLiquidKde-Light", "MacTahoeLiquidKde-Dark"):
+    for variant in ("TajsDesktop-Light", "TajsDesktop-Dark"):
         gtk4 = themes_root / variant / "gtk-4.0"
         for name in ("gtk.css", "gtk-Light.css", "gtk-Dark.css",
                      "gtk-dark.css"):
@@ -994,7 +949,7 @@ def _apply_local_extras(mode: str) -> None:
 
     home = Path.home()
     gtk_dest = home / ".themes"
-    gtk_theme = "MacTahoeLiquidKde-Dark" if mode == "dark" else "MacTahoeLiquidKde-Light"
+    gtk_theme = "TajsDesktop-Dark" if mode == "dark" else "TajsDesktop-Light"
 
     if (gtk_dest / gtk_theme).is_dir():
         _qdbus("org.kde.GtkConfig", "/GtkConfig",
@@ -1068,13 +1023,13 @@ def write_kde_theme_config(
         return False
 
     if mode == "dark":
-        laf, icon, cursor = LAF_DARK, "MacTahoeLiquidKde-Icons-dark", "MacTahoeLiquidKde-Dark"
-        scheme, plasma = "MacTahoeLiquidKdeDark", "MacTahoeLiquidKde-Dark"
-        widget, aurorae = KVANTUM_STYLE, "__aurorae__svg__MacTahoeLiquidKde-Dark"
+        laf, icon, cursor = LAF_DARK, "TajsDesktop-Icons-dark", "TajsDesktop-Dark"
+        scheme, plasma = "TajsDesktopDark", "TajsDesktop-Dark"
+        widget, aurorae = KVANTUM_STYLE, "__aurorae__svg__TajsDesktop-Dark"
     else:
-        laf, icon, cursor = LAF_LIGHT, "MacTahoeLiquidKde-Icons", "MacTahoeLiquidKde"
-        scheme, plasma = "MacTahoeLiquidKdeLight", "MacTahoeLiquidKde-Light"
-        widget, aurorae = KVANTUM_STYLE, "__aurorae__svg__MacTahoeLiquidKde-Light"
+        laf, icon, cursor = LAF_LIGHT, "TajsDesktop-Icons", "TajsDesktop"
+        scheme, plasma = "TajsDesktopLight", "TajsDesktop-Light"
+        widget, aurorae = KVANTUM_STYLE, "__aurorae__svg__TajsDesktop-Light"
 
     # Ask KDE to apply the palette while kdeglobals still names the outgoing
     # scheme.  If we stamp General/ColorScheme first, KDE can conclude the
@@ -1087,8 +1042,8 @@ def write_kde_theme_config(
     # restart then loads the converged target into every containment.
     if force_color_reload and _kread(
             "kdeglobals", "General", "ColorScheme") == scheme:
-        opposite = ("MacTahoeLiquidKdeLight" if mode == "dark"
-                    else "MacTahoeLiquidKdeDark")
+        opposite = ("TajsDesktopLight" if mode == "dark"
+                    else "TajsDesktopDark")
         apply_color_scheme(opposite)
     color_ok = apply_color_scheme(scheme)
 
@@ -1130,7 +1085,7 @@ def _live_tool_env() -> dict[str, str]:
 
 
 def _run_live_plasma_tool(cmd: list[str], *, timeout_seconds: int = 20) -> bool:
-    if os.environ.get("MAC_TAHOE_SKIP_LIVE_APPLY", "").lower() == "true":
+    if os.environ.get("TAJSDESKTOP_SKIP_LIVE_APPLY", "").lower() == "true":
         return False
     try:
         return _run_user(cmd, timeout=timeout_seconds,
@@ -1147,7 +1102,7 @@ _LAF_APPLY_RETRY_SLEEP_SECONDS = 6
 # as user effects to watch over. Everything else the user enabled in [Plugins]
 # is a third-party effect we must not silently break.
 _OWN_KWIN_EFFECT_KEYS = frozenset({
-    "liquidglassEnabled", "glassEnabled", "blurEnabled",
+    "tajsdesktopglassEnabled", "glassEnabled", "blurEnabled",
 })
 
 
@@ -1273,11 +1228,11 @@ def reconfigure_kwin_preserving_foreign_effects() -> list[str]:
 # Our own compiled effects are just as exposed to the reconfigure ABI-drop
 # risk documented on _snapshot_foreign_effects as any third-party one --
 # being "ours" doesn't make the .so any less likely to fall out of KWin's
-# loaded-effect list. apply.py's install() reloads liquidglass once at
+# loaded-effect list. apply.py's install() reloads tajsdesktopglass once at
 # install time, but every routine light/dark switch reconfigures KWin too
 # (see above), so this path needs the same protection or the effect can go
 # dark until the next ./install.
-_OWN_COMPILED_EFFECTS = ("liquidglass",)
+_OWN_COMPILED_EFFECTS = ("tajsdesktopglass",)
 
 
 def _restore_own_compiled_effects() -> None:
@@ -1421,7 +1376,7 @@ def _apply_unlocked(mode: str, context: str = "user") -> bool:
     core config writes fail (kwriteconfig6 missing or a write error).
     Live LAF is skipped during install — Plasma restarts anyway and
     running both races plasmashell's QML teardown."""
-    cursor = "MacTahoeLiquidKde-Dark" if mode == "dark" else "MacTahoeLiquidKde"
+    cursor = "TajsDesktop-Dark" if mode == "dark" else "TajsDesktop"
     widget = KVANTUM_STYLE
     laf = LAF_DARK if mode == "dark" else LAF_LIGHT
 
@@ -1466,9 +1421,6 @@ def _apply_unlocked(mode: str, context: str = "user") -> bool:
         print("theme apply: live cursor apply skipped", file=sys.stderr)
     if not cycle_widget_style_live(widget):
         print("theme apply: widget-style cycle skipped", file=sys.stderr)
-    # Keep the dock translucent so the glass shows through (a theme apply can
-    # drop panelOpacity, painting an opaque black panel over the effect).
-    patch_dock_transparency()
     _qdbus("org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure")
     # After KWin re-scans effects, restore a user's third-party effects and
     # warn if one still cannot load (best-effort when KWin is unavailable).
@@ -1498,7 +1450,7 @@ def follow_system() -> int:
         return 0 if _apply_unlocked(mode, context="user") else 1
 
 
-USAGE = ("Usage: mac-tahoe-theme-switch "
+USAGE = ("Usage: tajsdesktop-theme-switch "
          "{light|dark|auto|follow-system} [install]")
 
 

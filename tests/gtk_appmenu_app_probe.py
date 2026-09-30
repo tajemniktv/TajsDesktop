@@ -130,7 +130,7 @@ def main() -> int:
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     results = []
-    with tempfile.TemporaryDirectory(prefix='mttkde-app-probe-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='tajsdesktop-app-probe-') as tmp:
         staging = Path(tmp)
         (staging / 'hook.sh').write_text(_gtk_appmenu_environment(module))
         (staging / 'passwd').write_text(f'test:x:{os.getuid()}:{os.getgid()}:Test:/home/test:/bin/sh\n')

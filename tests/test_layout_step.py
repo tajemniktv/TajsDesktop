@@ -6,6 +6,7 @@ logic that keeps the user's pinned taskbar apps alive when --resetLayout
 rebuilds the panel from scratch.
 """
 
+import json
 import pytest
 
 import steps.layout as layout
@@ -16,7 +17,7 @@ _APPLETSRC = """\
 launchers=preferred://filemanager,applications:steam.desktop
 
 [Containments][19319][Applets][19322][Configuration][General]
-launchers=preferred://browser,applications:org.kde.mac.tahoe.liquid.globalmenu.desktop,applications:steam.desktop
+launchers=preferred://browser,applications:org.tajemniktv.tajsdesktop.globalmenu.desktop,applications:steam.desktop
 """
 
 
@@ -33,7 +34,7 @@ def _write_colorizer(path, version):
     )
 
 
-def test_ensure_panel_colorizer_upgrades_stale_user_copy(monkeypatch, tmp_path):
+def test_ensure_panel_colorizer_preserves_stale_user_copy(monkeypatch, tmp_path):
     bundled = tmp_path / "bundled"
     user = tmp_path / "user"
     system = tmp_path / "system"
@@ -50,7 +51,7 @@ def test_ensure_panel_colorizer_upgrades_stale_user_copy(monkeypatch, tmp_path):
 
     layout._ensure_panel_colorizer()
 
-    assert calls == [(bundled, user, "Panel Colorizer")]
+    assert calls == []
 
 
 def test_ensure_panel_colorizer_preserves_newer_system_copy(monkeypatch, tmp_path):
@@ -71,6 +72,39 @@ def test_ensure_panel_colorizer_preserves_newer_system_copy(monkeypatch, tmp_pat
     layout._ensure_panel_colorizer()
 
     assert calls == []
+
+
+def test_ensure_panel_colorizer_does_not_shadow_stale_system_copy(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled"
+    user = tmp_path / "user"
+    system = tmp_path / "system"
+    _write_colorizer(bundled, "7.3.0")
+    _write_colorizer(system, "7.0.1")
+    calls = []
+    monkeypatch.setattr(layout, "COLORIZER_SRC", bundled)
+    monkeypatch.setattr(layout, "_colorizer_dirs", lambda: [user, system])
+    monkeypatch.setattr(layout, "install_tree", lambda *args: calls.append(args))
+
+    layout._ensure_panel_colorizer()
+
+    assert calls == []
+
+
+def test_ensure_panel_colorizer_installs_only_when_absent(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled"
+    user = tmp_path / "user"
+    _write_colorizer(bundled, "7.3.0")
+    calls = []
+    monkeypatch.setattr(layout, "COLORIZER_SRC", bundled)
+    monkeypatch.setattr(layout, "_colorizer_dirs", lambda: [user])
+    monkeypatch.setattr(
+        layout, "install_tree",
+        lambda src, dest, label: calls.append((src, dest, label)) or True,
+    )
+
+    layout._ensure_panel_colorizer()
+
+    assert calls == [(bundled, user, "Panel Colorizer")]
 
 
 def test_capture_dedups_and_drops_mactahoe(monkeypatch, tmp_path):
@@ -134,9 +168,9 @@ def test_mac_layout_adds_no_application_launchers_of_its_own():
 
 @pytest.mark.parametrize("relative_path", [
     "layouts/mac-tahoe.js",
-    "look-and-feel/MacTahoeLiquidKde-Light/contents/layouts/"
+    "look-and-feel/TajsDesktop-Light/contents/layouts/"
     "org.kde.plasma.desktop-layout.js",
-    "look-and-feel/MacTahoeLiquidKde-Dark/contents/layouts/"
+    "look-and-feel/TajsDesktop-Dark/contents/layouts/"
     "org.kde.plasma.desktop-layout.js",
 ])
 def test_bundled_layouts_autohide_dock_and_keep_top_bar_visible(
@@ -151,8 +185,8 @@ def test_bundled_layouts_autohide_dock_and_keep_top_bar_visible(
 
 def test_panel_background_keeps_light_dark_surface_parity(offline):
     panel = "widgets/panel-background.svgz"
-    dark = offline / "plasma-theme/MacTahoeLiquidKde-Dark" / panel
-    light = offline / "plasma-theme/MacTahoeLiquidKde-Light" / panel
+    dark = offline / "plasma-theme/TajsDesktop-Dark" / panel
+    light = offline / "plasma-theme/TajsDesktop-Light" / panel
 
     # Both packages map the same neutral SVG through their active color
     # scheme. A separate hardcoded dark asset caused 55% square tiles on the
@@ -304,7 +338,7 @@ def _quiet_layout_install(monkeypatch, tmp_path):
     monkeypatch.setattr(layout.time, "sleep", lambda seconds: None)
 
 
-def test_install_always_rebuilds_layout_from_user_pins(monkeypatch, tmp_path):
+def test_install_preserves_existing_layout_and_user_pins(monkeypatch, tmp_path):
     _quiet_layout_install(monkeypatch, tmp_path)
     _write_appletsrc(tmp_path, _APPLETSRC)
     marker = layout._layout_marker()
@@ -320,43 +354,43 @@ def test_install_always_rebuilds_layout_from_user_pins(monkeypatch, tmp_path):
 
     layout.install()
 
-    assert calls == [(
-        layout.LAYOUT_SCRIPT,
-        [
-            "preferred://filemanager",
-            "applications:steam.desktop",
-            "preferred://browser",
-        ],
-        layout.MAC_TASKS_ID,
-    )]
+    assert calls == []
     assert marker.is_file()
 
 
-def test_reinstall_applies_autohide_with_preserved_pins(monkeypatch, tmp_path):
+def test_first_install_adds_autohide_panels_without_removing_existing(
+        monkeypatch, tmp_path):
     _quiet_layout_install(monkeypatch, tmp_path)
     _write_appletsrc(tmp_path, _APPLETSRC)
     marker = layout._layout_marker()
-    marker.parent.mkdir(parents=True)
-    marker.write_text("1\n")
+    appletsrc = tmp_path / ".config/plasma-org.kde.plasma.desktop-appletsrc"
+    before = appletsrc.read_bytes()
+    prc = tmp_path / ".config/plasmashellrc"
+    prc.write_text("[PlasmaViews][Panel 17]\npanelOpacity=0\n")
     captured = _capture_evaluated_script(monkeypatch)
     monkeypatch.setattr(layout, "_discover_is_installed", lambda: False)
     monkeypatch.setattr(layout, "_wait_for_layout_install", lambda: True)
+    snapshots = iter(({}, {101: "a" * 64, 102: "b" * 64}))
+    monkeypatch.setattr(layout, "_panel_snapshots", lambda: next(snapshots))
 
     layout.install()
 
     script = captured["script"]
+    assert "old[i].remove()" not in script
+    assert script.count('writeConfig("owner", "tajsdesktop")') == 2
     assert 'dock.hiding = "autohide";' in script
     assert 'bar.hiding = "none";' in script
     assert "writeConfig('launchers', 'preferred://filemanager," in script
     assert "applications:steam.desktop,preferred://browser')" in script
     assert marker.is_file()
+    assert set(json.loads(marker.read_text())["panels"]) == {"101", "102"}
+    assert appletsrc.read_bytes() == before
+    assert prc.read_text() == "[PlasmaViews][Panel 17]\npanelOpacity=0\n"
 
 
-def test_failed_install_clears_stale_marker_for_retry(monkeypatch, tmp_path):
+def test_failed_first_install_does_not_create_marker(monkeypatch, tmp_path):
     _quiet_layout_install(monkeypatch, tmp_path)
     marker = layout._layout_marker()
-    marker.parent.mkdir(parents=True)
-    marker.write_text("1\n")
     monkeypatch.setattr(
         layout, "_evaluate_layout_with_launchers",
         lambda script, pins, widget: False,
@@ -368,7 +402,7 @@ def test_failed_install_clears_stale_marker_for_retry(monkeypatch, tmp_path):
     assert layout.is_installed() is False
 
 
-def test_uninstall_always_rebuilds_bottom_panel_with_same_pins(
+def test_uninstall_without_ownership_preserves_all_panels(
         monkeypatch, tmp_path):
     monkeypatch.setattr(layout, "HOME", tmp_path)
     _write_appletsrc(tmp_path, _APPLETSRC)
@@ -382,11 +416,7 @@ def test_uninstall_always_rebuilds_bottom_panel_with_same_pins(
 
     layout.uninstall()
 
-    assert calls == [[
-        "preferred://filemanager",
-        "applications:steam.desktop",
-        "preferred://browser",
-    ]]
+    assert calls == []
 
 
 def test_uninstall_leaves_unrelated_custom_layout_untouched(
@@ -407,7 +437,7 @@ def test_uninstall_leaves_unrelated_custom_layout_untouched(
     assert messages == ["Layout already clean"]
 
 
-def test_uninstall_scrubs_only_our_stale_panel_transparency(
+def test_uninstall_preserves_unowned_panel_transparency(
         monkeypatch, tmp_path):
     monkeypatch.setattr(layout, "HOME", tmp_path)
     _write_appletsrc(tmp_path, "plugin=org.example.custom.panel\n")
@@ -429,18 +459,18 @@ def test_uninstall_scrubs_only_our_stale_panel_transparency(
     layout.uninstall()
 
     text = prc.read_text()
-    assert "[PlasmaViews][Panel 1]\nfloating=1\nvisibilityMode=0" in text
+    assert "[PlasmaViews][Panel 1]\nfloating=1\npanelOpacity=2\nfloatingApplets=1" in text
     assert "[PlasmaViews][Panel 2]\nfloating=1\npanelOpacity=1" in text
     assert "floatingApplets=0" in text
-    assert messages == ["Panel transparency reset", "Layout already clean"]
+    assert messages == ["Layout already clean"]
 
 
-def test_uninstall_recognizes_legacy_mac_layout_ids(monkeypatch, tmp_path):
+def test_uninstall_preserves_legacy_mac_layout_ids_without_proof(monkeypatch, tmp_path):
     monkeypatch.setattr(layout, "HOME", tmp_path)
     _write_appletsrc(
         tmp_path,
         "\n".join([
-            "plugin=org.kde.mac-tahoe-liquid-kde.menu",
+            "plugin=org.tajemniktv.tajsdesktop.menu",
             "plugin=org.kde.mac.tahoe.globalmenu",
             "plugin=org.kde.mactahoe-liquid-kde.trash",
         ]),
@@ -454,10 +484,10 @@ def test_uninstall_recognizes_legacy_mac_layout_ids(monkeypatch, tmp_path):
 
     layout.uninstall()
 
-    assert calls == [[]]
+    assert calls == []
 
 
-def test_layout_uninstall_removes_update_marker(monkeypatch, tmp_path):
+def test_layout_uninstall_preserves_legacy_marker_without_proof(monkeypatch, tmp_path):
     monkeypatch.setattr(layout, "HOME", tmp_path)
     monkeypatch.setattr(layout, "ok", lambda message: None)
     monkeypatch.setattr(layout, "_layout_has_any_theme_widget", lambda: True)
@@ -468,4 +498,64 @@ def test_layout_uninstall_removes_update_marker(monkeypatch, tmp_path):
 
     layout.uninstall()
 
-    assert not marker.exists()
+    assert marker.exists()
+
+
+def test_scoped_uninstall_removes_only_unchanged_owned_panel(monkeypatch, tmp_path):
+    monkeypatch.setattr(layout, "HOME", tmp_path)
+    owned = "[Containments][101]\nplugin=org.kde.panel\n[Containments][101][TajsDesktop]\nowner=tajsdesktop\n"
+    foreign = "[Containments][202]\nplugin=org.kde.panel\n[Containments][202][General]\nuserKey=keep\n"
+    _write_appletsrc(tmp_path, owned + foreign)
+    appletsrc = tmp_path / ".config/plasma-org.kde.plasma.desktop-appletsrc"
+    prc = tmp_path / ".config/plasmashellrc"
+    prc.write_text("[PlasmaViews][Panel 101]\nheight=68\n[PlasmaViews][Panel 202]\nheight=42\n")
+    layout._mark_layout_installed(layout._panel_snapshots())
+    scripts = []
+
+    def remove_owned(script):
+        scripts.append(script)
+        appletsrc.write_text(foreign)
+        return True
+
+    monkeypatch.setattr(layout, "_evaluate_layout_script", remove_owned)
+    layout.uninstall()
+
+    assert len(scripts) == 1
+    assert "panelById(ids[i])" in scripts[0]
+    assert "101" in scripts[0] and "202" not in scripts[0]
+    assert appletsrc.read_text() == foreign
+    assert not layout._layout_marker().exists()
+    backups = list((tmp_path / ".local/state/tajsdesktop/panel-backups").glob("*/plasma-org.kde.plasma.desktop-appletsrc"))
+    assert len(backups) == 1 and backups[0].read_text() == owned + foreign
+
+
+def test_scoped_uninstall_preserves_user_modified_panel(monkeypatch, tmp_path):
+    monkeypatch.setattr(layout, "HOME", tmp_path)
+    original = "[Containments][101]\nplugin=org.kde.panel\n[Containments][101][TajsDesktop]\nowner=tajsdesktop\n"
+    _write_appletsrc(tmp_path, original)
+    layout._mark_layout_installed(layout._panel_snapshots())
+    appletsrc = tmp_path / ".config/plasma-org.kde.plasma.desktop-appletsrc"
+    modified = original + "[Containments][101][Applets][303]\nplugin=org.example.user-widget\n"
+    appletsrc.write_text(modified)
+    monkeypatch.setattr(layout, "_evaluate_layout_script", lambda script: pytest.fail("panel was deleted"))
+
+    layout.uninstall()
+
+    assert appletsrc.read_text() == modified
+    assert layout._layout_marker().exists()
+
+
+def test_scoped_uninstall_rejects_panel_with_removed_owner_key(monkeypatch, tmp_path):
+    monkeypatch.setattr(layout, "HOME", tmp_path)
+    original = "[Containments][101]\nplugin=org.kde.panel\n[Containments][101][TajsDesktop]\nowner=tajsdesktop\n"
+    _write_appletsrc(tmp_path, original)
+    layout._mark_layout_installed(layout._panel_snapshots())
+    appletsrc = tmp_path / ".config/plasma-org.kde.plasma.desktop-appletsrc"
+    changed = "[Containments][101]\nplugin=org.kde.panel\n"
+    appletsrc.write_text(changed)
+    monkeypatch.setattr(layout, "_evaluate_layout_script", lambda script: pytest.fail("panel was deleted"))
+
+    layout.uninstall()
+
+    assert appletsrc.read_text() == changed
+    assert layout._layout_marker().exists()

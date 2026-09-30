@@ -1,4 +1,4 @@
-"""RunTracker (~/.local/state/mac-tahoe-liquid-kde/last-run.json).
+"""RunTracker (~/.local/state/tajsdesktop/last-run.json).
 
 Focused on the write path's failure semantics: a torn or unwritable
 last-run.json must be reported, not swallowed, since it's the one

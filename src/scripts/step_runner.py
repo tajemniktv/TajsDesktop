@@ -7,7 +7,8 @@ from log import errors
 from utils import check_cancelled
 
 
-PHASES = ("deps", "download", "build", "install", "uninstall", "restart_plasma")
+PHASES = ("deps", "download", "build", "install", "update_assets",
+          "uninstall", "restart_plasma")
 
 
 def step_module(feature: str) -> ModuleType | None:

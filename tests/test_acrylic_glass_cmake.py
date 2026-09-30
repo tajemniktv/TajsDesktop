@@ -70,7 +70,7 @@ def test_acrylic_glass_installs_the_effect_default_blur(monkeypatch, tmp_path):
     from subprocess import CompletedProcess
 
     build = tmp_path / "build"
-    for name in ("src/liquidglass.so", "src/kcm/kwin_liquidglass_config.so"):
+    for name in ("src/tajsdesktopglass.so", "src/kcm/kwin_tajsdesktopglass_config.so"):
         artifact = build / name
         artifact.parent.mkdir(parents=True, exist_ok=True)
         artifact.touch()
@@ -96,7 +96,7 @@ def test_acrylic_glass_installs_the_effect_default_blur(monkeypatch, tmp_path):
     default = entry.text
     assert default == "3.5"
     blur_writes = [args for args in writes if "BlurStrength" in args]
-    assert blur_writes == [("--file", "kwinrc", "--group", "Effect-liquidglass",
+    assert blur_writes == [("--file", "kwinrc", "--group", "Effect-tajsdesktopglass",
                            "--key", "BlurStrength", default)]
     # The complete install must preserve the #89 workaround, including
     # avoiding the obsolete Menu/Dialog/Tooltip/Bottom radius keys.
@@ -113,14 +113,15 @@ def test_corner_defaults_only_seed_missing_keys(monkeypatch):
 
     def read(command, **kwargs):
         assert command[:5] == ["kreadconfig6", "--file", "kwinrc", "--group",
-                               "Effect-liquidglass"]
+                               "Effect-tajsdesktopglass"]
         key = command[command.index("--key") + 1]
         return CompletedProcess(command, 0, values.get(key, command[-1]) + "\n")
 
     monkeypatch.setattr(acrylic_glass, "run_user", read)
     monkeypatch.setattr(acrylic_glass, "kw_write", lambda *args: writes.append(args) or True)
     acrylic_glass._install_corner_defaults()
-    assert [args[-2:] for args in writes] == [("PopupCornerRadius", "6")]
+    assert writes == [("--file", "kwinrc", "--group", "Effect-tajsdesktopglass",
+                       "--key", "PopupCornerRadius", "6")]
 
 
 def test_corner_defaults_do_not_replace_custom_values(monkeypatch):

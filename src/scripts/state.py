@@ -12,7 +12,7 @@ Status = Literal["running", "completed", "exited", "failed", "aborted"]
 
 def state_dir() -> Path:
     base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local/state")
-    return Path(base) / "mac-tahoe-liquid-kde"
+    return Path(base) / "tajsdesktop"
 
 
 def last_run_file() -> Path:

@@ -63,11 +63,45 @@ def test_repo_installer_entry_exists(repo):
 
 @pytest.mark.parametrize("action,expected", [
     ("install", "sudo ./install"),
+    ("update-assets", "sudo ./install --update-assets"),
+    ("reconcile", "sudo ./install --reconcile"),
+    ("reset-profile-defaults",
+     "sudo ./install --reset-profile-defaults --confirm-profile-reset"),
     ("uninstall", "sudo ./uninstall"),
     ("preflight", "sudo ./install --preflight"),
 ])
 def test_command_for_action(installer_ui_module, action, expected):
     assert installer_ui_module.command_for_action(action) == expected
+
+
+def test_gui_update_action_never_suggests_auto_pull_or_reinstall(repo):
+    qml = (repo / "src/installer/InstallerWindow.qml").read_text()
+    assert 'runAction("update-assets")' in qml
+    assert "git pull && ./install" not in qml
+    assert "https://github.com/tajemniktv/TajsDesktop/releases" in qml
+
+
+def test_gui_reconciliation_action_remains_staging_blocked(repo):
+    qml = (repo / "src/installer/InstallerWindow.qml").read_text()
+    assert 'runAction("reconcile")' in qml
+    assert 'enabled: installer && !installer.stagingBlocked' in qml
+
+
+def test_gui_profile_reset_previews_before_explicit_confirmation(repo):
+    qml = (repo / "src/installer/InstallerWindow.qml").read_text()
+    assert "installer.profileResetPreview()" in qml
+    assert 'item.action === "delete"' in qml
+    assert 'runAction("reset-profile-defaults")' in qml
+    assert "confirmAvailable && installer && !installer.stagingBlocked" in qml
+
+
+def test_gui_profile_reset_preview_returns_exact_engine_actions(
+        installer_ui_module, monkeypatch):
+    expected = [{"action": "preserve-user-value", "file": "dolphinrc",
+                 "group": "MainWindow", "key": "MenuBar"}]
+    monkeypatch.setattr(installer_ui_module, "preview_profile_reset", lambda: expected)
+    assert installer_ui_module.profile_reset_preview() == {
+        "ok": True, "actions": expected}
 
 
 def test_launch_action_prefers_first_available_terminal(
@@ -102,18 +136,18 @@ def test_launch_action_prefers_first_available_terminal(
 @pytest.mark.parametrize("action", ["install", "uninstall", "preflight"])
 def test_headless_command_skips_confirm_and_pins_progress_file(
         installer_ui_module, action):
-    """The in-UI (background) launch MUST carry MTTKDE_NO_CONFIRM=1 — the
+    """The in-UI (background) launch MUST carry TAJSDESKTOP_NO_CONFIRM=1 — the
     install has no tty, so without it the confirm prompt's input() blocks
     forever and the progress bar never moves. It must also pin
     both private control paths to the files the bridge owns."""
-    progress_file = "/tmp/mttkde-test-progress"
-    cancel_file = "/tmp/mttkde-test-cancel"
+    progress_file = "/tmp/tajsdesktop-test-progress"
+    cancel_file = "/tmp/tajsdesktop-test-cancel"
     cmd = installer_ui_module.escalated_command_for_action(
         action, headless=True, progress_file=progress_file,
         cancel_file=cancel_file)
-    assert "MTTKDE_NO_CONFIRM=1" in cmd
-    assert f"MTTKDE_PROGRESS_FILE={progress_file}" in cmd
-    assert f"MTTKDE_CANCEL_FILE={cancel_file}" in cmd
+    assert "TAJSDESKTOP_NO_CONFIRM=1" in cmd
+    assert f"TAJSDESKTOP_PROGRESS_FILE={progress_file}" in cmd
+    assert f"TAJSDESKTOP_CANCEL_FILE={cancel_file}" in cmd
 
 
 @pytest.mark.parametrize("kwargs", [
@@ -292,7 +326,7 @@ def test_terminal_command_keeps_interactive_confirm(
         installer_ui_module, action):
     """The terminal launch is interactive — it must NOT auto-skip confirm."""
     cmd = installer_ui_module.escalated_command_for_action(action, headless=False)
-    assert "MTTKDE_NO_CONFIRM" not in cmd
+    assert "TAJSDESKTOP_NO_CONFIRM" not in cmd
 
 
 def test_launch_action_reports_when_no_terminal_is_available(
@@ -638,7 +672,7 @@ def test_log_step_writes_progress_records(monkeypatch, tmp_path):
     import importlib
     progress = tmp_path / "progress"
     progress.touch(mode=0o600)
-    monkeypatch.setenv("MTTKDE_PROGRESS_FILE", str(progress))
+    monkeypatch.setenv("TAJSDESKTOP_PROGRESS_FILE", str(progress))
     import log
     importlib.reload(log)
     try:
@@ -652,7 +686,7 @@ def test_log_step_writes_progress_records(monkeypatch, tmp_path):
         assert stat.S_IMODE(progress.stat().st_mode) == 0o600
     finally:
         # Restore the module's default path for any later test.
-        monkeypatch.delenv("MTTKDE_PROGRESS_FILE", raising=False)
+        monkeypatch.delenv("TAJSDESKTOP_PROGRESS_FILE", raising=False)
         importlib.reload(log)
 
 
@@ -662,7 +696,7 @@ def test_progress_helpers_reject_hostile_symlink(monkeypatch, tmp_path):
     victim.write_text("do not touch")
     progress = tmp_path / "progress"
     progress.symlink_to(victim)
-    monkeypatch.setenv("MTTKDE_PROGRESS_FILE", str(progress))
+    monkeypatch.setenv("TAJSDESKTOP_PROGRESS_FILE", str(progress))
     import log
     importlib.reload(log)
     try:
@@ -673,7 +707,7 @@ def test_progress_helpers_reject_hostile_symlink(monkeypatch, tmp_path):
         assert progress.is_symlink()
         assert victim.read_text() == "do not touch"
     finally:
-        monkeypatch.delenv("MTTKDE_PROGRESS_FILE", raising=False)
+        monkeypatch.delenv("TAJSDESKTOP_PROGRESS_FILE", raising=False)
         importlib.reload(log)
 
 
@@ -682,7 +716,7 @@ def test_progress_helpers_reject_foreign_owned_precreation(
     import importlib
     progress = tmp_path / "progress"
     progress.write_text("untrusted")
-    monkeypatch.setenv("MTTKDE_PROGRESS_FILE", str(progress))
+    monkeypatch.setenv("TAJSDESKTOP_PROGRESS_FILE", str(progress))
     import log
     importlib.reload(log)
     actual_uid = os.geteuid()
@@ -694,7 +728,7 @@ def test_progress_helpers_reject_foreign_owned_precreation(
 
         assert progress.read_text() == "untrusted"
     finally:
-        monkeypatch.delenv("MTTKDE_PROGRESS_FILE", raising=False)
+        monkeypatch.delenv("TAJSDESKTOP_PROGRESS_FILE", raising=False)
         importlib.reload(log)
 
 
@@ -705,7 +739,7 @@ def test_progress_helpers_reject_hardlinked_precreation(
     victim.write_text("do not truncate")
     progress = tmp_path / "progress"
     os.link(victim, progress)
-    monkeypatch.setenv("MTTKDE_PROGRESS_FILE", str(progress))
+    monkeypatch.setenv("TAJSDESKTOP_PROGRESS_FILE", str(progress))
     import log
     importlib.reload(log)
     try:
@@ -717,7 +751,7 @@ def test_progress_helpers_reject_hardlinked_precreation(
         assert progress.read_text() == "do not truncate"
         assert progress.stat().st_nlink == 2
     finally:
-        monkeypatch.delenv("MTTKDE_PROGRESS_FILE", raising=False)
+        monkeypatch.delenv("TAJSDESKTOP_PROGRESS_FILE", raising=False)
         importlib.reload(log)
 
 
@@ -725,7 +759,7 @@ def test_progress_helpers_never_raise_on_unwritable_path(monkeypatch, tmp_path):
     """A progress-file hiccup must never abort an install."""
     import importlib
     bad = tmp_path / "nope" / "progress"  # parent dir doesn't exist
-    monkeypatch.setenv("MTTKDE_PROGRESS_FILE", str(bad))
+    monkeypatch.setenv("TAJSDESKTOP_PROGRESS_FILE", str(bad))
     import log
     importlib.reload(log)
     try:
@@ -733,7 +767,7 @@ def test_progress_helpers_never_raise_on_unwritable_path(monkeypatch, tmp_path):
         log.step("Verification")
         log.progress_done(1)  # must not raise
     finally:
-        monkeypatch.delenv("MTTKDE_PROGRESS_FILE", raising=False)
+        monkeypatch.delenv("TAJSDESKTOP_PROGRESS_FILE", raising=False)
         importlib.reload(log)
 
 
@@ -742,7 +776,7 @@ def test_configured_progress_channel_is_not_recreated_after_gui_cleanup(
     """A late CLI write cannot resurrect a channel its GUI removed."""
     import importlib
     progress = tmp_path / "removed-progress"
-    monkeypatch.setenv("MTTKDE_PROGRESS_FILE", str(progress))
+    monkeypatch.setenv("TAJSDESKTOP_PROGRESS_FILE", str(progress))
     import log
     importlib.reload(log)
     try:
@@ -752,7 +786,7 @@ def test_configured_progress_channel_is_not_recreated_after_gui_cleanup(
 
         assert not progress.exists()
     finally:
-        monkeypatch.delenv("MTTKDE_PROGRESS_FILE", raising=False)
+        monkeypatch.delenv("TAJSDESKTOP_PROGRESS_FILE", raising=False)
         importlib.reload(log)
 
 
@@ -852,10 +886,25 @@ def test_launch_preview_reports_missing_pyqt6(
 
 
 def test_confirm_auto_accepts_in_no_confirm_mode(monkeypatch, capsys):
-    """The anti-hang: MTTKDE_NO_CONFIRM=1 makes confirm() return True
+    """The anti-hang: TAJSDESKTOP_NO_CONFIRM=1 makes confirm() return True
     without ever touching the tty / stdin, so the background install
     started by the UI doesn't deadlock on input()."""
-    monkeypatch.setenv("MTTKDE_NO_CONFIRM", "1")
+    monkeypatch.setenv("TAJSDESKTOP_NO_CONFIRM", "1")
     import cli
     assert cli.confirm("Install at your own risk.") is True
     assert "auto-accepting" in capsys.readouterr().out
+
+
+def test_gui_feature_save_does_not_edit_repository_baseline(
+        installer_ui_module, monkeypatch, tmp_path):
+    import cli
+    baseline = tmp_path / "features.json"
+    baseline.write_text('{"oled_care": false}\n')
+    desired = tmp_path / "user/features.json"
+    monkeypatch.setattr(cli, "CONFIG_FILE", baseline)
+    monkeypatch.setattr(cli, "user_features_file", lambda: desired)
+
+    result = installer_ui_module.save_features({"oled_care": True})
+    assert result["ok"] is True
+    assert baseline.read_text() == '{"oled_care": false}\n'
+    assert json.loads(desired.read_text())["oled_care"] is True

@@ -11,5 +11,5 @@
         "License": "GPL-3.0",
         "Name": "Acrylic Glass"
     },
-    "X-KDE-ConfigModule": "kwin_liquidglass_config"
+    "X-KDE-ConfigModule": "kwin_tajsdesktopglass_config"
 }

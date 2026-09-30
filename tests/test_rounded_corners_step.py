@@ -374,7 +374,7 @@ def test_key_reader_distinguishes_absent_from_present_empty(monkeypatch):
 
     assert rounded._read_round_corners_key("Size") == (False, None)
     assert rounded._read_round_corners_key("InactiveCornerRadius") == (True, "")
-    assert all(call[-1].startswith("__mttkde_absent_") for call in calls)
+    assert all(call[-1].startswith("__tajsdesktop_absent_") for call in calls)
 
 
 def test_key_reader_reports_subprocess_failure(monkeypatch):

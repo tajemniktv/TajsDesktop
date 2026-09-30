@@ -3,7 +3,7 @@
 The two timed features (OLED care, timed theme switch) fall back to a
 per-user crontab line on OpenRC hosts, where there is no
 ``systemctl --user``. These tests force the OpenRC branch on the
-(systemd) CI host via ``MTTKDE_INIT`` and exercise the crontab
+(systemd) CI host via ``TAJSDESKTOP_INIT`` and exercise the crontab
 marker/replace/remove logic against an in-memory fake crontab, so the
 maintainer's real crontab is never read or written.
 """
@@ -24,25 +24,25 @@ from steps import _scheduler
 
 
 def test_init_system_env_override(monkeypatch):
-    monkeypatch.setenv("MTTKDE_INIT", "openrc")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "openrc")
     assert distro.init_system() == "openrc"
     assert not _scheduler.is_systemd()
-    monkeypatch.setenv("MTTKDE_INIT", "systemd")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "systemd")
     assert distro.init_system() == "systemd"
     assert _scheduler.is_systemd()
 
 
 def test_user_service_manager_command_is_init_gated(monkeypatch):
-    monkeypatch.setenv("MTTKDE_INIT", "openrc")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "openrc")
     assert distro.user_service_manager_command("restart", "example") is None
-    monkeypatch.setenv("MTTKDE_INIT", "systemd")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "systemd")
     assert distro.user_service_manager_command("restart", "example") == [
         "systemctl", "--user", "restart", "example",
     ]
 
 
 def test_init_system_ignores_garbage_override(monkeypatch):
-    monkeypatch.setenv("MTTKDE_INIT", "upstart")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "upstart")
     # Falls through to the real probe rather than honoring a bad value.
     assert distro.init_system() in ("systemd", "openrc")
 
@@ -96,7 +96,7 @@ def fake_cron(monkeypatch):
     # otherwise the _have_crontab() guard (which shutil.which's the binary,
     # absent on the CI host) short-circuits before the fake runs.
     monkeypatch.setattr(_scheduler, "_have_crontab", lambda: True)
-    monkeypatch.setenv("MTTKDE_INIT", "openrc")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "openrc")
     return fake
 
 
@@ -106,7 +106,7 @@ def fake_cron(monkeypatch):
 def test_install_periodic_writes_marked_interval_line(fake_cron):
     _scheduler.install_periodic("oled", 5, "/bin/oled shift")
     assert fake_cron.lines == [
-        "*/5 * * * * /bin/oled shift # mac-tahoe-liquid-kde:oled"
+        "*/5 * * * * /bin/oled shift # tajsdesktop:oled"
     ]
 
 
@@ -115,7 +115,7 @@ def test_crontab_read_write_and_remove_force_c_locale(fake_cron, monkeypatch):
     real_call = fake_cron.__call__
     monkeypatch.setenv("LANG", "es_CR.UTF-8")
     monkeypatch.setenv("LC_ALL", "es_CR.UTF-8")
-    monkeypatch.setenv("MTTKDE_CRON_ENV_SENTINEL", "preserved")
+    monkeypatch.setenv("TAJSDESKTOP_CRON_ENV_SENTINEL", "preserved")
 
     def capture_env(argv, **kwargs):
         calls.append((list(argv), kwargs["env"]))
@@ -136,7 +136,7 @@ def test_crontab_read_write_and_remove_force_c_locale(fake_cron, monkeypatch):
     ]
     assert all(env["LANG"] == "C" and env["LC_ALL"] == "C"
                for _argv, env in calls)
-    assert all(env["MTTKDE_CRON_ENV_SENTINEL"] == "preserved"
+    assert all(env["TAJSDESKTOP_CRON_ENV_SENTINEL"] == "preserved"
                for _argv, env in calls)
 
 
@@ -163,8 +163,8 @@ def test_install_periodic_clamps_interval(fake_cron):
 def test_install_at_times_writes_one_line_per_time(fake_cron):
     _scheduler.install_at_times("theme", [(6, 0), (18, 0)], "/bin/theme auto")
     assert fake_cron.lines == [
-        "0 6 * * * /bin/theme auto # mac-tahoe-liquid-kde:theme",
-        "0 18 * * * /bin/theme auto # mac-tahoe-liquid-kde:theme",
+        "0 6 * * * /bin/theme auto # tajsdesktop:theme",
+        "0 18 * * * /bin/theme auto # tajsdesktop:theme",
     ]
 
 
@@ -174,7 +174,7 @@ def test_install_replaces_our_own_tag_only(fake_cron):
     _scheduler.install_periodic("oled", 5, "/bin/oled")
     # Re-install with a new interval — our old line is replaced, not stacked.
     _scheduler.install_periodic("oled", 10, "/bin/oled")
-    ours = [ln for ln in fake_cron.lines if "mac-tahoe-liquid-kde:oled" in ln]
+    ours = [ln for ln in fake_cron.lines if "tajsdesktop:oled" in ln]
     assert len(ours) == 1 and ours[0].startswith("*/10 ")
     assert "30 3 * * * /home/u/backup.sh" in fake_cron.lines
 
@@ -201,7 +201,7 @@ def test_scheduler_is_noop_on_systemd(monkeypatch):
     # Make the intended no-client cleanup branch independent of the host
     # image: KDE neon ships ``crontab``, while several other CI images do not.
     monkeypatch.setattr(_scheduler, "_have_crontab", lambda: False)
-    monkeypatch.setenv("MTTKDE_INIT", "systemd")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "systemd")
     # No-op on systemd, but still reports success so the caller doesn't warn.
     assert _scheduler.install_periodic("oled", 5, "/bin/oled") is True
     assert _scheduler.install_at_times("theme", [(6, 0)], "/bin/theme") is True
@@ -215,12 +215,12 @@ def test_systemd_cleanup_removes_cron_left_by_previous_openrc_boot(
         monkeypatch):
     fake = FakeCrontab()
     fake.lines = [
-        "*/5 * * * * /bin/oled # mac-tahoe-liquid-kde:oled",
+        "*/5 * * * * /bin/oled # tajsdesktop:oled",
         "30 3 * * * /home/u/backup.sh",
     ]
     monkeypatch.setattr(_scheduler, "run_user", fake)
     monkeypatch.setattr(_scheduler, "_have_crontab", lambda: True)
-    monkeypatch.setenv("MTTKDE_INIT", "systemd")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "systemd")
 
     assert _scheduler.remove_periodic("oled") == _scheduler.RemovalStatus.REMOVED
     assert fake.lines == ["30 3 * * * /home/u/backup.sh"]
@@ -229,7 +229,7 @@ def test_systemd_cleanup_removes_cron_left_by_previous_openrc_boot(
 def test_install_reports_failure_when_crontab_write_fails(monkeypatch):
     """No cron daemon → the write fails and install returns False so the
     step can warn instead of silently scheduling nothing."""
-    monkeypatch.setenv("MTTKDE_INIT", "openrc")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "openrc")
 
     def failing(argv, **kwargs):
         if argv[1] == "-l":
@@ -250,7 +250,7 @@ def test_read_timeout_never_replaces_the_user_crontab(monkeypatch):
         calls.append(argv)
         raise subprocess.TimeoutExpired(argv, 10)
 
-    monkeypatch.setenv("MTTKDE_INIT", "openrc")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "openrc")
     monkeypatch.setattr(_scheduler, "_have_crontab", lambda: True)
     monkeypatch.setattr(_scheduler, "run_user", timeout)
 
@@ -268,7 +268,7 @@ def test_nonempty_crontab_read_error_never_triggers_a_write(monkeypatch):
         calls.append(argv)
         return _Result(2, "", "permission denied reading cron spool\n")
 
-    monkeypatch.setenv("MTTKDE_INIT", "openrc")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "openrc")
     monkeypatch.setattr(_scheduler, "_have_crontab", lambda: True)
     monkeypatch.setattr(_scheduler, "run_user", denied)
 
@@ -279,7 +279,7 @@ def test_nonempty_crontab_read_error_never_triggers_a_write(monkeypatch):
 def test_remove_reports_write_timeout_and_preserves_existing_jobs(
         fake_cron, monkeypatch):
     fake_cron.lines = [
-        "*/5 * * * * /bin/oled # mac-tahoe-liquid-kde:oled",
+        "*/5 * * * * /bin/oled # tajsdesktop:oled",
         "30 3 * * * /home/u/backup.sh",
     ]
     real_call = fake_cron.__call__
@@ -293,14 +293,14 @@ def test_remove_reports_write_timeout_and_preserves_existing_jobs(
 
     assert _scheduler.remove_periodic("oled") == _scheduler.RemovalStatus.ERROR
     assert fake_cron.lines == [
-        "*/5 * * * * /bin/oled # mac-tahoe-liquid-kde:oled",
+        "*/5 * * * * /bin/oled # tajsdesktop:oled",
         "30 3 * * * /home/u/backup.sh",
     ]
 
 
 def test_remove_empty_crontab_propagates_remove_failure(fake_cron, monkeypatch):
     fake_cron.lines = [
-        "*/5 * * * * /bin/oled # mac-tahoe-liquid-kde:oled",
+        "*/5 * * * * /bin/oled # tajsdesktop:oled",
     ]
     real_call = fake_cron.__call__
 

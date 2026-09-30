@@ -16,7 +16,7 @@ def test_cancel_token_is_empty_until_requested(monkeypatch, tmp_path):
     token = tmp_path / "cancel"
     token.write_text("")
     token.chmod(0o600)
-    monkeypatch.setenv("MTTKDE_CANCEL_FILE", str(token))
+    monkeypatch.setenv("TAJSDESKTOP_CANCEL_FILE", str(token))
     monkeypatch.delenv("SUDO_UID", raising=False)
 
     assert utils.cancellation_requested() is False
@@ -29,7 +29,7 @@ def test_cancel_token_is_empty_until_requested(monkeypatch, tmp_path):
 def test_cancel_token_fails_closed_when_missing_or_replaced(
         monkeypatch, tmp_path):
     token = tmp_path / "cancel"
-    monkeypatch.setenv("MTTKDE_CANCEL_FILE", str(token))
+    monkeypatch.setenv("TAJSDESKTOP_CANCEL_FILE", str(token))
     monkeypatch.delenv("SUDO_UID", raising=False)
 
     assert utils.cancellation_requested() is True
@@ -48,7 +48,7 @@ def test_cancel_token_rejects_wrong_owner(monkeypatch, tmp_path):
     token = tmp_path / "cancel"
     token.write_text("")
     token.chmod(0o600)
-    monkeypatch.setenv("MTTKDE_CANCEL_FILE", str(token))
+    monkeypatch.setenv("TAJSDESKTOP_CANCEL_FILE", str(token))
     monkeypatch.setattr(utils, "_cancel_file_owner", lambda: os.getuid() + 1)
 
     assert utils.cancellation_requested() is True
@@ -101,7 +101,7 @@ def test_cancel_monitor_interrupts_long_child_and_exits_130(
         raise SystemExit(0)
     """)
     env = dict(os.environ)
-    env["MTTKDE_CANCEL_FILE"] = str(token)
+    env["TAJSDESKTOP_CANCEL_FILE"] = str(token)
     env.pop("SUDO_UID", None)
     process = subprocess.Popen(
         [sys.executable, "-c", script],

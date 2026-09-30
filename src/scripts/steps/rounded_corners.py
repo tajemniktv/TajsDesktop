@@ -57,10 +57,10 @@ SHADER_DIR = Path("/usr/share/kwin/shaders")
 LOCALE_DIR = Path("/usr/share/locale")
 LOCALES = ("de", "es", "hu", "nl", "ru", "zh")
 LICENSE_FILE = Path(
-    "/usr/share/licenses/mac-tahoe-liquid-kde/KDE-Rounded-Corners.txt"
+    "/usr/share/licenses/tajsdesktop/KDE-Rounded-Corners.txt"
 )
 
-STATE_DIR = HOME / ".local/state/mac-tahoe-liquid-kde"
+STATE_DIR = HOME / ".local/state/tajsdesktop"
 PREV_ROUND_CORNERS_FILE = STATE_DIR / "rounded-corners-previous.json"
 _ROUND_CORNERS_KEYS = ("Size", "InactiveCornerRadius")
 _ROUND_CORNERS_STATE_VERSION = 1
@@ -243,7 +243,7 @@ def _read_round_corners_key(key: str) -> tuple[bool, str | None] | None:
              "kreadconfig6 is unavailable")
         return None
 
-    sentinel = f"__mttkde_absent_{uuid.uuid4().hex}__"
+    sentinel = f"__tajsdesktop_absent_{uuid.uuid4().hex}__"
     try:
         result = run_user(
             [

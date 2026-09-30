@@ -18,18 +18,18 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from steps._helpers import HOME, info, offline, ok, warn
+from steps._helpers import HOME, fail, info, offline, ok, warn
 
 
-THEME_DIRNAME = "MacTahoeLiquidKde"
+THEME_DIRNAME = "TajsDesktop"
 THEME_SOURCE_NAME = "firefox"
-OWNERSHIP_MARKER = ".mttkde-firefox-theme.json"
+OWNERSHIP_MARKER = ".tajsdesktop-firefox-theme.json"
 STATE_VERSION = 1
 
-CHROME_START = "/* >>> MacTahoe Liquid KDE Firefox theme >>> */"
-CHROME_END = "/* <<< MacTahoe Liquid KDE Firefox theme <<< */"
-USER_START = "// >>> MacTahoe Liquid KDE Firefox theme >>>"
-USER_END = "// <<< MacTahoe Liquid KDE Firefox theme <<<"
+CHROME_START = "/* >>> TajsDesktop Firefox theme >>> */"
+CHROME_END = "/* <<< TajsDesktop Firefox theme <<< */"
+USER_START = "// >>> TajsDesktop Firefox theme >>>"
+USER_END = "// <<< TajsDesktop Firefox theme <<<"
 
 CHROME_BLOCKS = {
     "userChrome.css": (
@@ -58,7 +58,7 @@ LEGACY_PREF_LINES = (
 
 
 def _state_root() -> Path:
-    return HOME / ".local/state/mac-tahoe-liquid-kde/firefox"
+    return HOME / ".local/state/tajsdesktop/firefox"
 
 
 def _manifest_path() -> Path:
@@ -67,6 +67,23 @@ def _manifest_path() -> Path:
 
 def _theme_source() -> Path:
     return offline(THEME_SOURCE_NAME, THEME_DIRNAME)
+
+
+def _theme_digest(directory: Path) -> str:
+    """Hash the whole managed payload so an edited copy becomes user-owned."""
+    digest = hashlib.sha256()
+    for path in sorted(directory.rglob("*")):
+        relative = path.relative_to(directory).as_posix().encode()
+        digest.update(relative + b"\0")
+        if path.is_symlink():
+            digest.update(b"L" + os.fsencode(os.readlink(path)) + b"\0")
+        elif path.is_file():
+            digest.update(b"F" + hashlib.sha256(path.read_bytes()).digest())
+        elif path.is_dir():
+            digest.update(b"D")
+        else:
+            raise ValueError(f"Unsupported Firefox theme node: {path}")
+    return digest.hexdigest()
 
 
 def _xdg_config_home() -> Path:
@@ -383,7 +400,7 @@ def _prepare_chrome_dir(profile: Path, migrate_legacy: bool = False) -> Path:
         resolved = chrome.resolve(strict=True)
         if not resolved.is_dir():
             raise OSError(f"chrome symlink target is not a directory: {resolved}")
-        staged = profile / ".chrome.mttkde-stage"
+        staged = profile / ".chrome.tajsdesktop-stage"
         if staged.is_symlink():
             staged.unlink()
         elif staged.exists():
@@ -392,7 +409,7 @@ def _prepare_chrome_dir(profile: Path, migrate_legacy: bool = False) -> Path:
             staged.mkdir()
         else:
             shutil.copytree(resolved, staged, symlinks=True)
-        previous = profile / ".chrome.mttkde-previous"
+        previous = profile / ".chrome.tajsdesktop-previous"
         if previous.exists() or previous.is_symlink():
             raise OSError(f"stale recovery path exists: {previous}")
         os.replace(chrome, previous)
@@ -428,13 +445,13 @@ def _install_payload(chrome: Path) -> None:
     if not source.is_dir() or not marker.is_file():
         raise OSError(f"bundled Firefox theme is incomplete: {source}")
     destination = chrome / THEME_DIRNAME
-    staged = chrome / f".{THEME_DIRNAME}.mttkde-stage"
+    staged = chrome / f".{THEME_DIRNAME}.tajsdesktop-stage"
     if staged.exists() and not staged.is_symlink():
         shutil.rmtree(staged)
     elif staged.is_symlink():
         staged.unlink()
     shutil.copytree(source, staged, symlinks=True)
-    previous = chrome / f".{THEME_DIRNAME}.mttkde-previous"
+    previous = chrome / f".{THEME_DIRNAME}.tajsdesktop-previous"
     if previous.exists() or previous.is_symlink():
         if staged.is_dir():
             shutil.rmtree(staged)
@@ -478,7 +495,28 @@ def _install_profile(profile: Path, manifest: dict[str, object]) -> bool:
     profiles = manifest.setdefault("profiles", {})
     assert isinstance(profiles, dict)
     key = str(profile)
+    # A fork cannot claim upstream's CSS blocks or replace a shared chrome
+    # symlink. Both need an explicit, reviewed migration rather than an
+    # ordinary feature toggle.
+    if (profile / "chrome").is_symlink():
+        warn(f"Firefox: {profile.name} uses a shared chrome symlink; skipped")
+        return False
+    for path in (profile / "chrome/userChrome.css",
+                 profile / "chrome/userContent.css", profile / "user.js"):
+        try:
+            if path.is_file() and "MacTahoe Liquid KDE Firefox theme" in \
+                    path.read_text(encoding="utf-8"):
+                warn(f"Firefox: {profile.name} has an upstream theme; skipped")
+                return False
+        except (OSError, UnicodeError):
+            warn(f"Firefox: {profile.name} could not be inspected; skipped")
+            return False
     if not _markers_are_valid(profile):
+        return False
+    existing_theme = profile / "chrome" / THEME_DIRNAME
+    if key not in profiles and (existing_theme.exists() or existing_theme.is_symlink()):
+        warn(f"Firefox: {profile.name} has an unrecorded theme directory; "
+             "preserving it for explicit migration")
         return False
     snapshot = _snapshot_profile(profile, _root_for_profile(profile))
     if snapshot is None:
@@ -489,9 +527,20 @@ def _install_profile(profile: Path, manifest: dict[str, object]) -> bool:
     try:
         record = profiles[key]
         assert isinstance(record, dict)
+        existing_theme = profile / "chrome" / THEME_DIRNAME
+        if existing_theme.exists() or existing_theme.is_symlink():
+            expected = record.get("theme_hash")
+            if (existing_theme.is_symlink() or not existing_theme.is_dir()
+                    or not isinstance(expected, str)
+                    or _theme_digest(existing_theme) != expected):
+                warn(f"Firefox: {profile.name} theme ownership is uncertain or "
+                     "the payload was customized; skipped")
+                return False
         migrate_legacy = record.get("chrome_kind") == "legacy-theme-symlink"
         chrome = _prepare_chrome_dir(profile, migrate_legacy=migrate_legacy)
         _install_payload(chrome)
+        record["theme_hash"] = _theme_digest(chrome / THEME_DIRNAME)
+        _save_manifest(manifest)
         for name, block in CHROME_BLOCKS.items():
             _prepend_css_block(chrome / name, block)
         if migrate_legacy:
@@ -533,6 +582,9 @@ def _restore_colliding_theme(chrome: Path, record: dict[str, object]) -> None:
 
 def _uninstall_profile(profile: Path, record: dict[str, object] | None) -> bool:
     chrome = profile / "chrome"
+    if chrome.is_symlink():
+        warn(f"Firefox: {profile.name} chrome is a symlink; preserving shared files")
+        return False
     success = True
     if chrome.is_dir():
         success &= _clean_file(
@@ -544,12 +596,26 @@ def _uninstall_profile(profile: Path, record: dict[str, object] | None) -> bool:
             remove_if_empty=not bool(record and record.get("user_content_existed")),
         )
         theme = chrome / THEME_DIRNAME
-        if (theme / OWNERSHIP_MARKER).is_file():
-            if theme.is_symlink():
-                theme.unlink()
+        theme_removed = not (theme.exists() or theme.is_symlink())
+        if not theme_removed:
+            expected = record.get("theme_hash") if record else None
+            if (theme.is_symlink() or not theme.is_dir()
+                    or not isinstance(expected, str)
+                    or not (theme / OWNERSHIP_MARKER).is_file()):
+                warn(f"Firefox: {profile.name} theme ownership is unknown; preserving it")
+                success = False
             else:
-                shutil.rmtree(theme)
-        if record:
+                try:
+                    if _theme_digest(theme) != expected:
+                        warn(f"Firefox: {profile.name} theme was customized; preserving it")
+                        success = False
+                    else:
+                        shutil.rmtree(theme)
+                        theme_removed = True
+                except (OSError, ValueError) as exc:
+                    warn(f"Firefox: {profile.name} theme could not be verified ({exc})")
+                    success = False
+        if record and theme_removed:
             _restore_colliding_theme(chrome, record)
         if record and record.get("chrome_kind") in (
             "missing", "legacy-theme-symlink",
@@ -580,6 +646,53 @@ def install() -> None:
     changed = sum(_install_profile(profile, manifest) for profile in profiles)
     _save_manifest(manifest)
     info(f"Firefox theme: {changed}/{len(profiles)} profiles installed; restart browsers to apply")
+
+
+def update_assets() -> None:
+    """Refresh only previously installed, unchanged theme payloads.
+
+    Profile discovery, userChrome/userContent, and user.js are not changed.
+    Newly created browser profiles stay user-owned until explicit enable.
+    """
+    manifest_path = _manifest_path()
+    if not manifest_path.exists() and not manifest_path.is_symlink():
+        return
+    if manifest_path.is_symlink():
+        fail("Firefox ownership manifest is a symlink; update refused")
+        return
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        profiles = manifest["profiles"]
+        if not isinstance(profiles, dict):
+            raise ValueError("invalid profile records")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        fail(f"Firefox ownership manifest invalid; update refused ({exc})")
+        return
+    discovered = {str(profile) for profile in discover_profiles()}
+    updated = 0
+    for name, record in profiles.items():
+        if name not in discovered or not isinstance(record, dict):
+            continue
+        profile = Path(name)
+        chrome = profile / "chrome"
+        theme = chrome / THEME_DIRNAME
+        expected = record.get("theme_hash")
+        if (chrome.is_symlink() or theme.is_symlink() or not theme.is_dir()
+                or not isinstance(expected, str)):
+            warn(f"Firefox: {profile.name} theme ownership uncertain; skipped")
+            continue
+        try:
+            if _theme_digest(theme) != expected:
+                warn(f"Firefox: {profile.name} theme was customized; skipped")
+                continue
+            _install_payload(chrome)
+            record["theme_hash"] = _theme_digest(chrome / THEME_DIRNAME)
+            _save_manifest(manifest)
+            updated += 1
+        except (OSError, ValueError) as exc:
+            fail(f"Firefox: {profile.name} theme update failed ({exc})")
+            return
+    info(f"Firefox theme assets: {updated} profile(s) updated")
 
 
 def uninstall() -> None:

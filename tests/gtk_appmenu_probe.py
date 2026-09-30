@@ -37,14 +37,14 @@ def main() -> int:
     flags = subprocess.check_output(
         ["pkg-config", "--cflags", "--libs", "gtk+-3.0"], text=True, timeout=10)
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-    with tempfile.TemporaryDirectory(prefix="mttkde-gtk-probe-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="tajsdesktop-gtk-probe-") as tmp:
         folder = Path(tmp)
         binary = folder / "gtk-appmenu-lifetime"
         subprocess.run(
             ["cc", "-Wall", "-Wextra", "-Werror", "-o", str(binary),
              str(REPO / "tests/native/gtk_appmenu_lifetime.c"), *shlex.split(flags)],
             check=True, timeout=30)
-        hook = folder / "mac-tahoe-gtk-appmenu.sh"
+        hook = folder / "tajsdesktop-gtk-appmenu.sh"
         hook.write_text(_gtk_appmenu_environment(module), encoding="utf-8")
         runtime = folder / "runtime"
         runtime.mkdir(mode=0o700)

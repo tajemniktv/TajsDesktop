@@ -26,12 +26,12 @@ with OSC133, sandboxed shells).
 ## How it works
 
 1. Starts a private 1920×1080 Xvfb framebuffer, then copies
-   `src/offline/plymouth/MacTahoeLiquidKde` into
+   `src/offline/plymouth/TajsDesktop` into
    `/usr/share/plymouth/themes/`. An existing installed copy is moved aside
    transactionally and restored during cleanup.
 2. Loops over `boot` and `shutdown`. For each:
    - Spawns `plymouthd --no-daemon --debug --mode=$MODE
-     --kernel-command-line="splash plymouth.theme=MacTahoeLiquidKde"`.
+     --kernel-command-line="splash plymouth.theme=TajsDesktop"`.
      The `--kernel-command-line` flag pins the theme without touching
      `/etc/plymouth/plymouthd.conf` — so we don’t trigger
      `mkinitcpio -P` and don’t rewrite your real initramfs.

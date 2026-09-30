@@ -120,7 +120,7 @@ def sudo_install_file(src: Path, dest: Path, label: str, *, user_owned: bool = F
             dest.parent.mkdir(parents=True, exist_ok=True)
         with _as_root():
             dest.parent.mkdir(parents=True, exist_ok=True)
-            tmp = dest.with_name(dest.name + ".mttkde-tmp")
+            tmp = dest.with_name(dest.name + ".tajsdesktop-tmp")
             shutil.copy2(str(src), str(tmp))
             if owner is not None:
                 os.chown(tmp, *owner, follow_symlinks=False)
@@ -134,7 +134,7 @@ def sudo_install_file(src: Path, dest: Path, label: str, *, user_owned: bool = F
 
 def sudo_install_tree(src: Path, dest: Path, label: str | None = None) -> bool:
     """Copy a tree to a root-owned destination, staged at a sibling
-    .mttkde-tmp then renamed so the live destination is never half-written."""
+    .tajsdesktop-tmp then renamed so the live destination is never half-written."""
     label = label or dest.name
     src = Path(src)
     dest = Path(dest)
@@ -144,7 +144,7 @@ def sudo_install_tree(src: Path, dest: Path, label: str | None = None) -> bool:
     try:
         with _as_root():
             dest.parent.mkdir(parents=True, exist_ok=True)
-            tmp = dest.with_name(dest.name + ".mttkde-tmp")
+            tmp = dest.with_name(dest.name + ".tajsdesktop-tmp")
             if tmp.exists():
                 shutil.rmtree(str(tmp))
             shutil.copytree(str(src), str(tmp), symlinks=True)

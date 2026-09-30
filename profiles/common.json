@@ -1,0 +1,18 @@
+{
+  "dolphinrc": {
+    "InformationPanel": {"dateFormat": "ShortFormat"},
+    "KFileDialog Settings": {"Places Icons Auto-resize": "false", "Places Icons Static Size": "22"},
+    "MainWindow": {"MenuBar": "Disabled"}
+  },
+  "katerc": {
+    "General": {"Save Meta Infos": "true", "Show Full Path in Title": "false", "Show Menu Bar": "true", "Show Status Bar": "true", "Show Tab Bar": "true", "Show Url Nav Bar": "true"},
+    "filetree": {"listMode": "false", "middleClickToClose": "false", "shadingEnabled": "true", "showCloseButton": "false", "showFullPathOnRoots": "false", "showToolbar": "true", "sortRole": "0"}
+  },
+  "konsolerc": {
+    "KonsoleWindow": {"ListenForZModemTerminalCodes": "true", "ShowWindowTitleOnTitleBar": "true"},
+    "TabBar": {"NewTabBehavior": "PutNewTabAfterCurrentTab", "NewTabButton": "true"}
+  },
+  "mimeapps.list": {
+    "Default Applications": {"inode/directory": "org.gnome.Nautilus.desktop", "x-scheme-handler/http": "firefox.desktop;", "x-scheme-handler/https": "firefox.desktop;"}
+  }
+}

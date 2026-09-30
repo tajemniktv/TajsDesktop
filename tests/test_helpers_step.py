@@ -13,10 +13,10 @@ def test_temp_dir_is_private_unique_and_self_cleaning(tmp_path, monkeypatch):
     monkeypatch.setattr(_helpers.tempfile, "tempdir", str(tmp_path))
     victim = tmp_path / "victim"
     victim.mkdir()
-    planted = tmp_path / f"mttkde-test-{os.getpid()}"
+    planted = tmp_path / f"tajsdesktop-test-{os.getpid()}"
     planted.symlink_to(victim, target_is_directory=True)
 
-    with _helpers.temp_dir("mttkde-test") as staging:
+    with _helpers.temp_dir("tajsdesktop-test") as staging:
         assert staging.parent == tmp_path
         assert staging != planted
         assert staging.stat().st_mode & 0o777 == 0o700
@@ -45,7 +45,7 @@ def test_user_config_install_keeps_directories_and_file_owned_by_invoker(tmp_pat
                         ownership_changes.append((path, uid, gid, kwargs)))
     assert _helpers.sudo_install_file(source, destination, "hook", user_owned=True)
     assert destination.read_text() == source.read_text()
-    assert ownership_changes == [(destination.with_name("hook.sh.mttkde-tmp"),
+    assert ownership_changes == [(destination.with_name("hook.sh.tajsdesktop-tmp"),
                                   *owner, {"follow_symlinks": False})]
 
 

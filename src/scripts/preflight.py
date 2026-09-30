@@ -37,7 +37,7 @@ def _check_sudo_escalation() -> bool:
         fail(str(exc))
         return False
 
-    probe = probe_dir / f".mttkde-preflight-{os.getpid()}"
+    probe = probe_dir / f".tajsdesktop-preflight-{os.getpid()}"
     print(f"  probe path: {probe}")
     try:
         with _as_root():
@@ -107,7 +107,7 @@ def _allowed_roots() -> tuple[re.Pattern, ...]:
         *qt_patterns,
         re.compile(r"^/etc/sddm\.conf\.d(/|$)"),
         re.compile(r"^/etc/plymouth(/|$)"),
-        re.compile(r"^/usr/share/(kwin|licenses|locale|sounds|plasma|plymouth|wallpapers|mac-tahoe-liquid-kde)(/|$)"),
+        re.compile(r"^/usr/share/(kwin|licenses|locale|sounds|plasma|plymouth|wallpapers|tajsdesktop)(/|$)"),
     )
 
 

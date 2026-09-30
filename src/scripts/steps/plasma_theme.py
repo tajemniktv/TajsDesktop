@@ -1,12 +1,9 @@
-import shutil
-
 from steps._helpers import (
     DATA_HOME, fail, info, install_tree, kw_write, offline, remove_tree, warn,
 )
 
 DEST_DIR = DATA_HOME / "plasma/desktoptheme"
-LEGACY = ("MacTahoe-Dark", "MacTahoe-Light")
-VARIANTS = ("MacTahoeLiquidKde-Dark", "MacTahoeLiquidKde-Light")
+VARIANTS = ("TajsDesktop-Dark", "TajsDesktop-Light")
 
 
 def install() -> None:
@@ -16,10 +13,6 @@ def install() -> None:
         return
     DEST_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Purge legacy names from pre-0.6.2 installs.
-    for stale in LEGACY:
-        shutil.rmtree(DEST_DIR / stale, ignore_errors=True)
-
     n = 0
     for v in VARIANTS:
         if not (src / v).is_dir():
@@ -27,6 +20,10 @@ def install() -> None:
         if install_tree(src / v, DEST_DIR / v, v):
             n += 1
     info(f"{n} Plasma themes installed/reinstalled")
+
+
+def update_assets() -> None:
+    install()
 
 
 def uninstall() -> None:
@@ -38,6 +35,6 @@ def uninstall() -> None:
                     "--key", "name", "default"):
         warn("Active Plasma theme not reset to 'default' — "
              "kwriteconfig6 unavailable. Files are removed but "
-             "Plasma will still try to load MacTahoeLiquidKde "
+             "Plasma will still try to load TajsDesktop "
              "until you set plasmarc:Theme.name=default manually.")
     info(f"{n} Plasma themes removed")

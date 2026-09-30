@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -158,7 +159,41 @@ def test_install_and_uninstall_profile_without_existing_chrome(firefox_home):
     assert (profile / "prefs.js").is_file()
 
 
-def test_shared_chrome_symlink_is_detached_without_mutating_target(firefox_home):
+def test_asset_update_only_refreshes_unchanged_installed_profile(
+    firefox_home, monkeypatch, tmp_path, offline,
+):
+    source = tmp_path / "source"
+    shutil.copytree(offline / "firefox" / firefox.THEME_DIRNAME,
+                    source / "firefox" / firefox.THEME_DIRNAME)
+    monkeypatch.setattr(firefox, "offline", lambda *parts: source.joinpath(*parts))
+    first = _seed_profile(firefox_home / ".mozilla/firefox")
+    firefox.install()
+    chrome = first / "chrome"
+    css = chrome / "userChrome.css"
+    user_js = first / "user.js"
+    css_before, user_before = css.read_bytes(), user_js.read_bytes()
+    payload = source / "firefox" / firefox.THEME_DIRNAME / "customChrome.css"
+    payload.write_bytes(payload.read_bytes() + b"\n/* new bundled asset */\n")
+    second = first.parent / "new.default"
+    second.mkdir()
+    (second / "prefs.js").write_text("", encoding="utf-8")
+
+    firefox.update_assets()
+
+    assert b"new bundled asset" in (chrome / firefox.THEME_DIRNAME / "customChrome.css").read_bytes()
+    assert css.read_bytes() == css_before
+    assert user_js.read_bytes() == user_before
+    assert not (second / "chrome").exists()
+
+    installed = chrome / firefox.THEME_DIRNAME / "customChrome.css"
+    installed.write_bytes(installed.read_bytes() + b"/* user edit */\n")
+    payload.write_bytes(payload.read_bytes() + b"/* another release */\n")
+    firefox.update_assets()
+    firefox.install()
+    assert installed.read_bytes().endswith(b"/* user edit */\n")
+
+
+def test_shared_chrome_symlink_is_left_untouched(firefox_home):
     profile = _seed_profile(firefox_home / ".mozilla/firefox")
     shared = firefox_home / "shared-firefox-chrome"
     shared.mkdir()
@@ -167,17 +202,16 @@ def test_shared_chrome_symlink_is_detached_without_mutating_target(firefox_home)
 
     firefox.install()
 
-    assert (profile / "chrome").is_dir()
-    assert not (profile / "chrome").is_symlink()
-    assert firefox.CHROME_START in (profile / "chrome/userChrome.css").read_text()
+    assert (profile / "chrome").is_symlink()
     assert (shared / "userChrome.css").read_text() == "/* shared original */\n"
     assert not (shared / firefox.THEME_DIRNAME).exists()
 
     firefox.uninstall()
+    assert (profile / "chrome").is_symlink()
     assert (profile / "chrome/userChrome.css").read_text() == "/* shared original */\n"
 
 
-def test_legacy_vinceliuice_symlink_migrates_and_uninstalls_to_normal_firefox(
+def test_legacy_vinceliuice_symlink_is_left_untouched(
     firefox_home,
 ):
     profile = _seed_profile(firefox_home / ".mozilla/firefox")
@@ -194,33 +228,43 @@ def test_legacy_vinceliuice_symlink_migrates_and_uninstalls_to_normal_firefox(
 
     firefox.install()
 
-    assert not (profile / "chrome").is_symlink()
-    assert legacy_css not in (profile / "chrome/userChrome.css").read_text()
+    assert (profile / "chrome").is_symlink()
+    assert (profile / "chrome/userChrome.css").read_text() == legacy_css
     user_js = (profile / "user.js").read_text()
-    assert firefox.USER_START in user_js
-    assert 'browser.tabs.drawInTitlebar' not in user_js
-    # The old shared payload is preserved on disk and in the timestamped backup.
+    assert firefox.USER_START not in user_js
+    assert 'browser.tabs.drawInTitlebar' in user_js
     assert (shared / "userChrome.css").read_text() == legacy_css
-    snapshots = list((firefox._state_root() / "snapshots").glob("*/*/chrome"))
-    assert snapshots and (snapshots[0] / "userChrome.css").read_text() == legacy_css
 
     firefox.uninstall()
 
-    assert not (profile / "chrome").exists()
-    assert not (profile / "user.js").exists()
+    assert (profile / "chrome").is_symlink()
+    assert (profile / "user.js").read_text() == user_js
     assert (profile / "prefs.js").is_file()
     assert (shared / "MacTahoe/theme.css").read_text() == "/* old payload */\n"
 
 
-def test_existing_same_named_directory_is_backed_up_and_restored(firefox_home):
+def test_upstream_theme_block_is_not_replaced(firefox_home):
+    profile = _seed_profile(firefox_home / ".mozilla/firefox")
+    chrome = profile / "chrome"
+    chrome.mkdir()
+    original = "/* >>> MacTahoe Liquid KDE Firefox theme >>> */\ncustom\n"
+    (chrome / "userChrome.css").write_text(original)
+
+    firefox.install()
+    assert (chrome / "userChrome.css").read_text() == original
+    assert not (chrome / firefox.THEME_DIRNAME).exists()
+    assert json.loads(firefox._manifest_path().read_text())["profiles"] == {}
+
+
+def test_existing_same_named_directory_is_foreign_and_preserved(firefox_home):
     profile = _seed_profile(firefox_home / ".mozilla/firefox")
     collision = profile / "chrome" / firefox.THEME_DIRNAME
     collision.mkdir(parents=True)
     (collision / "mine.txt").write_text("keep me", encoding="utf-8")
 
     firefox.install()
-    assert not (collision / "mine.txt").exists()
-    assert (collision / firefox.OWNERSHIP_MARKER).is_file()
+    assert (collision / "mine.txt").read_text() == "keep me"
+    assert not (collision / firefox.OWNERSHIP_MARKER).exists()
 
     firefox.uninstall()
     assert (collision / "mine.txt").read_text() == "keep me"
@@ -244,13 +288,57 @@ def test_lost_manifest_does_not_make_owned_payload_user_data(firefox_home):
     firefox.install()
     firefox._manifest_path().unlink()
 
+    theme = profile / "chrome" / firefox.THEME_DIRNAME
+    original = firefox._theme_digest(theme)
     firefox.install()
+    assert firefox._theme_digest(theme) == original
     firefox.uninstall()
 
-    assert not (profile / "chrome" / firefox.THEME_DIRNAME).exists()
+    # A marker alone cannot prove the payload was not customized after the
+    # manifest disappeared. Neither reinstall nor removal adopts it.
+    assert theme.exists()
     assert not (profile / "chrome/userChrome.css").exists()
     assert not (profile / "chrome/userContent.css").exists()
     assert not (profile / "user.js").exists()
+
+
+def test_uninstall_without_manifest_preserves_theme_payload(firefox_home):
+    profile = _seed_profile(firefox_home / ".mozilla/firefox")
+    firefox.install()
+    firefox._manifest_path().unlink()
+    theme = profile / "chrome" / firefox.THEME_DIRNAME
+
+    firefox.uninstall()
+
+    assert theme.is_dir()
+
+
+def test_uninstall_preserves_edited_theme_and_recovery_manifest(firefox_home):
+    profile = _seed_profile(firefox_home / ".mozilla/firefox")
+    firefox.install()
+    theme = profile / "chrome" / firefox.THEME_DIRNAME
+    edited = theme / "customChrome.css"
+    edited.write_bytes(edited.read_bytes() + b"\n/* user change */\n")
+
+    firefox.uninstall()
+
+    assert edited.read_bytes().endswith(b"/* user change */\n")
+    assert firefox._manifest_path().is_file()
+
+
+def test_incomplete_manifest_cannot_reclaim_existing_theme(firefox_home):
+    profile = _seed_profile(firefox_home / ".mozilla/firefox")
+    firefox.install()
+    theme = profile / "chrome" / firefox.THEME_DIRNAME
+    edited = theme / "customChrome.css"
+    edited.write_bytes(edited.read_bytes() + b"\n/* user change */\n")
+    manifest = json.loads(firefox._manifest_path().read_text())
+    manifest["profiles"][str(profile)].pop("theme_hash")
+    firefox._manifest_path().write_text(json.dumps(manifest))
+
+    firefox.install()
+
+    assert edited.read_bytes().endswith(b"/* user change */\n")
 
 
 def test_failed_payload_swap_rolls_back_preexisting_directory(
@@ -263,7 +351,7 @@ def test_failed_payload_swap_rolls_back_preexisting_directory(
     real_replace = firefox.os.replace
 
     def fail_staged_payload(source, destination):
-        if Path(source).name == f".{firefox.THEME_DIRNAME}.mttkde-stage":
+        if Path(source).name == f".{firefox.THEME_DIRNAME}.tajsdesktop-stage":
             raise OSError("simulated atomic swap failure")
         return real_replace(source, destination)
 

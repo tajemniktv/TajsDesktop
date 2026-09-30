@@ -108,7 +108,7 @@ For Acrylic Glass rendering changes, run the opt-in pixel probe as well:
 ```sh
 cmake -S src/offline/kwin-effects/acrylic-glass -B build/capture-build -DCMAKE_BUILD_TYPE=Release
 cmake --build build/capture-build -j 2
-python tests/acrylic_glass_capture.py --plugin build/capture-build/src/liquidglass.so --output build/acrylic-capture --scale 2
+python tests/acrylic_glass_capture.py --plugin build/capture-build/src/tajsdesktopglass.so --output build/acrylic-capture --scale 2
 ```
 
 It starts a separate KWin/Wayland compositor with private configuration and

@@ -12,7 +12,7 @@ The journal-scan crash guards from this file also moved away — the
 ``--since "24 hours ago"`` window made them flap on unrelated
 historical events and silently pass even when this commit never
 loaded the plugin. The session-cursor anchor was the right idea
-but, with the install path mocked via MAC_TAHOE_SKIP_LIVE_APPLY,
+but, with the install path mocked via TAJSDESKTOP_SKIP_LIVE_APPLY,
 there is nothing this run can compare against. A real journal
 assertion needs a real plasmashell start.
 

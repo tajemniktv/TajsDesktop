@@ -1,0 +1,14 @@
+{
+  "kcminputrc": {"Keyboard": {"NumLock": "0"}},
+  "kglobalshortcutsrc": {"plasmashell": {"next activity": "Meta+A,none,Walk through activities", "previous activity": "Meta+Shift+A,none,Walk through activities (Reverse)"}},
+  "kwinrc": {"Desktops": {"Number": "1", "Rows": "1"}},
+  "powerdevilrc": {
+    "AC][Display": {"DimDisplayIdleTimeoutSec": "900", "TurnOffDisplayIdleTimeoutSec": "3600", "TurnOffDisplayIdleTimeoutWhenLockedSec": "300"},
+    "AC][Performance": {"PowerProfile": "performance"},
+    "AC][SuspendAndShutdown": {"AutoSuspendAction": "0", "LidAction": "0"},
+    "Battery][Performance": {"PowerProfile": "balanced"},
+    "BatteryManagement": {"BatteryCriticalLevel": "10", "BatteryLowLevel": "30"},
+    "LowBattery][Performance": {"PowerProfile": "power-saver"},
+    "LowBattery][SuspendAndShutdown": {"AutoSuspendIdleTimeoutSec": "60", "LidAction": "2", "SleepMode": "3"}
+  }
+}

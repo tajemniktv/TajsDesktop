@@ -22,11 +22,15 @@ from pathlib import Path
 # root ./installer or imported directly.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from paths import CONFIG_FILE, REPO_ROOT, read_version
+from paths import REPO_ROOT, read_version
 from cli import (
-    ALL_FEATURES, DEFAULT_FEATURES, FEATURE_DESC,
-    fetch_latest_release, parse_semver,
+    ALL_FEATURES, FEATURE_DESC, STAGING_INSTALL_BLOCKED,
+    fetch_latest_release, load_features, parse_semver,
+    save_features as save_user_features, user_features_file,
 )
+from fork_lifecycle import load_state, plan_features, upstream_install_present
+from personal_defaults import preview_profile_reset
+from step_runner import step_has_phase
 from log import DONE_MARKER
 from localization import (
     feature_label, get_language, language_options, set_language, translate,
@@ -37,6 +41,10 @@ PREVIEW_QML = Path(__file__).resolve().parent / "preview_installer.qml"
 
 _ACTION_COMMANDS = {
     "install": "sudo ./install",
+    "update-assets": "sudo ./install --update-assets",
+    "reconcile": "sudo ./install --reconcile",
+    "reset-profile-defaults": (
+        "sudo ./install --reset-profile-defaults --confirm-profile-reset"),
     "uninstall": "sudo ./uninstall",
     "preflight": "sudo ./install --preflight",
 }
@@ -77,11 +85,11 @@ def _create_private_run_file(prefix: str) -> str:
 
 
 def _create_progress_file() -> str:
-    return _create_private_run_file("mttkde-install-progress-")
+    return _create_private_run_file("tajsdesktop-install-progress-")
 
 
 def _create_cancel_file() -> str:
-    return _create_private_run_file("mttkde-install-cancel-")
+    return _create_private_run_file("tajsdesktop-install-cancel-")
 
 
 def _secure_run_file_fd(path: str, *, write: bool) -> int:
@@ -208,9 +216,9 @@ def escalated_command_for_action(
             raise ValueError(
                 "headless installer launch requires progress and cancel files")
         headless_pairs = [
-            "MTTKDE_NO_CONFIRM=1",
-            f"MTTKDE_PROGRESS_FILE={shlex.quote(progress_file)}",
-            f"MTTKDE_CANCEL_FILE={shlex.quote(cancel_file)}",
+            "TAJSDESKTOP_NO_CONFIRM=1",
+            f"TAJSDESKTOP_PROGRESS_FILE={shlex.quote(progress_file)}",
+            f"TAJSDESKTOP_CANCEL_FILE={shlex.quote(cancel_file)}",
         ]
 
     if shutil.which("pkexec"):
@@ -520,6 +528,10 @@ def _make_installer_bridge():
             first paint can show it."""
             return read_version()
 
+        @pyqtProperty(bool, constant=True)
+        def stagingBlocked(self) -> bool:
+            return STAGING_INSTALL_BLOCKED
+
         @pyqtProperty(str, notify=languageChanged)
         def language(self) -> str:
             return self._language
@@ -531,6 +543,10 @@ def _make_installer_bridge():
         @pyqtSlot(str, result=str)
         def translate(self, message: str) -> str:
             return translate(message, self._language)
+
+        @pyqtSlot(result="QVariantMap")
+        def profileResetPreview(self):
+            return profile_reset_preview()
 
         @pyqtSlot(str, result=bool)
         def setLanguage(self, code: str) -> bool:
@@ -749,7 +765,7 @@ def _launch_preview_pyqt() -> int:
     # Must be set before QGuiApplication is constructed.
     os.environ.setdefault("QT_NO_XDG_DESKTOP_PORTAL", "1")
     app = QGuiApplication.instance() or QGuiApplication(sys.argv[:1])
-    app.setApplicationName("mac-tahoe-liquid-kde-installer")
+    app.setApplicationName("tajsdesktop-installer")
     # A close request during an install must leave the event loop running so
     # the privileged child can stop safely and be reaped.
     app.setQuitOnLastWindowClosed(False)
@@ -811,16 +827,18 @@ def launch_preview() -> int:
 
 def dump_features() -> dict[str, object]:
     language = get_language()
-    state: dict[str, object] = dict(DEFAULT_FEATURES)
-    if CONFIG_FILE.is_file():
-        try:
-            saved = json.loads(CONFIG_FILE.read_text())
-            if isinstance(saved, dict):
-                for key, value in saved.items():
-                    if key in state:
-                        state[key] = value
-        except (OSError, ValueError):
-            pass
+    state = load_features()
+    try:
+        installed = load_state()
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return {"items": [], "error": f"Invalid install state: {exc}",
+                "staging_blocked": True}
+    preview = plan_features(
+        {key: bool(state.get(key, False)) for key in ALL_FEATURES},
+        installed, read_version(), upstream_install_present(),
+        refreshable=(feature for feature in (*ALL_FEATURES, "theme_switch")
+                     if step_has_phase(feature, "update_assets")),
+    )
 
     items = [
         {
@@ -828,38 +846,41 @@ def dump_features() -> dict[str, object]:
             "label": feature_label(key, language),
             "description": translate(FEATURE_DESC.get(key, ""), language),
             "enabled": bool(state.get(key, True)),
+            "installed": bool(installed and installed.features.get(key, False)),
         }
         for key in ALL_FEATURES
         if key != "no_download"
     ]
-    return {"items": items, "config_path": str(CONFIG_FILE)}
+    return {"items": items, "config_path": str(user_features_file()),
+            "preview": preview, "staging_blocked": STAGING_INSTALL_BLOCKED}
+
+
+def profile_reset_preview() -> dict[str, object]:
+    """Read-only exact reset scope for the GUI confirmation dialog."""
+    try:
+        return {"ok": True, "actions": preview_profile_reset()}
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return {"ok": False, "actions": [], "error": str(exc)}
 
 
 def save_features(payload: dict[str, object]) -> dict[str, object]:
-    state: dict[str, object] = dict(DEFAULT_FEATURES)
-    if CONFIG_FILE.is_file():
-        try:
-            saved = json.loads(CONFIG_FILE.read_text())
-            if isinstance(saved, dict):
-                state.update({k: v for k, v in saved.items() if k in state})
-        except (OSError, ValueError):
-            pass
+    state = load_features()
 
     for key, value in payload.items():
         if key in state and isinstance(value, bool):
             state[key] = value
 
     try:
-        CONFIG_FILE.write_text(json.dumps(state, indent=2) + "\n")
+        save_user_features(state)
     except OSError as exc:
         return {"ok": False, "message": str(exc)}
-    return {"ok": True, "message": f"Saved to {CONFIG_FILE.name}"}
+    return {"ok": True, "message": f"Saved to {user_features_file()}"}
 
 
 def update_status() -> dict[str, object]:
     """Mirror the CLI's ``--check-update`` verdict via the same engine
     pieces so GUI and CLI never disagree. Network failures and the
-    MAC_TAHOE_NO_UPDATE_CHECK opt-out resolve to ``reachable=False``
+    TAJSDESKTOP_NO_UPDATE_CHECK opt-out resolve to ``reachable=False``
     rather than raising — a flaky GitHub must never break the window."""
     current = read_version()
     latest = fetch_latest_release()
@@ -900,7 +921,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument(
         "--save-features",
         metavar="JSON",
-        help="Persist a JSON object of {feature: bool} into features.json.",
+        help="Persist feature choices under the invoking user's config home.",
     )
     parser.add_argument(
         "--check-update",

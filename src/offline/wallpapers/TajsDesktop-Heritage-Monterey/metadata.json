@@ -1,0 +1,17 @@
+{
+    "KPlugin": {
+        "Id": "TajsDesktop-Heritage-Monterey",
+        "Name": "macOS Monterey",
+        "Description": "macOS Monterey \u2014 auto light/dark",
+        "Authors": [
+            {
+                "Name": "TajsDesktop-Tahoe Liquid KDE",
+                "Email": ""
+            }
+        ],
+        "Category": "TajsDesktop-Tahoe Liquid KDE",
+        "License": "Apple Inc. wallpapers extracted from macOS",
+        "Website": "https://github.com/lester-sudo/macos-tahoe-liquid-kde",
+        "Version": "1.0"
+    }
+}

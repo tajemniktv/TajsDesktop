@@ -1,4 +1,4 @@
-"""Install and select the bundled MacTahoe sound theme.
+"""Install and select the bundled TajsDesktop sound theme.
 
 The payload follows the freedesktop sound-theme specification and is kept
 fully offline under ``src/offline/sounds``.  Plasma 6 stores the selected
@@ -13,7 +13,7 @@ from steps._helpers import (
 from utils import kw_read, kw_write
 
 
-THEME_ID = "MacTahoeLiquidKde"
+THEME_ID = "TajsDesktop"
 FALLBACK_THEME_ID = "ocean"
 OFFLINE_DIR = offline("sounds", THEME_ID)
 DEST_DIR = DATA_HOME / "sounds" / THEME_ID
@@ -43,7 +43,7 @@ def _select_theme() -> bool:
 
 
 def install() -> None:
-    if not install_tree(OFFLINE_DIR, DEST_DIR, "MacTahoe sound theme"):
+    if not install_tree(OFFLINE_DIR, DEST_DIR, "TajsDesktop sound theme"):
         info("0 sound events installed/reinstalled")
         return
 
@@ -52,6 +52,11 @@ def install() -> None:
         _select_theme()
 
     info(f"{_sound_count(DEST_DIR)} sound events installed/reinstalled")
+
+
+def update_assets() -> None:
+    if install_tree(OFFLINE_DIR, DEST_DIR, "TajsDesktop sound theme"):
+        info(f"{_sound_count(DEST_DIR)} sound events installed/reinstalled")
 
 
 def uninstall() -> None:
@@ -65,5 +70,5 @@ def uninstall() -> None:
         else:
             warn("Could not restore the Ocean sound theme")
 
-    removed = remove_tree(DEST_DIR, "MacTahoe sound theme")
+    removed = remove_tree(DEST_DIR, "TajsDesktop sound theme")
     info(f"{1 if removed else 0} sound theme removed")

@@ -20,8 +20,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=_ui.sh
 source "$HERE/_ui.sh"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
-SRC="$REPO_ROOT/src/offline/plymouth/MacTahoeLiquidKde"
-DEST="/usr/share/plymouth/themes/MacTahoeLiquidKde"
+SRC="$REPO_ROOT/src/offline/plymouth/TajsDesktop"
+DEST="/usr/share/plymouth/themes/TajsDesktop"
 OUT="$HERE/output"
 
 ui_section "Plymouth render test (host, debug mode)"
@@ -64,7 +64,7 @@ fi
 # If the user already ran ./install, the system dir has the previous
 # version. Move it aside, drop our source in, render, restore on
 # cleanup. Standard transactional install pattern.
-BACKUP="$DEST.mttkde-test-backup"
+BACKUP="$DEST.tajsdesktop-test-backup"
 RESTORE_BACKUP=0
 if [[ -d "$DEST" ]]; then
     if [[ -e "$BACKUP" ]]; then
@@ -221,16 +221,16 @@ cp -r "$SRC" "$DEST"
 # is removed by cleanup; the shipped OG script remains byte-for-byte intact.
 printf '%s\n' \
     '' \
-    '# MTTKDE render-harness hook (temporary staged copy only).' \
-    'fun mttkde_harness_progress(duration, ignored)' \
+    '# TAJSDESKTOP render-harness hook (temporary staged copy only).' \
+    'fun tajsdesktop_harness_progress(duration, ignored)' \
     '{' \
     '  on_boot_progress(duration, 0.65);' \
     '}' \
     'if (show_progress)' \
     '{' \
-    '  Plymouth.SetBootProgressFunction(mttkde_harness_progress);' \
+    '  Plymouth.SetBootProgressFunction(tajsdesktop_harness_progress);' \
     '  on_boot_progress(0, 0.65);' \
-    '}' >> "$DEST/MacTahoeLiquidKde.script"
+    '}' >> "$DEST/TajsDesktop.script"
 
 # ── render boot + shutdown ──────────────────────────────────────────────
 
@@ -250,7 +250,7 @@ for MODE in boot shutdown; do
         --no-daemon \
         --debug \
         --mode="$MODE" \
-        --kernel-command-line="splash plymouth.theme=MacTahoeLiquidKde" \
+        --kernel-command-line="splash plymouth.theme=TajsDesktop" \
         --debug-file="$OUT/plymouthd-$MODE.log" &
     PD_PID=$!
     sleep 1

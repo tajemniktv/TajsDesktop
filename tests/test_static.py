@@ -330,14 +330,14 @@ def test_acrylic_glass_qrc_entries_all_staged_by_cmake(repo):
     preprocess_shader_includes. An entry missing from both only explodes
     at rcc time on the user's machine, never in CI."""
     base = repo / "src/offline/kwin-effects/acrylic-glass/src"
-    qrc = (base / "liquidglass.qrc").read_text()
+    qrc = (base / "tajsdesktopglass.qrc").read_text()
     cml = (base / "CMakeLists.txt").read_text()
 
     entries = re.findall(r"<file>shaders/([^<]+)</file>", qrc)
-    assert entries, "liquidglass.qrc parse produced no shader entries"
+    assert entries, "tajsdesktopglass.qrc parse produced no shader entries"
     missing = [e for e in entries if e not in cml]
     assert not missing, (
-        f"liquidglass.qrc references shaders never staged into the build "
+        f"tajsdesktopglass.qrc references shaders never staged into the build "
         f"dir by CMakeLists.txt: {missing}"
     )
     # The preprocessor writes into the build tree, never the checkout.
@@ -383,7 +383,7 @@ def test_no_legacy_apply_service_in_offline(offline):
     apply.service / watch.service pair. Leftover units would
     re-enable the dead watch path on upgrade (systemctl
     daemon-reload picks them up)."""
-    assert not (offline / "mac-tahoe-liquid-kde-theme-apply.service").exists()
+    assert not (offline / "tajsdesktop-theme-apply.service").exists()
 
 
 # ── features.json + cli features stay in sync ─────────────────────────
@@ -473,9 +473,9 @@ _GTK3_POPUP_SELECTORS = (
 )
 
 _DARK_GTK3_SHEETS = (
-    "gtk/MacTahoeLiquidKde-Dark/gtk-3.0/gtk.css",
-    "gtk/MacTahoeLiquidKde-Dark/gtk-3.0/gtk-dark.css",
-    "gtk/MacTahoeLiquidKde-Light/gtk-3.0/gtk-dark.css",
+    "gtk/TajsDesktop-Dark/gtk-3.0/gtk.css",
+    "gtk/TajsDesktop-Dark/gtk-3.0/gtk-dark.css",
+    "gtk/TajsDesktop-Light/gtk-3.0/gtk-dark.css",
 )
 
 
@@ -514,23 +514,23 @@ def test_dark_gtk3_sheet_copies_stay_identical(offline):
     dark = (offline / _DARK_GTK3_SHEETS[1]).read_bytes()
     light_copy = (offline / _DARK_GTK3_SHEETS[2]).read_bytes()
     assert dark == light_copy, (
-        "MacTahoeLiquidKde-Light/gtk-3.0/gtk-dark.css must stay a "
-        "byte-identical copy of MacTahoeLiquidKde-Dark/gtk-3.0/"
+        "TajsDesktop-Light/gtk-3.0/gtk-dark.css must stay a "
+        "byte-identical copy of TajsDesktop-Dark/gtk-3.0/"
         "gtk-dark.css — fix one, copy over the other."
     )
 
 
 def test_kvantum_dark_popup_parity(offline):
-    kv = offline / "kvantum/mac-tahoe-liquid-kde"
+    kv = offline / "kvantum/tajsdesktop"
     dark_defaults = (
-        offline / "look-and-feel/MacTahoeLiquidKde-Dark/contents/defaults"
+        offline / "look-and-feel/TajsDesktop-Dark/contents/defaults"
     ).read_text()
     assert "widgetStyle=kvantum\n" in dark_defaults
     assert "widgetStyle=kvantum-dark" not in dark_defaults, (
         "widgetStyle is the Qt plugin name; the light/dark Kvantum profile is "
-        "selected separately by mac-tahoe-theme-switch."
+        "selected separately by tajsdesktop-theme-switch."
     )
-    conf = (kv / "mac-tahoe-liquid-kdeDark.kvconfig").read_text()
+    conf = (kv / "tajsdesktopDark.kvconfig").read_text()
     assert "blur_only_active_window=false" in conf, (
         "Dark kvconfig must keep blur_only_active_window=false like the "
         "light variant — true leaves unfocused popups unblurred AND "
@@ -542,7 +542,7 @@ def test_kvantum_dark_popup_parity(offline):
             f"Dark kvconfig [MenuBar] must carry {key} like the light "
             f"variant — element=none renders no menubar surface at all."
         )
-    for svg in ("mac-tahoe-liquid-kde.svg", "mac-tahoe-liquid-kdeDark.svg"):
+    for svg in ("tajsdesktop.svg", "tajsdesktopDark.svg"):
         text = (kv / svg).read_text()
         elems = [e for e in re.findall(r"<[a-z]+[^>]*>", text)
                  if 'id="tooltip-normal"' in e]
@@ -560,10 +560,10 @@ def test_kvantum_mode_profiles_have_matching_surface_colors(offline):
     tied to their actual surface colors."""
     import theme_switch
 
-    kv = offline / "kvantum/mac-tahoe-liquid-kde"
+    kv = offline / "kvantum/tajsdesktop"
     expected = {
-        "light": ("mac-tahoe-liquid-kde", "#f5f5f58C"),
-        "dark": ("mac-tahoe-liquid-kdeDark", "#2424248C"),
+        "light": ("tajsdesktop", "#f5f5f58C"),
+        "dark": ("tajsdesktopDark", "#2424248C"),
     }
     for mode, (profile, surface) in expected.items():
         assert theme_switch._kvantum_theme(mode) == profile
@@ -572,7 +572,7 @@ def test_kvantum_mode_profiles_have_matching_surface_colors(offline):
 
 
 def test_gtk4_named_colors_all_defined(offline):
-    sheets = sorted((offline / "gtk").glob("MacTahoeLiquidKde-*/gtk-4.0/*.css"))
+    sheets = sorted((offline / "gtk").glob("TajsDesktop-*/gtk-4.0/*.css"))
     assert sheets, "no gtk-4.0 sheets found"
     skip = {"define", "import", "keyframes", "media", "charset"}
     for f in sheets:

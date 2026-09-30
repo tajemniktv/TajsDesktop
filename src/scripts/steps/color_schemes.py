@@ -1,7 +1,6 @@
 from steps._helpers import DATA_HOME, fail, info, ok, offline, reinstall
 
 DEST_DIR = DATA_HOME / "color-schemes"
-LEGACY = ("MacTahoeDark.colors", "MacTahoeLight.colors")
 
 
 def install() -> None:
@@ -10,11 +9,6 @@ def install() -> None:
         fail(f"Color scheme source not found at {src}")
         return
     DEST_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Pre-0.6.2 wrote the wrong internal ColorScheme= name. Plasma could
-    # pick those stale files up and end up in a split state.
-    for stale in LEGACY:
-        (DEST_DIR / stale).unlink(missing_ok=True)
 
     n_inst = n_re = 0
     for cs in sorted(src.glob("*.colors")):
@@ -32,9 +26,13 @@ def install() -> None:
     info(f"{n_inst + n_re} color schemes — {n_inst} installed, {n_re} reinstalled")
 
 
+def update_assets() -> None:
+    install()
+
+
 def uninstall() -> None:
     n = 0
-    for cs in DEST_DIR.glob("MacTahoeLiquidKde*.colors"):
+    for cs in DEST_DIR.glob("TajsDesktop*.colors"):
         try:
             cs.unlink()
             ok(f"{cs.stem} removed")

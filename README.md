@@ -1,17 +1,17 @@
-<p align="center">
-  <img src="src/screenshots/banner_v3.svg" alt="tahoe 26" width="360">
-</p>
+# TajsDesktop (staging fork)
 
-# macOS Tahoe Liquid Theme for Plasma 6.6/6.7+
+[![tests](https://img.shields.io/badge/tests-1453_passing-brightgreen)](https://github.com/tajemniktv/TajsDesktop/actions/workflows/test.yml) [![plasma](https://img.shields.io/badge/Plasma-6.6%2B-1d99f3?logo=kde)](https://kde.org/plasma-desktop/) [![license](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE) [![report a bug](https://img.shields.io/badge/report-a%20bug-red?logo=github)](https://github.com/tajemniktv/TajsDesktop/issues/new)
 
-[![release](https://img.shields.io/github/v/release/lestercorderomurillo/macos-tahoe-liquid-kde?label=release&color=blue)](https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/releases) [![tests](https://img.shields.io/badge/tests-1375_passing-brightgreen)](https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/actions/workflows/test.yml) [![plasma](https://img.shields.io/badge/Plasma-6.6%2B-1d99f3?logo=kde)](https://kde.org/plasma-desktop/) [![license](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE) [![report a bug](https://img.shields.io/badge/report-a%20bug-red?logo=github)](https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/issues/new)
+> [!WARNING]
+> This fork is **not install-ready**. The installer and uninstaller are blocked
+> while configuration-preserving lifecycle and migration work is incomplete.
+> No live desktop deployment has been performed. The instructions below still
+> describe the upstream theme and must not be used to deploy this staging branch.
 
-Bring a little Tahoe to your Linux desktop.
-
-A macOS Tahoe-inspired theme for KDE Plasma 6.6 and 6.7+, with liquid glass, a top menu bar, a Dock, matching app themes, sounds, and a boot screen. Pick the parts you like in the installer.
-
-> [!CAUTION]
-> This project is experimental and under active development. Don't use it on a production system yet. KDE, KWin, or Kvantum updates may temporarily break parts of the theme; running `sudo ./install` again usually restores them. If something goes wrong, please [open an issue](https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/issues/new).
+Automated distro coverage targets **CachyOS only**. CI keeps the full core
+pytest suite plus Qt/KDE package, path, and native-build checks. Containers do
+not validate a live KDE session, installation, migration, or rollback. Other
+distro fixtures remain available for optional manual testing.
 
 <br>
 
@@ -252,25 +252,6 @@ Use `all` to launch every distro.
 
 <br>
 
-![Compatibility](https://img.shields.io/badge/compatibility-system%20support-4B6B8A?style=for-the-badge&logo=linux&logoColor=white)
-
-**Distributions**
-
-| | Name | Status |
-|:--:|------|---------|
-| <img src="https://cdn.simpleicons.org/cachyos" alt="CachyOS" width="22"> | CachyOS | ![Heavily tested](https://img.shields.io/badge/heavily%20tested-1A7F37) |
-| <img src="https://cdn.simpleicons.org/archlinux" alt="Arch Linux" width="22"> | Arch Linux | ![Stable](https://img.shields.io/badge/stable-1A7F37) |
-| <img src="https://cdn.simpleicons.org/endeavouros" alt="EndeavourOS" width="22"> | EndeavourOS | ![Relatively stable](https://img.shields.io/badge/relatively%20stable-D4A72C) |
-| <img src="https://cdn.simpleicons.org/fedora" alt="Fedora" width="22"> | Fedora | ![Relatively stable](https://img.shields.io/badge/relatively%20stable-D4A72C) |
-| <img src="https://cdn.simpleicons.org/manjaro" alt="Manjaro" width="22"> | Manjaro | ![Needs more testing](https://img.shields.io/badge/needs%20more%20testing-B42318) |
-| <img src="https://cdn.simpleicons.org/linux" alt="Linux" width="22"> | Garuda Linux | ![Needs more testing](https://img.shields.io/badge/needs%20more%20testing-B42318) |
-| <img src="https://cdn.simpleicons.org/nobaralinux" alt="Nobara" width="22"> | Nobara | ![Needs more testing](https://img.shields.io/badge/needs%20more%20testing-B42318) |
-| <img src="https://cdn.simpleicons.org/opensuse" alt="openSUSE" width="22"> | openSUSE Tumbleweed | ![Needs more testing](https://img.shields.io/badge/needs%20more%20testing-B42318) |
-| <img src="https://cdn.simpleicons.org/gentoo" alt="Gentoo" width="22"> | Gentoo | ![Needs more testing](https://img.shields.io/badge/needs%20more%20testing-B42318) |
-| <img src="https://cdn.simpleicons.org/kde" alt="KDE" width="22"> | KDE neon | ![Container + VM qualified](https://img.shields.io/badge/container%20%2B%20VM%20qualified-D4A72C) |
-
-<br>
-
 **Init systems**
 
 | Init system | Support | Testing |
@@ -305,7 +286,7 @@ choices are preserved, and the protection keeps GTK global menus available.
 
 Run `sudo ./install` with Global Menu selected, then **log out and back in**.
 The hook lives at
-`${XDG_CONFIG_HOME:-$HOME/.config}/plasma-workspace/env/mac-tahoe-gtk-appmenu.sh`;
+`${XDG_CONFIG_HOME:-$HOME/.config}/plasma-workspace/env/tajsdesktop-gtk-appmenu.sh`;
 uninstall removes the project's hook. A fresh login is also required after
 removal, because existing processes retain their startup environment.
 
@@ -375,59 +356,8 @@ Still to come: icon polish, broader distro testing, and more app themes and widg
 
 <br>
 
-![Contributing](https://img.shields.io/badge/contributing-A04B4B?style=for-the-badge&logo=github&logoColor=white)
-
-<p>
-  <a href="https://github.com/lestercorderomurillo"><img src="src/screenshots/contributors/lestercorderomurillo.svg" width="40" height="40" alt="@lestercorderomurillo" title="@lestercorderomurillo"></a>
-  <a href="https://github.com/yanhenrique-dev"><img src="src/screenshots/contributors/yanhenrique-dev.svg" width="40" height="40" alt="@yanhenrique-dev" title="@yanhenrique-dev"></a>
-  <a href="https://github.com/tuxkt"><img src="src/screenshots/contributors/tuxkt.svg" width="40" height="40" alt="@tuxkt" title="@tuxkt"></a>
-  <a href="https://github.com/caioniehues"><img src="src/screenshots/contributors/caioniehues.svg" width="40" height="40" alt="@caioniehues" title="@caioniehues"></a>
-  <a href="https://github.com/404-not-found129"><img src="src/screenshots/contributors/404-not-found129.svg" width="40" height="40" alt="@404-not-found129" title="@404-not-found129"></a>
-  <a href="https://github.com/myakupozluk"><img src="src/screenshots/contributors/myakupozluk.svg" width="40" height="40" alt="@myakupozluk" title="@myakupozluk"></a>
-  <a href="https://github.com/EMS1998"><img src="src/screenshots/contributors/EMS1998.svg" width="40" height="40" alt="@EMS1998" title="@EMS1998"></a>
-  <a href="https://github.com/allfritz"><img src="src/screenshots/contributors/allfritz.svg" width="40" height="40" alt="@allfritz" title="@allfritz"></a>
-  <a href="https://github.com/kozeki-uii"><img src="src/screenshots/contributors/kozeki-uii.svg" width="40" height="40" alt="@kozeki-uii" title="@kozeki-uii"></a>
-</p>
-
-Thanks to everyone helping with code, translations, bug reports, and testing. You don't need to write code to contribute.
-
-Bug reports are the most valuable contribution right now: **[open an issue](https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/issues/new)** or choose **Apple menu → About This Computer → Report a Bug…** from the desktop.
-
-Please include:
-
-- Your Plasma version: `plasmashell --version`
-- Your distro: `grep PRETTY_NAME /etc/os-release`
-- The theme version: `cat VERSION`
-- A screenshot or recording for visual issues
-
-Pull requests are welcome. Keep them focused and test them with the `./vm` harness before submitting. See [CONTRIBUTING.md](CONTRIBUTING.md) for the project workflow.
-
-<br>
-
 ![Disclaimer](https://img.shields.io/badge/disclaimer-not%20affiliated%20with%20apple-6B6B6B?style=for-the-badge&logo=apple&logoColor=white)
 
 This is an independent reimplementation inspired by the macOS aesthetic. It is not affiliated with or endorsed by Apple or KDE. "macOS" and "Apple" are trademarks of Apple Inc.
 
 The bundled wallpapers, system sounds, and SF Pro / SF Mono fonts remain Apple's property and are not covered by this project's license. All other code and theme assets are original or derived from compatibly licensed open-source work.
-
-Licensed [GPL-3.0](LICENSE).
-
-<br>
-
-![Credits and inspiration](https://img.shields.io/badge/credits-%26%20inspiration-8A6B4B?style=for-the-badge&logo=apple&logoColor=white)
-
-Thanks to the open-source projects that inspired this one or fed assets into it. Everything here is maintained independently:
-
-- **[EliverLara](https://github.com/EliverLara/TahoeLauncher)**: `TahoeLauncher`, the inspiration for the Launcher plasmoid.
-- **[vinceliuice](https://github.com/vinceliuice)**: `MacTahoe-icon-theme` for the icons, cursors, and GTK inspiration; and the [`MacTahoe-gtk-theme` Firefox CSS/SVG](https://github.com/vinceliuice/MacTahoe-gtk-theme/tree/main/other/firefox), maintained here as an MIT-licensed fork and integrated with this project's profile backup and restore system.
-- **[taj-ny](https://github.com/taj-ny/kwin-effects-forceblur)** and **[4v3ngR](https://github.com/4v3ngR/kwin-effects-glass)**: Better Blur and its glass fork, the starting point of the Acrylic Glass effect (the KWin blur authors stay credited in the source headers).
-- **[luisbocanegra](https://github.com/luisbocanegra/plasma-panel-colorizer)**: `plasma-panel-colorizer` v7.3.0, bundled offline and installed by the layout step to tint the panels (GPL-3.0, license shipped alongside).
-- **[Matin Lotfaliei / KDE-Rounded-Corners](https://github.com/matinlotfali/KDE-Rounded-Corners)**: the GPL-3.0 KWin rounded-window effect, fetched from the pinned v0.9.0 release and built online against the host KWin SDK (license installed alongside).
-- **[ful1e5](https://github.com/ful1e5)**: `apple_cursor`, inspiration for an alternate macOS-style cursor.
-- **[sahibjotsaggu](https://github.com/sahibjotsaggu)**: `San-Francisco-Pro-Fonts`, where the SF Pro / SF Mono bundle comes from.
-- **[Lucide](https://github.com/lucide-icons/lucide)**: copy icons bundled in the global menu (ISC, © Lucide Contributors).
-- **[512pixels.net](https://512pixels.net/projects/default-mac-wallpapers-in-5k/)**: high-resolution macOS wallpaper archive.
-
-Please support their efforts too: star their repos, report bugs upstream, and contribute back when you can.
-
-If a credit is missing, please [open an issue](https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/issues/new).

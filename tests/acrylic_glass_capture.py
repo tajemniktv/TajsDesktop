@@ -141,24 +141,24 @@ def inside(output):
             vm = subprocess.Popen([sys.executable, script, "--client", "vm", "-name", os.environ["MTTKDE_CAPTURE_IDENTITY"]],
                                   env=vm_env, stdout=log, stderr=subprocess.STDOUT)
         time.sleep(1)
-        dbus("/Effects", "org.kde.kwin.Effects.unloadEffect", "liquidglass")
+        dbus("/Effects", "org.kde.kwin.Effects.unloadEffect", "tajsdesktopglass")
         capture("effect-off.png")
-        loaded = dbus("/Effects", "org.kde.kwin.Effects.loadEffect", "liquidglass")
+        loaded = dbus("/Effects", "org.kde.kwin.Effects.loadEffect", "tajsdesktopglass")
         active = dbus("/Effects", "org.kde.kwin.Effects.activeEffects")
         (output / "support.txt").write_text(dbus("/KWin", "org.kde.KWin.supportInformation"))
         (output / "effects.txt").write_text(dbus("/Effects", "org.kde.kwin.Effects.listOfEffects"))
         plugin_loads = [line for line in (output / "kwin.log").read_text().splitlines()
-                       if "liquidglass.so" in line and '" loaded library' in line]
+                       if "tajsdesktopglass.so" in line and '" loaded library' in line]
         (output / "evidence.json").write_text(json.dumps({
             "loaded": loaded, "active_effects": active, "plugin_loads": plugin_loads,
             "dbus_owner_verified": True, "kwin_pid": kwin.pid,
             "identity": os.environ["MTTKDE_CAPTURE_IDENTITY"],
             "client_backend": os.environ["MTTKDE_CAPTURE_BACKEND"], "scale": os.environ["MTTKDE_CAPTURE_SCALE"],
-            "plugin_sha256": hashlib.sha256((output / "plugins/kwin/effects/plugins/liquidglass.so").read_bytes()).hexdigest(),
+            "plugin_sha256": hashlib.sha256((output / "plugins/kwin/effects/plugins/tajsdesktopglass.so").read_bytes()).hexdigest(),
             "kwin_version": subprocess.check_output(
                 ["kwin_wayland", "--version"], text=True, timeout=5).strip(),
         }, indent=2))
-        assert loaded == "true" and "liquidglass" in active, "Effect did not activate"
+        assert loaded == "true" and "tajsdesktopglass" in active, "Effect did not activate"
         assert plugin_loads and all(str(output / "plugins") in line for line in plugin_loads), plugin_loads
         assert vm.poll() is None and background.poll() is None, "Test client exited"
         capture("effect-on.png")
@@ -178,13 +178,13 @@ def run(plugin, output, scale, expected, backend, identity):
     kwin_copy = output / "bin/kwin_wayland"
     shutil.copyfile(shutil.which("kwin_wayland"), kwin_copy)
     kwin_copy.chmod(0o755)
-    dest = output / "plugins/kwin/effects/plugins/liquidglass.so"
+    dest = output / "plugins/kwin/effects/plugins/tajsdesktopglass.so"
     dest.parent.mkdir(parents=True)
     shutil.copy2(plugin, dest)
     (output / "config/kwinrc").write_text(
-        "[Compositing]\nBackend=OpenGL\n[Plugins]\nliquidglassEnabled=false\n"
+        "[Compositing]\nBackend=OpenGL\n[Plugins]\ntajsdesktopglassEnabled=false\n"
         "blurEnabled=false\nkwin4_effect_shapecornersEnabled=false\n"
-        "[Effect-liquidglass]\nBlurStrength=3.5\nBlurDecorations=true\n"
+        "[Effect-tajsdesktopglass]\nBlurStrength=3.5\nBlurDecorations=true\n"
         "BlurMatching=false\nNoiseStrength=0\nWindowCornerRadius=22\n")
     env = {key: value for key, value in os.environ.items()
            if key in ("PATH", "LANG", "LC_ALL", "USER", "LOGNAME")}

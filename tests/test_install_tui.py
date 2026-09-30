@@ -31,7 +31,7 @@ def _fake_tty(monkeypatch, tty: bool) -> None:
     """Patch INSIDE the test body — pytest's capture manager re-installs
     its own sys.stdout/sys.stdin at phase boundaries, so a fixture-time
     setattr would be clobbered before the test runs."""
-    monkeypatch.delenv("MTTKDE_NO_CONFIRM", raising=False)
+    monkeypatch.delenv("TAJSDESKTOP_NO_CONFIRM", raising=False)
     monkeypatch.setattr(sys, "stdin", _Stream(tty))
     monkeypatch.setattr(sys, "stdout", _Stream(tty))
 
@@ -46,9 +46,9 @@ def test_gate_active_on_tty(monkeypatch):
 
 def test_gate_inactive_headless(monkeypatch):
     """The GUI installer and the VM harness both export
-    MTTKDE_NO_CONFIRM=1 — the wizard must never appear there."""
+    TAJSDESKTOP_NO_CONFIRM=1 — the wizard must never appear there."""
     _fake_tty(monkeypatch, True)
-    monkeypatch.setenv("MTTKDE_NO_CONFIRM", "1")
+    monkeypatch.setenv("TAJSDESKTOP_NO_CONFIRM", "1")
     assert not cli._tui_active([], tui=True)
 
 

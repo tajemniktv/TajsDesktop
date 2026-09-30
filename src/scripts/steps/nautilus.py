@@ -1,6 +1,9 @@
+import configparser
+import hashlib
+import os
 import re
-import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 from urllib.parse import quote
@@ -9,7 +12,6 @@ from steps._helpers import HOME, fail, feat_enabled, have, kw_write, ok, offline
 from utils import is_plasma_session, run_user
 
 NAUTILUS_DESKTOP = "org.gnome.Nautilus.desktop"
-DOLPHIN_DESKTOP = "org.kde.dolphin.desktop"
 MIME_FOLDER = "inode/directory"
 MIME_SEARCH = "application/x-gnome-saved-search"
 _NAUTILUS_TOOL_TIMEOUT_SECONDS = 5
@@ -23,10 +25,23 @@ def deps():
     return ["nautilus"]
 
 
-def _set_default(desktop_id: str, mime: str) -> bool:
-    """Write the default-handler key straight to mimeapps.list — the
-    xdg-mime dispatcher can hang probing legacy Qt5 helpers on Qt6-only
-    installs, and this lands the same format Plasma reads."""
+def _set_default_if_absent(desktop_id: str, mime: str) -> bool:
+    """Initialize a MIME handler only if the user has no explicit value."""
+    config_root = Path(os.environ.get("XDG_CONFIG_HOME") or HOME / ".config")
+    config = config_root / "mimeapps.list"
+    if config.is_symlink():
+        warn("Symlinked MIME defaults preserved")
+        return False
+    parser = configparser.RawConfigParser(interpolation=None, strict=False)
+    parser.optionxform = str
+    try:
+        if config.exists():
+            parser.read(config, encoding="utf-8")
+    except (OSError, configparser.Error):
+        warn("MIME defaults cannot be read; preserving them")
+        return False
+    if parser.has_option("Default Applications", mime):
+        return False
     return kw_write(
         "--file", "mimeapps.list",
         "--group", "Default Applications",
@@ -35,9 +50,7 @@ def _set_default(desktop_id: str, mime: str) -> bool:
 
 
 def _generate_bookmarks() -> None:
-    """Write ~/.config/gtk-3.0/bookmarks from the user's XDG dirs (labels
-    follow the on-disk folder names, i.e. the system language). The
-    pre-existing file is backed up once and restored on uninstall."""
+    """Initialize bookmarks only when absent; never replace a user's list."""
     if not feat_enabled("nautilus_bookmarks"):
         return
     src = HOME / ".config/user-dirs.dirs"
@@ -73,17 +86,30 @@ def _generate_bookmarks() -> None:
         return
 
     dest = HOME / ".config/gtk-3.0"
+    if dest.is_symlink():
+        warn("Symlinked GTK configuration preserved")
+        return
     dest.mkdir(parents=True, exist_ok=True)
     bookmarks = dest / "bookmarks"
-    backup = dest / "bookmarks.mac-tahoe-backup"
-    # Back up the user's own bookmarks once; reinstalls must not clobber
-    # the true original with our generated file.
-    if bookmarks.is_file() and not backup.is_file():
+    marker = dest / "bookmarks.tajsdesktop-owned"
+    if (bookmarks.exists() or bookmarks.is_symlink() or marker.exists()
+            or marker.is_symlink()):
+        warn("Existing GTK bookmarks preserved")
+        return
+    content = "\n".join(lines) + "\n"
+    try:
+        with bookmarks.open("x", encoding="utf-8") as stream:
+            stream.write(content)
         try:
-            shutil.copy2(bookmarks, backup)
+            with marker.open("x", encoding="utf-8") as stream:
+                stream.write(hashlib.sha256(content.encode("utf-8")).hexdigest() + "\n")
         except OSError:
-            pass
-    bookmarks.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            if bookmarks.read_text(encoding="utf-8") == content:
+                bookmarks.unlink()
+            raise
+    except OSError as exc:
+        warn(f"Could not initialize GTK bookmarks: {exc}")
+        return
     ok(f"Bookmarks written ({len(lines)} entries)")
 
 
@@ -91,19 +117,65 @@ def _apply_overrides() -> None:
     src = offline("nautilus")
     if not src.is_dir():
         return
-    copied = 0
-    for item in src.iterdir():
-        if item.name.startswith("README"):
-            continue
-        if item.name == "gtk.css":
-            (HOME / ".config/nautilus").mkdir(parents=True, exist_ok=True)
-            try:
-                shutil.copy2(item, HOME / ".config/nautilus/gtk.css")
-                copied += 1
-            except OSError:
-                pass
-    if copied:
-        ok(f"Applied {copied} Nautilus override(s)")
+    source = src / "gtk.css"
+    if not source.is_file():
+        return
+    directory = HOME / ".config/nautilus"
+    dest = directory / "gtk.css"
+    marker = directory / "gtk.css.tajsdesktop-owned"
+    if (directory.is_symlink() or dest.exists() or dest.is_symlink()
+            or marker.exists() or marker.is_symlink()):
+        warn("Existing Nautilus CSS preserved")
+        return
+    try:
+        content = source.read_bytes()
+        directory.mkdir(parents=True, exist_ok=True)
+        with dest.open("xb") as stream:
+            stream.write(content)
+        try:
+            with marker.open("x", encoding="utf-8") as stream:
+                stream.write(hashlib.sha256(content).hexdigest() + "\n")
+        except OSError:
+            if dest.read_bytes() == content:
+                dest.unlink()
+            raise
+    except OSError as exc:
+        warn(f"Nautilus CSS not initialized: {exc}")
+        return
+    ok("Nautilus CSS initialized")
+
+
+def update_assets() -> None:
+    """Refresh only a fork-owned, unmodified CSS payload; no app preferences."""
+    css = HOME / ".config/nautilus/gtk.css"
+    marker = css.with_name("gtk.css.tajsdesktop-owned")
+    if marker.is_symlink() or not marker.is_file() or css.is_symlink() or not css.is_file():
+        return
+    try:
+        previous = marker.read_text(encoding="utf-8").strip()
+        if (not re.fullmatch(r"[0-9a-f]{64}", previous)
+                or hashlib.sha256(css.read_bytes()).hexdigest() != previous):
+            warn("Nautilus CSS was customized; asset update skipped")
+            return
+        source = offline("nautilus") / "gtk.css"
+        content = source.read_bytes()
+        digest = hashlib.sha256(content).hexdigest()
+        if digest == previous:
+            return
+        fd, name = tempfile.mkstemp(prefix=".gtk.css.tajsdesktop-", dir=css.parent)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(name, css)
+        except BaseException:
+            Path(name).unlink(missing_ok=True)
+            raise
+        marker.write_text(digest + "\n", encoding="utf-8")
+        ok("Nautilus CSS payload updated")
+    except OSError as exc:
+        fail(f"Nautilus CSS asset update failed: {exc}")
 
 
 _FINDER_GSETTINGS = (
@@ -181,18 +253,31 @@ def _restart_running_nautilus() -> bool:
 
 
 def _apply_gsettings() -> None:
-    if not have("gsettings"):
+    # GSettings `get` includes schema defaults and cannot distinguish an
+    # explicit user value. The dconf backend exposes only stored overrides.
+    if (not have("gsettings") or not have("dconf")
+            or os.environ.get("GSETTINGS_BACKEND", "dconf") != "dconf"):
+        warn("Nautilus preferences left unchanged; dconf ownership unavailable")
         return
     for schema, key, value in _FINDER_GSETTINGS:
+        path = "/" + schema.replace(".", "/") + "/" + key
         try:
-            run_user(
+            existing = run_user(
+                ["dconf", "read", path], check=False, capture_output=True,
+                text=True, timeout=_NAUTILUS_TOOL_TIMEOUT_SECONDS,
+            )
+            if existing.returncode != 0 or existing.stdout.strip():
+                continue
+            result = run_user(
                 ["gsettings", "set", schema, key, value],
                 check=False,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 timeout=_NAUTILUS_TOOL_TIMEOUT_SECONDS,
             )
-        except subprocess.TimeoutExpired:
-            warn(f"gsettings timed out for {schema}:{key} — skipping")
+            if result.returncode != 0:
+                warn(f"Nautilus preference {schema}:{key} not initialized")
+        except (OSError, subprocess.TimeoutExpired):
+            warn(f"Nautilus preference {schema}:{key} unavailable — skipping")
 
 
 def install() -> None:
@@ -204,9 +289,9 @@ def install() -> None:
         fail("Nautilus not installed (expected deps to have provided it)")
         return
 
-    if _set_default(NAUTILUS_DESKTOP, MIME_FOLDER):
-        ok("Nautilus set as default for folders")
-    _set_default(NAUTILUS_DESKTOP, MIME_SEARCH)
+    if _set_default_if_absent(NAUTILUS_DESKTOP, MIME_FOLDER):
+        ok("Nautilus initialized as default for folders")
+    _set_default_if_absent(NAUTILUS_DESKTOP, MIME_SEARCH)
 
     _generate_bookmarks()
     _apply_overrides()
@@ -219,28 +304,50 @@ def install() -> None:
 def uninstall() -> None:
     if not is_plasma_session():
         return
-    if have("dolphin"):
-        if _set_default(DOLPHIN_DESKTOP, MIME_FOLDER):
-            ok("Dolphin restored as default for folders")
-        _set_default(DOLPHIN_DESKTOP, MIME_SEARCH)
-    nautilus_css = HOME / ".config/nautilus/gtk.css"
-    if nautilus_css.is_file():
-        try: nautilus_css.unlink()
-        except OSError: pass
+    # No pre-install MIME snapshot exists, so replacing the current handler
+    # with Dolphin would destroy a later user choice (or a choice predating
+    # this fork). Explicit reset needs a separate ownership record.
+    _remove_owned_css()
     _restore_bookmarks()
 
 
+def _remove_owned_css() -> None:
+    nautilus_css = HOME / ".config/nautilus/gtk.css"
+    marker = nautilus_css.with_name("gtk.css.tajsdesktop-owned")
+    if marker.is_symlink() or not marker.is_file():
+        return
+    try:
+        expected = marker.read_text(encoding="utf-8").strip()
+        if (not re.fullmatch(r"[0-9a-f]{64}", expected)
+                or nautilus_css.is_symlink() or not nautilus_css.is_file()):
+            return
+        if hashlib.sha256(nautilus_css.read_bytes()).hexdigest() != expected:
+            warn("Nautilus CSS was modified; preserving user changes")
+            return
+        nautilus_css.unlink()
+        marker.unlink()
+        ok("TajsDesktop Nautilus CSS removed")
+    except OSError as exc:
+        warn(f"Could not remove TajsDesktop Nautilus CSS: {exc}")
+
+
 def _restore_bookmarks() -> None:
-    """Undo _generate_bookmarks(): put back the backed-up bookmarks, or
-    remove the generated file when the user had none before install."""
+    """Remove only an unmodified bookmark file created by this fork."""
     dest = HOME / ".config/gtk-3.0"
     bookmarks = dest / "bookmarks"
-    backup = dest / "bookmarks.mac-tahoe-backup"
+    marker = dest / "bookmarks.tajsdesktop-owned"
+    if marker.is_symlink() or not marker.is_file():
+        return
     try:
-        if backup.is_file():
-            shutil.move(str(backup), str(bookmarks))
-            ok("Nautilus bookmarks restored")
-        elif bookmarks.is_file():
-            bookmarks.unlink()
-    except OSError:
-        pass
+        expected = marker.read_text(encoding="utf-8").strip()
+        if (not re.fullmatch(r"[0-9a-f]{64}", expected)
+                or bookmarks.is_symlink() or not bookmarks.is_file()):
+            return
+        if hashlib.sha256(bookmarks.read_bytes()).hexdigest() != expected:
+            warn("GTK bookmarks were modified; preserving user changes")
+            return
+        bookmarks.unlink()
+        marker.unlink()
+        ok("TajsDesktop GTK bookmarks removed")
+    except OSError as exc:
+        warn(f"Could not remove TajsDesktop GTK bookmarks: {exc}")

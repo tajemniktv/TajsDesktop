@@ -35,8 +35,8 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture(scope="module")
 def colors(offline):
-    light = offline / "color-schemes/MacTahoeLiquidKdeLight.colors"
-    dark = offline / "color-schemes/MacTahoeLiquidKdeDark.colors"
+    light = offline / "color-schemes/TajsDesktopLight.colors"
+    dark = offline / "color-schemes/TajsDesktopDark.colors"
     g = ini_get
     return {
         "light_btn":   g(light, "Colors:Button", "BackgroundNormal"),
@@ -69,14 +69,14 @@ def _apply(scheme):
 
 
 @pytest.mark.parametrize("seed,target,key,attr", [
-    ("light", "MacTahoeLiquidKdeDark",  "Colors:Button", "dark_btn"),
-    ("light", "MacTahoeLiquidKdeDark",  "Colors:Window", "dark_win"),
-    ("light", "MacTahoeLiquidKdeDark",  "Colors:Tooltip", "dark_tip"),
-    ("light", "MacTahoeLiquidKdeDark",  "WM",            "dark_wm"),
-    ("dark",  "MacTahoeLiquidKdeLight", "Colors:Button", "light_btn"),
-    ("dark",  "MacTahoeLiquidKdeLight", "Colors:Window", "light_win"),
-    ("dark",  "MacTahoeLiquidKdeLight", "Colors:Tooltip", "light_tip"),
-    ("dark",  "MacTahoeLiquidKdeLight", "WM",            "light_wm"),
+    ("light", "TajsDesktopDark",  "Colors:Button", "dark_btn"),
+    ("light", "TajsDesktopDark",  "Colors:Window", "dark_win"),
+    ("light", "TajsDesktopDark",  "Colors:Tooltip", "dark_tip"),
+    ("light", "TajsDesktopDark",  "WM",            "dark_wm"),
+    ("dark",  "TajsDesktopLight", "Colors:Button", "light_btn"),
+    ("dark",  "TajsDesktopLight", "Colors:Window", "light_win"),
+    ("dark",  "TajsDesktopLight", "Colors:Tooltip", "light_tip"),
+    ("dark",  "TajsDesktopLight", "WM",            "light_wm"),
 ])
 def test_transition(seeded_color_schemes, colors, seed, target, key, attr):
     """Real transition: seed kdeglobals with Breeze values, apply our
@@ -99,9 +99,9 @@ def test_double_apply_is_idempotent(seeded_color_schemes):
     own writes for Breeze seed values, and applied a slightly-different
     set."""
     seed_breeze_light(seeded_color_schemes)
-    _apply("MacTahoeLiquidKdeDark")
+    _apply("TajsDesktopDark")
     once = (seeded_color_schemes / ".config/kdeglobals").read_text()
-    _apply("MacTahoeLiquidKdeDark")
+    _apply("TajsDesktopDark")
     twice = (seeded_color_schemes / ".config/kdeglobals").read_text()
     assert once == twice
 
@@ -119,7 +119,7 @@ def test_no_stale_breeze_values(seeded_color_schemes):
     kdeglobals. A test that ALSO catches partial overwrites where the
     apply visited some groups and skipped others."""
     seed_breeze_light(seeded_color_schemes)
-    _apply("MacTahoeLiquidKdeDark")
+    _apply("TajsDesktopDark")
     kdeglobals = seeded_color_schemes / ".config/kdeglobals"
     assert ini_get(kdeglobals, "Colors:Window", "BackgroundNormal") != "239,240,241"
     assert ini_get(kdeglobals, "Colors:View", "BackgroundNormal") != "255,255,255"
@@ -133,13 +133,13 @@ def test_color_scheme_hash_tracks_active_scheme(seeded_color_schemes, offline):
     kdeglobals = seeded_color_schemes / ".config/kdeglobals"
     seed_breeze_light(seeded_color_schemes)
 
-    _apply("MacTahoeLiquidKdeDark")
-    dark_src = offline / "color-schemes/MacTahoeLiquidKdeDark.colors"
+    _apply("TajsDesktopDark")
+    dark_src = offline / "color-schemes/TajsDesktopDark.colors"
     expected = hashlib.sha1(dark_src.read_bytes()).hexdigest()
     assert ini_get(kdeglobals, "General", "ColorSchemeHash") == expected
 
-    _apply("MacTahoeLiquidKdeLight")
-    light_src = offline / "color-schemes/MacTahoeLiquidKdeLight.colors"
+    _apply("TajsDesktopLight")
+    light_src = offline / "color-schemes/TajsDesktopLight.colors"
     expected = hashlib.sha1(light_src.read_bytes()).hexdigest()
     assert ini_get(kdeglobals, "General", "ColorSchemeHash") == expected
 
@@ -262,10 +262,10 @@ def test_apply_warns_when_third_party_effect_fails_to_load(
     and must NOT touch the on-disk key (so it returns once rebuilt)."""
     ts, kwinrc = _prep_effect_warn_case(
         monkeypatch, tmp_path,
-        "[Plugins]\nshapecornersEnabled=true\nliquidglassEnabled=true\n")
+        "[Plugins]\nshapecornersEnabled=true\ntajsdesktopglassEnabled=true\n")
     # KWin reloaded everything EXCEPT the third-party effect.
     monkeypatch.setattr(ts, "_kwin_loaded_effects",
-                        lambda: {"liquidglass", "blur", "kwin4_effect_slide"})
+                        lambda: {"tajsdesktopglass", "blur", "kwin4_effect_slide"})
 
     assert ts.apply("dark") is True
     err = capsys.readouterr().err
@@ -281,7 +281,7 @@ def test_apply_no_warn_when_effect_loads_fine(monkeypatch, tmp_path, capsys):
     ts, _ = _prep_effect_warn_case(
         monkeypatch, tmp_path, "[Plugins]\nshapecornersEnabled=true\n")
     monkeypatch.setattr(ts, "_kwin_loaded_effects",
-                        lambda: {"kwin4_effect_shapecorners", "liquidglass"})
+                        lambda: {"kwin4_effect_shapecorners", "tajsdesktopglass"})
     assert ts.apply("dark") is True
     assert "could not load" not in capsys.readouterr().err
 
@@ -293,8 +293,8 @@ def test_apply_reloads_third_party_effect_before_warning(
     ts, _ = _prep_effect_warn_case(
         monkeypatch, tmp_path, "[Plugins]\nshapecornersEnabled=true\n")
     loaded = iter([
-        {"liquidglass"},
-        {"liquidglass", "kwin4_effect_shapecorners"},
+        {"tajsdesktopglass"},
+        {"tajsdesktopglass", "kwin4_effect_shapecorners"},
     ])
     monkeypatch.setattr(ts, "_kwin_loaded_effects", lambda: next(loaded))
     calls = []
@@ -311,11 +311,11 @@ def test_apply_reloads_third_party_effect_before_warning(
 
 def test_apply_reloads_own_compiled_effect_after_reconfigure(
         monkeypatch, tmp_path, capsys):
-    """Routine light/dark switches must restore liquidglass too, not only
+    """Routine light/dark switches must restore tajsdesktopglass too, not only
     third-party effects or the install-time apply wrapper."""
     ts, _ = _prep_effect_warn_case(
-        monkeypatch, tmp_path, "[Plugins]\nliquidglassEnabled=true\n")
-    loaded = iter([set(), {"liquidglass"}])
+        monkeypatch, tmp_path, "[Plugins]\ntajsdesktopglassEnabled=true\n")
+    loaded = iter([set(), {"tajsdesktopglass"}])
     monkeypatch.setattr(ts, "_kwin_loaded_effects", lambda: next(loaded))
     calls = []
     monkeypatch.setattr(ts, "_qdbus",
@@ -323,10 +323,10 @@ def test_apply_reloads_own_compiled_effect_after_reconfigure(
 
     assert ts.apply("dark") is True
     assert any(
-        call[-2:] == ("org.kde.kwin.Effects.loadEffect", "liquidglass")
+        call[-2:] == ("org.kde.kwin.Effects.loadEffect", "tajsdesktopglass")
         for call in calls
     )
-    assert "liquidglass" not in capsys.readouterr().err
+    assert "tajsdesktopglass" not in capsys.readouterr().err
 
 
 def test_apply_no_warn_for_user_disabled_effect(monkeypatch, tmp_path, capsys):
@@ -335,7 +335,7 @@ def test_apply_no_warn_for_user_disabled_effect(monkeypatch, tmp_path, capsys):
     warning, and obviously no re-enabling."""
     ts, kwinrc = _prep_effect_warn_case(
         monkeypatch, tmp_path, "[Plugins]\nshapecornersEnabled=false\n")
-    monkeypatch.setattr(ts, "_kwin_loaded_effects", lambda: {"liquidglass"})
+    monkeypatch.setattr(ts, "_kwin_loaded_effects", lambda: {"tajsdesktopglass"})
     assert ts.apply("dark") is True
     assert "shapecorners" not in capsys.readouterr().err
     assert ts._parse_ini(kwinrc)["Plugins"]["shapecornersEnabled"] == "false"
@@ -395,7 +395,7 @@ def test_local_extras_switches_libadwaita_gtk4_override(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(home))
 
     for variant in ("Dark", "Light"):
-        src = (home / ".themes" / f"MacTahoeLiquidKde-{variant}"
+        src = (home / ".themes" / f"TajsDesktop-{variant}"
                / "gtk-4.0")
         (src / "assets").mkdir(parents=True)
         (src / "windows-assets").mkdir()
@@ -434,7 +434,7 @@ def test_local_extras_preserves_user_owned_gtk4_css(monkeypatch, tmp_path):
     import theme_switch
 
     home = tmp_path / "home"
-    (home / ".themes/MacTahoeLiquidKde-Light").mkdir(parents=True)
+    (home / ".themes/TajsDesktop-Light").mkdir(parents=True)
     gtk4 = home / ".config/gtk-4.0"
     gtk4.mkdir(parents=True)
     custom = gtk4 / "gtk.css"
@@ -450,15 +450,15 @@ def test_local_extras_preserves_user_owned_gtk4_css(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize(("mode", "expected"), [
-    ("light", "mac-tahoe-liquid-kde"),
-    ("dark", "mac-tahoe-liquid-kdeDark"),
+    ("light", "tajsdesktop"),
+    ("dark", "tajsdesktopDark"),
 ])
 def test_local_extras_selects_matching_kvantum_profile(
         monkeypatch, tmp_path, mode, expected):
     import theme_switch
 
     home = tmp_path / "home"
-    gtk_theme = f"MacTahoeLiquidKde-{mode.capitalize()}"
+    gtk_theme = f"TajsDesktop-{mode.capitalize()}"
     (home / ".themes" / gtk_theme).mkdir(parents=True)
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setattr(
@@ -506,7 +506,7 @@ def test_local_extras_sets_kvantum_profile_without_manager(monkeypatch, tmp_path
         "kwriteconfig6", "--file",
         str(config_home / "Kvantum/kvantum.kvconfig"),
         "--group", "General", "--key", "theme",
-        "mac-tahoe-liquid-kdeDark",
+        "tajsdesktopDark",
     ] in calls
 
 
@@ -518,7 +518,7 @@ def test_local_extras_replaces_kde_generated_light_gtk4_sheet_in_dark_mode(
 
     home = tmp_path / "home"
     for variant, content in (("Light", "LIGHT"), ("Dark", "DARK")):
-        root = (home / ".themes" / f"MacTahoeLiquidKde-{variant}"
+        root = (home / ".themes" / f"TajsDesktop-{variant}"
                 / "gtk-4.0")
         root.mkdir(parents=True)
         (root / f"gtk-{variant}.css").write_text(content)
@@ -541,7 +541,7 @@ def test_cycle_restores_target_on_sigterm(monkeypatch):
     """If SIGTERM lands during the inter-write sleep (systemd stopping
     the apply service mid-cycle is the documented trigger), the on-disk
     value MUST end at the target, never frozen at Breeze. Otherwise
-    next boot is 'Breeze night': MacTahoeLiquidKdeDark colors with
+    next boot is 'Breeze night': TajsDesktopDark colors with
     breeze widgets."""
     import signal as signal_mod
     import theme_switch
@@ -612,59 +612,11 @@ def test_cycle_widget_style_works_off_main_thread(monkeypatch):
     assert result.get("ok") is True
 
 
-def test_patch_dock_transparency_reasserts_panel_opacity(monkeypatch, tmp_path):
-    """The dock goes black when panelOpacity is dropped (a Global Theme apply
-    from System Settings drops it), because the opaque panel background paints
-    over the Acrylic Glass. patch_dock_transparency must re-assert
-    panelOpacity=2 on every panel and floatingApplets=1 on non-floating —
-    on install, on switch, and on the manual System Settings path. Real run
-    against a real plasmashellrc, no mocking of the patch itself."""
-    import theme_switch
-    cfg = tmp_path / ".config"
-    cfg.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(cfg))
-    prc = cfg / "plasmashellrc"
-    prc.write_text(
-        "[PlasmaViews][Panel 1]\n"
-        "floating=0\n"
-        "shell=org.kde.plasma.desktop\n"
-        "\n"
-        "[PlasmaViews][Panel 2]\n"
-        "alignment=132\n"
-        "floating=1\n"
-        "shell=org.kde.plasma.desktop\n"
-        "\n"
-        "[PlasmaViews][Panel 2][Defaults]\n"
-        "thickness=68\n"
-    )
-
-    assert theme_switch.patch_dock_transparency() is True
-    text = prc.read_text()
-    top_section, dock_section = text.split("[PlasmaViews][Panel 2]", 1)
-    assert "panelOpacity=2" in top_section
-    assert "floatingApplets=1" in top_section
-    assert "panelOpacity=2" in dock_section
-    # The [Defaults] subsection is untouched (regex must not swallow it).
-    assert "[PlasmaViews][Panel 2][Defaults]\nthickness=68" in text
-
-    # Idempotent: a second run makes no further change.
-    assert theme_switch.patch_dock_transparency() is False
-
-
-def test_patch_dock_transparency_no_file_is_safe(monkeypatch, tmp_path):
-    """No plasmashellrc yet (fresh account / CI) → no crash, returns False."""
-    import theme_switch
-    cfg = tmp_path / ".config"
-    cfg.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(cfg))
-    assert theme_switch.patch_dock_transparency() is False
-
-
 # ── main() entry-point invariants ─────────────────────────────────────
 
 
 def test_main_auto_resolves_to_time_based_mode(monkeypatch):
-    """``mac-tahoe-theme-switch auto`` (what the systemd service + timer
+    """``tajsdesktop-theme-switch auto`` (what the systemd service + timer
     fire) must resolve via wall clock alone and hand that straight to
     apply(). No other input is consulted — reading config back in
     creates a stale-config feedback loop."""
@@ -714,10 +666,10 @@ def test_detect_mode_by_system_falls_back_to_colorscheme_name(monkeypatch):
     import theme_switch
     monkeypatch.setattr(theme_switch, "_read_portal_color_scheme", lambda: None)
     monkeypatch.setattr(theme_switch, "_kread",
-                        lambda f, g, k: "MacTahoeLiquidKdeDark")
+                        lambda f, g, k: "TajsDesktopDark")
     assert theme_switch.detect_mode_by_system() == "dark"
     monkeypatch.setattr(theme_switch, "_kread",
-                        lambda f, g, k: "MacTahoeLiquidKdeLight")
+                        lambda f, g, k: "TajsDesktopLight")
     assert theme_switch.detect_mode_by_system() == "light"
     monkeypatch.setattr(theme_switch, "_kread", lambda f, g, k: "")
     assert theme_switch.detect_mode_by_system() is None
@@ -883,16 +835,16 @@ def _smart_wallpaper_env(monkeypatch, tmp_path):
     data = home / ".local/share"
     state = home / ".local/state"
     config = home / ".config"
-    for path in (data / "wallpapers/MacTahoe", state, config):
+    for path in (data / "wallpapers/TajsDesktop-Tahoe", state, config):
         path.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("XDG_DATA_HOME", str(data))
     monkeypatch.setenv("XDG_STATE_HOME", str(state))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(config))
     monkeypatch.delenv("FEAT_WALLPAPERS", raising=False)
-    monkeypatch.delenv("MTTKDE_RESET_WALLPAPERS", raising=False)
-    monkeypatch.delenv("MTTKDE_EXISTING_INSTALL", raising=False)
-    return theme_switch, data / "wallpapers/MacTahoe"
+    monkeypatch.delenv("TAJSDESKTOP_RESET_WALLPAPERS", raising=False)
+    monkeypatch.delenv("TAJSDESKTOP_EXISTING_INSTALL", raising=False)
+    return theme_switch, data / "wallpapers/TajsDesktop-Tahoe"
 
 
 def _wp(image, screen=0):
@@ -904,7 +856,7 @@ def test_first_install_applies_theme_wallpaper(monkeypatch, tmp_path):
     custom = _wp("file:///pictures/first-install-custom.jpg")
     calls = []
     monkeypatch.setenv("FEAT_WALLPAPERS", "true")
-    monkeypatch.setenv("MTTKDE_EXISTING_INSTALL", "false")
+    monkeypatch.setenv("TAJSDESKTOP_EXISTING_INSTALL", "false")
     monkeypatch.setattr(ts, "_current_wallpapers", lambda: custom)
     monkeypatch.setattr(
         ts, "_apply_theme_wallpaper",
@@ -930,7 +882,7 @@ def test_theme_wallpaper_helper_failure_uses_config_fallback(
     expected = _wp(f"file://{theme}")
     restored = []
     monkeypatch.setenv("FEAT_WALLPAPERS", "true")
-    monkeypatch.setenv("MTTKDE_EXISTING_INSTALL", "false")
+    monkeypatch.setenv("TAJSDESKTOP_EXISTING_INSTALL", "false")
     monkeypatch.setattr(ts, "_current_wallpapers", lambda: current)
     monkeypatch.setattr(ts, "_apply_theme_wallpaper",
                         lambda mode: (False, theme))
@@ -971,7 +923,7 @@ def test_reinstall_without_state_preserves_custom_wallpaper(
     ts, _theme = _smart_wallpaper_env(monkeypatch, tmp_path)
     custom = _wp("file:///pictures/my-light-wallpaper.jpg")
     monkeypatch.setenv("FEAT_WALLPAPERS", "true")
-    monkeypatch.setenv("MTTKDE_EXISTING_INSTALL", "true")
+    monkeypatch.setenv("TAJSDESKTOP_EXISTING_INSTALL", "true")
     monkeypatch.setattr(ts, "_current_wallpapers", lambda: custom)
     monkeypatch.setattr(
         ts, "_apply_theme_wallpaper",
@@ -1161,8 +1113,8 @@ def test_explicit_wallpaper_reset_resumes_theme_management(
         "last_applied": light_custom,
     })
     monkeypatch.setenv("FEAT_WALLPAPERS", "true")
-    monkeypatch.setenv("MTTKDE_EXISTING_INSTALL", "true")
-    monkeypatch.setenv("MTTKDE_RESET_WALLPAPERS", "true")
+    monkeypatch.setenv("TAJSDESKTOP_EXISTING_INSTALL", "true")
+    monkeypatch.setenv("TAJSDESKTOP_RESET_WALLPAPERS", "true")
     monkeypatch.setattr(ts, "_current_wallpapers", lambda: light_custom)
     calls = []
     monkeypatch.setattr(
@@ -1317,7 +1269,7 @@ def test_run_live_plasma_tool_drops_privs_and_keeps_timeout(monkeypatch):
 
     monkeypatch.setattr(theme_switch.subprocess, "run", fake_run)
     monkeypatch.setattr(theme_switch, "_sync_session_env", lambda: None)
-    monkeypatch.delenv("MAC_TAHOE_SKIP_LIVE_APPLY", raising=False)
+    monkeypatch.delenv("TAJSDESKTOP_SKIP_LIVE_APPLY", raising=False)
 
     assert theme_switch._run_live_plasma_tool(
         ["plasma-apply-cursortheme", "breeze_cursors"],
@@ -1386,9 +1338,9 @@ def test_apply_color_scheme_prefers_plasma_apply_tool(monkeypatch):
     monkeypatch.setattr(theme_switch, "_run_user",
                         lambda cmd, **kw: seen.update(cmd=cmd) or
                         _FakeResult(0))
-    assert theme_switch.apply_color_scheme("MacTahoeLiquidKdeDark") is True
+    assert theme_switch.apply_color_scheme("TajsDesktopDark") is True
     assert seen["cmd"] == ["plasma-apply-colorscheme",
-                           "MacTahoeLiquidKdeDark"]
+                           "TajsDesktopDark"]
 
 
 def test_apply_color_scheme_reports_tool_failure(monkeypatch):
@@ -1399,7 +1351,7 @@ def test_apply_color_scheme_reports_tool_failure(monkeypatch):
                         lambda cmd: cmd == "plasma-apply-colorscheme")
     monkeypatch.setattr(theme_switch, "_run_user",
                         lambda cmd, **kw: _FakeResult(1))
-    assert theme_switch.apply_color_scheme("MacTahoeLiquidKdeDark") is False
+    assert theme_switch.apply_color_scheme("TajsDesktopDark") is False
 
 
 def test_apply_color_scheme_survives_timeout(monkeypatch):
@@ -1414,7 +1366,7 @@ def test_apply_color_scheme_survives_timeout(monkeypatch):
     monkeypatch.setattr(theme_switch, "_have",
                         lambda cmd: cmd == "plasma-apply-colorscheme")
     monkeypatch.setattr(theme_switch, "_run_user", _hang)
-    assert theme_switch.apply_color_scheme("MacTahoeLiquidKdeDark") is False
+    assert theme_switch.apply_color_scheme("TajsDesktopDark") is False
 
 
 def test_apply_color_scheme_falls_back_to_manual(monkeypatch):
@@ -1426,8 +1378,8 @@ def test_apply_color_scheme_falls_back_to_manual(monkeypatch):
     monkeypatch.setattr(theme_switch, "_have", lambda cmd: False)
     monkeypatch.setattr(theme_switch, "apply_color_groups_direct",
                         lambda scheme: seen.update(scheme=scheme) or True)
-    assert theme_switch.apply_color_scheme("MacTahoeLiquidKdeLight") is True
-    assert seen["scheme"] == "MacTahoeLiquidKdeLight"
+    assert theme_switch.apply_color_scheme("TajsDesktopLight") is True
+    assert seen["scheme"] == "TajsDesktopLight"
 
 
 def test_write_kde_theme_config_reports_write_failure(monkeypatch, sandbox):
@@ -1464,15 +1416,15 @@ def test_color_scheme_is_applied_before_target_name_is_stamped(monkeypatch):
 
     def write(*args):
         if args[1:7] == ("kdeglobals", "--group", "General", "--key",
-                         "ColorScheme", "MacTahoeLiquidKdeDark"):
-            events.append(("stamp", "MacTahoeLiquidKdeDark"))
+                         "ColorScheme", "TajsDesktopDark"):
+            events.append(("stamp", "TajsDesktopDark"))
         return True
 
     monkeypatch.setattr(theme_switch, "_kwrite", write)
     assert theme_switch.write_kde_theme_config("dark") is True
     assert events == [
-        ("apply", "MacTahoeLiquidKdeDark"),
-        ("stamp", "MacTahoeLiquidKdeDark"),
+        ("apply", "TajsDesktopDark"),
+        ("stamp", "TajsDesktopDark"),
     ]
 
 
@@ -1485,7 +1437,7 @@ def test_install_forces_real_color_transition_when_target_is_already_named(
     monkeypatch.setattr(theme_switch, "_have",
                         lambda cmd: cmd == "kwriteconfig6")
     monkeypatch.setattr(theme_switch, "_kread",
-                        lambda file, group, key: "MacTahoeLiquidKdeDark")
+                        lambda file, group, key: "TajsDesktopDark")
     monkeypatch.setattr(
         theme_switch, "apply_color_scheme",
         lambda scheme: events.append(("apply", scheme)) or True,
@@ -1493,8 +1445,8 @@ def test_install_forces_real_color_transition_when_target_is_already_named(
 
     def write(*args):
         if args[1:7] == ("kdeglobals", "--group", "General", "--key",
-                         "ColorScheme", "MacTahoeLiquidKdeDark"):
-            events.append(("stamp", "MacTahoeLiquidKdeDark"))
+                         "ColorScheme", "TajsDesktopDark"):
+            events.append(("stamp", "TajsDesktopDark"))
         return True
 
     monkeypatch.setattr(theme_switch, "_kwrite", write)
@@ -1502,9 +1454,9 @@ def test_install_forces_real_color_transition_when_target_is_already_named(
         "dark", force_color_reload=True,
     ) is True
     assert events == [
-        ("apply", "MacTahoeLiquidKdeLight"),
-        ("apply", "MacTahoeLiquidKdeDark"),
-        ("stamp", "MacTahoeLiquidKdeDark"),
+        ("apply", "TajsDesktopLight"),
+        ("apply", "TajsDesktopDark"),
+        ("stamp", "TajsDesktopDark"),
     ]
 
 
@@ -1585,7 +1537,7 @@ def test_switch_step_does_not_touch_live_user_systemd(sandbox, tmp_path):
     # This guard specifically verifies the systemd command path. Pin the
     # backend because container runners have no booted init and correctly
     # resolve to the separately-tested OpenRC/crontab path.
-    env = {"THEME_MODE": "auto", "MTTKDE_INIT": "systemd"}
+    env = {"THEME_MODE": "auto", "TAJSDESKTOP_INIT": "systemd"}
     _run_step("theme_switch", "install", env, shim_dir=shim_dir)
     _run_step("theme_switch", "uninstall", env, shim_dir=shim_dir)
 
@@ -1603,13 +1555,14 @@ def test_switch_step_removes_old_watcher_before_replacing_binary(
 
     source = tmp_path / "theme_switch.py"
     source.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
-    destination = tmp_path / "bin/mac-tahoe-theme-switch"
+    destination = tmp_path / "bin/tajsdesktop-theme-switch"
     events: list[str] = []
     original_copy = shutil.copy2
 
     monkeypatch.setattr(step, "PY_SRC", source)
     monkeypatch.setattr(step, "BIN_DEST", destination)
     monkeypatch.setattr(step, "SVC_DIR", tmp_path / "systemd")
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
     monkeypatch.setattr(step, "stop_gtk_sync_watcher",
                         lambda: events.append("stop"))
     monkeypatch.setattr(step, "_watcher_pids", lambda: [])
@@ -1638,11 +1591,12 @@ def test_pinned_switch_mode_neutralizes_binary_when_cron_cleanup_fails(
 
     source = tmp_path / "theme_switch.py"
     source.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
-    destination = tmp_path / "bin/mac-tahoe-theme-switch"
+    destination = tmp_path / "bin/tajsdesktop-theme-switch"
     failures: list[str] = []
     monkeypatch.setattr(step, "PY_SRC", source)
     monkeypatch.setattr(step, "BIN_DEST", destination)
     monkeypatch.setattr(step, "SVC_DIR", tmp_path / "systemd")
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
     monkeypatch.setattr(step, "AUTOSTART_DIR", tmp_path / "autostart")
     monkeypatch.setattr(step, "stop_gtk_sync_watcher", lambda: None)
     monkeypatch.setattr(step, "_watcher_pids", lambda: [])
@@ -1678,8 +1632,8 @@ def test_switch_teardown_stops_timer_before_services(monkeypatch, tmp_path):
 
     stopped = [args[-1] for args in calls if args[:2] == ("disable", "--now")]
     assert stopped == [
-        "mac-tahoe-liquid-kde-theme.timer",
-        "mac-tahoe-liquid-kde-theme.service",
+        "tajsdesktop-theme.timer",
+        "tajsdesktop-theme.service",
     ]
 
 
@@ -1746,12 +1700,12 @@ def test_switch_systemd_probe_requires_inactive_and_not_enabled(monkeypatch):
     assert step._systemd_unit_stopped_and_disabled("unproven.service") is False
 
 
-def test_switch_uninstall_retains_state_when_execution_cannot_be_neutralized(
+def test_switch_uninstall_retains_state_when_binary_ownership_is_unknown(
         monkeypatch, tmp_path):
     import steps.theme_switch as step
 
     # Directories make unlink() fail without monkeypatching pathlib globally.
-    binary = tmp_path / "bin/mac-tahoe-theme-switch"
+    binary = tmp_path / "bin/tajsdesktop-theme-switch"
     legacy_binary = tmp_path / "bin/mactahoe-theme-switch"
     binary.mkdir(parents=True)
     legacy_binary.mkdir()
@@ -1766,7 +1720,8 @@ def test_switch_uninstall_retains_state_when_execution_cannot_be_neutralized(
     failures: list[str] = []
     config_writes: list[tuple[str, ...]] = []
     monkeypatch.setattr(step, "BIN_DEST", binary)
-    monkeypatch.setattr(step, "_LEGACY_BIN", legacy_binary)
+    monkeypatch.setattr(step, "SVC_DIR", tmp_path / "systemd")
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
     monkeypatch.setattr(step, "_managed_state_files", lambda: state_files)
     monkeypatch.setattr(step, "_teardown_units", lambda _units: False)
     monkeypatch.setattr(
@@ -1782,7 +1737,7 @@ def test_switch_uninstall_retains_state_when_execution_cannot_be_neutralized(
     assert all(path.read_text(encoding="utf-8") == "owned\n"
                for path in state_files)
     assert config_writes == []
-    assert any("could not be neutralized" in message for message in failures)
+    assert any("ownership record" in message for message in failures)
 
 
 def test_switch_uninstall_reports_state_cleanup_failure(monkeypatch, tmp_path):
@@ -1793,7 +1748,6 @@ def test_switch_uninstall_reports_state_cleanup_failure(monkeypatch, tmp_path):
     failures: list[str] = []
     successes: list[str] = []
     monkeypatch.setattr(step, "BIN_DEST", tmp_path / "bin/switcher")
-    monkeypatch.setattr(step, "_LEGACY_BIN", tmp_path / "bin/legacy-switcher")
     monkeypatch.setattr(step, "_teardown_units", lambda _units: True)
     monkeypatch.setattr(
         step, "remove_periodic", lambda _tag: step.RemovalStatus.ABSENT,
@@ -1808,53 +1762,18 @@ def test_switch_uninstall_reports_state_cleanup_failure(monkeypatch, tmp_path):
     step.uninstall()
 
     assert bad_state.is_dir()
-    assert any("local state or KDE settings" in item for item in failures)
+    assert any("local state" in item for item in failures)
     assert successes == []
 
 
-def test_switch_uninstall_reports_kde_config_cleanup_failure(
-        monkeypatch, tmp_path):
-    import steps.theme_switch as step
-
-    failures: list[str] = []
-    successes: list[str] = []
-    writes: list[tuple[str, ...]] = []
-    monkeypatch.setattr(step, "BIN_DEST", tmp_path / "bin/switcher")
-    monkeypatch.setattr(step, "_LEGACY_BIN", tmp_path / "bin/legacy-switcher")
-    monkeypatch.setattr(step, "_teardown_units", lambda _units: True)
-    monkeypatch.setattr(
-        step, "remove_periodic", lambda _tag: step.RemovalStatus.ABSENT,
-    )
-    monkeypatch.setattr(step, "stop_gtk_sync_watcher", lambda: None)
-    monkeypatch.setattr(step, "_teardown_gtk_sync_autostart", lambda: None)
-    monkeypatch.setattr(step, "_managed_state_files", lambda: ())
-    monkeypatch.setattr(
-        step, "kw_write",
-        lambda *args: writes.append(args) or len(writes) != 2,
-    )
-    monkeypatch.setattr(step, "fail", failures.append)
-    monkeypatch.setattr(step, "ok", successes.append)
-
-    step.uninstall()
-
-    assert len(writes) == 3
-    assert any("local state or KDE settings" in item for item in failures)
-    assert successes == []
-
-
-def test_switch_uninstall_targets_xdg_wallpaper_state_and_fixed_layout_state(
+def test_switch_uninstall_targets_only_xdg_wallpaper_state(
         monkeypatch, tmp_path):
     import steps.theme_switch as step
 
     custom = tmp_path / "custom-state"
     monkeypatch.setenv("XDG_STATE_HOME", str(custom))
-    monkeypatch.setattr(
-        step, "LAYOUT_STATE_FILE", tmp_path / "fixed/layout-installed",
-    )
-
     assert step._managed_state_files() == (
-        custom / "mac-tahoe-liquid-kde/wallpapers.json",
-        tmp_path / "fixed/layout-installed",
+        custom / "tajsdesktop/wallpapers.json",
     )
 
 
@@ -1862,7 +1781,7 @@ def test_switcher_scan_matches_only_exact_same_user_installed_paths(
         monkeypatch, tmp_path):
     import steps.theme_switch as step
 
-    current = tmp_path / "bin/mac-tahoe-theme-switch"
+    current = tmp_path / "bin/tajsdesktop-theme-switch"
     legacy = tmp_path / "bin/mactahoe-theme-switch"
     proc = tmp_path / "proc"
     proc.mkdir()
@@ -1879,10 +1798,9 @@ def test_switcher_scan_matches_only_exact_same_user_installed_paths(
 
     monkeypatch.setenv("SUDO_UID", str(os.getuid()))
     monkeypatch.setattr(step, "BIN_DEST", current)
-    monkeypatch.setattr(step, "_LEGACY_BIN", legacy)
     monkeypatch.setattr(step, "_PROC_ROOT", proc)
 
-    assert step._running_switcher_pids() == {9876501, 9876502}
+    assert step._running_switcher_pids() == {9876501}
 
 
 def test_switch_uninstall_retains_state_until_running_switcher_drains(
@@ -1895,7 +1813,6 @@ def test_switch_uninstall_retains_state_until_running_switcher_drains(
     failures: list[str] = []
     config_writes: list[tuple[str, ...]] = []
     monkeypatch.setattr(step, "BIN_DEST", tmp_path / "bin/switcher")
-    monkeypatch.setattr(step, "_LEGACY_BIN", tmp_path / "bin/legacy")
     monkeypatch.setattr(step, "_teardown_units", lambda _units: True)
     monkeypatch.setattr(
         step, "remove_periodic", lambda _tag: step.RemovalStatus.ABSENT,
@@ -1920,53 +1837,141 @@ def test_switch_step_install_uninstall_reinstall(sandbox, tmp_path):
     """Round-trip the install/uninstall step. Asserts:
     - install drops the script + service + timer under $XDG_CONFIG_HOME
     - uninstall removes them
-    - leftover apply.service (from an older install layout) is cleaned up
-    - kdeglobals AutomaticLookAndFeel keys are reset on uninstall."""
+    - foreign legacy units and layout state are preserved
+    - kdeglobals preferences are preserved on uninstall."""
     shim_dir = make_live_shim_dir(tmp_path)
 
     # Pin systemd so this exercises the timer path regardless of the CI host
     # (which resolves to OpenRC). The OpenRC crontab path has its own tests.
-    env = {"THEME_MODE": "auto", "MTTKDE_INIT": "systemd"}
-    bin_path = sandbox / ".local/bin/mac-tahoe-theme-switch"
+    env = {"THEME_MODE": "auto", "TAJSDESKTOP_INIT": "systemd"}
+    bin_path = sandbox / ".local/bin/tajsdesktop-theme-switch"
+    tahoe_bin = sandbox / ".local/bin/mactahoe-theme-switch"
     svc_dir = sandbox / ".config/systemd/user"
     autostart = (sandbox / ".config/autostart"
-                 / "mac-tahoe-liquid-kde-gtk-sync.desktop")
+                 / "tajsdesktop-gtk-sync.desktop")
     # Seed the file left by 0.36.x-0.38.x; install must remove it.
     autostart.parent.mkdir(parents=True, exist_ok=True)
     autostart.write_text("Exec=watch-portal\n")
     _run_step("theme_switch", "install", env, shim_dir=shim_dir)
     assert bin_path.is_file() and bin_path.stat().st_mode & 0o111
-    assert (svc_dir / "mac-tahoe-liquid-kde-theme.service").is_file()
-    assert (svc_dir / "mac-tahoe-liquid-kde-theme.timer").is_file()
+    assert (svc_dir / "tajsdesktop-theme.service").is_file()
+    assert (svc_dir / "tajsdesktop-theme.timer").is_file()
     assert not autostart.exists()
+    tahoe_bin.write_text("foreign Tahoe executable\n")
 
-    state_dir = sandbox / ".local/state/mac-tahoe-liquid-kde"
-    state_dir.mkdir(parents=True)
+    state_dir = sandbox / ".local/state/tajsdesktop"
+    state_dir.mkdir(parents=True, exist_ok=True)
     wallpaper_state = state_dir / "wallpapers.json"
     layout_marker = state_dir / "layout-installed"
     wallpaper_state.write_text("{}\n")
     layout_marker.write_text("1\n")
 
-    # Drop a leftover apply.service from an older install layout.
-    # Uninstall must remove it.
-    (svc_dir / "mac-tahoe-liquid-kde-theme-apply.service").write_text(
+    # A same-looking legacy unit has no fork ownership proof.
+    (svc_dir / "tajsdesktop-theme-apply.service").write_text(
         "# legacy unit from a previous version\n"
     )
 
     (sandbox / ".config/kdeglobals").write_text(
         "[KDE]\n"
         "AutomaticLookAndFeel=true\n"
-        "DefaultLightLookAndFeel=org.kde.mac-tahoe-liquid-kde.light\n"
-        "DefaultDarkLookAndFeel=org.kde.mac-tahoe-liquid-kde.dark\n"
+        "DefaultLightLookAndFeel=org.tajemniktv.tajsdesktop.light\n"
+        "DefaultDarkLookAndFeel=org.tajemniktv.tajsdesktop.dark\n"
     )
     _run_step("theme_switch", "uninstall", env, shim_dir=shim_dir)
     assert not bin_path.exists()
-    assert not (svc_dir / "mac-tahoe-liquid-kde-theme.service").exists()
-    assert not (svc_dir / "mac-tahoe-liquid-kde-theme.timer").exists()
-    assert not (svc_dir / "mac-tahoe-liquid-kde-theme-apply.service").exists()
+    assert tahoe_bin.read_text() == "foreign Tahoe executable\n"
+    assert not (svc_dir / "tajsdesktop-theme.service").exists()
+    assert not (svc_dir / "tajsdesktop-theme.timer").exists()
+    assert (svc_dir / "tajsdesktop-theme-apply.service").exists()
     assert not autostart.exists()
     assert not wallpaper_state.exists()
-    assert not layout_marker.exists()
+    assert layout_marker.exists()
+    assert "AutomaticLookAndFeel=true" in (sandbox / ".config/kdeglobals").read_text()
+
+
+def test_switch_asset_update_refreshes_owned_files_without_rescheduling(
+        monkeypatch, tmp_path):
+    import steps.theme_switch as step
+
+    source = tmp_path / "source"
+    source.mkdir()
+    binary_source = source / "theme_switch.py"
+    binary_source.write_text("new switcher\n")
+    destination = tmp_path / "bin/tajsdesktop-theme-switch"
+    destination.parent.mkdir()
+    destination.write_text("old switcher\n")
+    service_dir = tmp_path / "systemd"
+    service_dir.mkdir()
+    for unit in step.UNITS:
+        (source / unit).write_text("new " + unit)
+        (service_dir / unit).write_text("old " + unit)
+    monkeypatch.setattr(step, "PY_SRC", binary_source)
+    monkeypatch.setattr(step, "BIN_DEST", destination)
+    monkeypatch.setattr(step, "SVC_DIR", service_dir)
+    monkeypatch.setattr(step, "offline", lambda name: source / name)
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
+    step._record_installed_assets()
+    services = []
+    monkeypatch.setattr(step, "is_systemd", lambda: True)
+    monkeypatch.setattr(step, "_user_service", lambda *args: services.append(args) or True)
+    monkeypatch.setattr(step, "remove_periodic", lambda *_: pytest.fail("schedule changed"))
+    monkeypatch.setattr(step, "_teardown_units", lambda *_: pytest.fail("units disabled"))
+
+    step.update_assets()
+
+    assert destination.read_text() == "new switcher\n"
+    assert all((service_dir / unit).read_text() == "new " + unit for unit in step.UNITS)
+    assert services == [("daemon-reload",)]
+    assert step._load_asset_record()["binary"] == step._asset_hash(destination)
+    backups = list((tmp_path / "state").glob("theme-switch-backup-*"))
+    assert len(backups) == 1
+    assert (backups[0] / "binary").read_text() == "old switcher\n"
+
+
+def test_switch_asset_update_preserves_user_modified_file(monkeypatch, tmp_path):
+    import steps.theme_switch as step
+
+    source = tmp_path / "source.py"
+    source.write_text("new release\n")
+    destination = tmp_path / "bin/tajsdesktop-theme-switch"
+    destination.parent.mkdir()
+    destination.write_text("old release\n")
+    monkeypatch.setattr(step, "PY_SRC", source)
+    monkeypatch.setattr(step, "BIN_DEST", destination)
+    monkeypatch.setattr(step, "SVC_DIR", tmp_path / "empty-systemd")
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
+    step._record_installed_assets()
+    destination.write_text("user edit\n")
+    failures = []
+    monkeypatch.setattr(step, "fail", failures.append)
+
+    step.update_assets()
+
+    assert destination.read_text() == "user edit\n"
+    assert failures and "modified outside TajsDesktop" in failures[0]
+    monkeypatch.setattr(step, "_teardown_units", lambda *_: pytest.fail("edited units removed"))
+    step.uninstall()
+    assert destination.read_text() == "user edit\n"
+    assert any("removal refused" in message for message in failures)
+
+
+def test_switch_install_refuses_unrecorded_existing_binary(monkeypatch, tmp_path):
+    import steps.theme_switch as step
+
+    destination = tmp_path / "bin/tajsdesktop-theme-switch"
+    destination.parent.mkdir()
+    destination.write_text("foreign content\n")
+    monkeypatch.setattr(step, "BIN_DEST", destination)
+    monkeypatch.setattr(step, "SVC_DIR", tmp_path / "systemd")
+    monkeypatch.setattr(step, "_asset_record_path", lambda: tmp_path / "state/assets.json")
+    monkeypatch.setattr(step, "stop_gtk_sync_watcher", lambda: pytest.fail("live process touched"))
+    failures = []
+    monkeypatch.setattr(step, "fail", failures.append)
+
+    step.install()
+
+    assert destination.read_text() == "foreign content\n"
+    assert failures and "no ownership record" in failures[0]
 
 
 def test_switch_step_openrc_schedules_via_crontab_not_systemd(sandbox, tmp_path):
@@ -1977,18 +1982,18 @@ def test_switch_step_openrc_schedules_via_crontab_not_systemd(sandbox, tmp_path)
     log_file = shim_dir / "calls.log"
 
     _run_step("theme_switch", "install",
-              {"THEME_MODE": "auto", "MTTKDE_INIT": "openrc"},
+              {"THEME_MODE": "auto", "TAJSDESKTOP_INIT": "openrc"},
               shim_dir=shim_dir)
 
     calls = log_file.read_text()
     assert "crontab -" in calls          # stdin write happened
     # No systemd timer file on disk under OpenRC.
     svc_dir = sandbox / ".config/systemd/user"
-    assert not (svc_dir / "mac-tahoe-liquid-kde-theme.timer").exists()
+    assert not (svc_dir / "tajsdesktop-theme.timer").exists()
     # enable/start of the user timer must not have been attempted.
     assert "systemctl --user enable" not in calls
     assert not (sandbox / ".config/autostart"
-                / "mac-tahoe-liquid-kde-gtk-sync.desktop").exists()
+                / "tajsdesktop-gtk-sync.desktop").exists()
     assert "systemctl --user start" not in calls
 
 
@@ -1996,7 +2001,7 @@ def test_switch_step_openrc_uninstall_strips_crontab(sandbox, tmp_path):
     shim_dir = make_live_shim_dir(tmp_path)
     log_file = shim_dir / "calls.log"
     _run_step("theme_switch", "uninstall",
-              {"THEME_MODE": "auto", "MTTKDE_INIT": "openrc"},
+              {"THEME_MODE": "auto", "TAJSDESKTOP_INIT": "openrc"},
               shim_dir=shim_dir)
     # uninstall reads the crontab (to filter our tag) on the OpenRC path.
     assert "crontab -l" in log_file.read_text()

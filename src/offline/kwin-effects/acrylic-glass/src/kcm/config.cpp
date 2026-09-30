@@ -34,9 +34,9 @@ void LiquidGlassEffectConfig::save()
     OrgKdeKwinEffectsInterface interface(QStringLiteral("org.kde.KWin"), QStringLiteral("/Effects"), QDBusConnection::sessionBus());
 
     if (QGuiApplication::platformName() == QStringLiteral("xcb")) {
-        interface.reconfigureEffect(QStringLiteral("liquidglass_x11"));
+        interface.reconfigureEffect(QStringLiteral("tajsdesktopglass_x11"));
     } else {
-        interface.reconfigureEffect(QStringLiteral("liquidglass"));
+        interface.reconfigureEffect(QStringLiteral("tajsdesktopglass"));
     }
 }
 

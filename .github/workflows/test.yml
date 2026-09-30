@@ -7,12 +7,12 @@ on:
     branches: [main, dev]
 
 jobs:
-  # Primary suite — runs on Arch (CachyOS's parent, the maintainer's
-  # daily-driver libdir convention). The full Plasma 6 dev SDK is
-  # available here so this is the broadest pytest run.
+  # Full core suite on the maintainer's CachyOS target. Includes static,
+  # safety/lifecycle, package-map, and VM-harness regression tests; it
+  # does not boot a KDE session or run the live installer.
   test:
     runs-on: ubuntu-latest
-    container: archlinux:latest
+    container: cachyos/cachyos:latest
     steps:
       - uses: actions/checkout@v5
       - name: Install deps
@@ -27,6 +27,9 @@ jobs:
         #   - KWin + KDecoration (acrylic-glass kwin effect)
         #   - libepoxy + libdrm + libX11 + libxcb (acrylic-glass effect)
         run: |
+          pacman-key --init
+          pacman-key --populate archlinux cachyos
+          pacman -Sy --noconfirm archlinux-keyring cachyos-keyring
           pacman -Syu --noconfirm \
             python python-pytest bash git diffutils findutils \
             base-devel cmake extra-cmake-modules pkgconf \
@@ -49,60 +52,21 @@ jobs:
           fi
           exit ${exit_code:-0}
 
-  # Cross-distro matrix — proves the qmake6-driven path discovery
-  # works on every distro the README claims support for. Each leg
-  # runs the same container test from tests/containers/, so a regression
-  # that breaks one distro can't silently sneak through CI.
-  #
-  # Gentoo's Dockerfile FROMs a pre-built GHCR base image
-  # (ghcr.io/.../mttkde-gentoo-base) so the matrix leg runs in seconds
-  # instead of waiting for a source build of qtbase. The base image is
-  # built + refreshed by .github/workflows/build-gentoo-base.yml.
-  cross-distro:
+  # CachyOS package/path probes and native build checks use the existing
+  # container harness. This checks the installed SDK, not a live KDE session.
+  cachyos:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        distro:
-          - cachyos
-          - arch
-          - manjaro
-          - endeavouros
-          - garuda
-          - gentoo
-          - fedora
-          - nobara
-          - opensuse
-          # KDE's current User Edition container. This proves APT package
-          # names and the Neon Qt/KF6/Plasma SDK before VM qualification.
-          - neon
-          # Arch with [kde-unstable] — the newest-KWin compile target
-          # (currently Plasma 6.7). Compiles the acrylic-glass effect
-          # against the next KWin ABI before any release distro ships
-          # it, so a 6.6->6.7-style break fails CI here first.
-          - arch-kdeunstable
     steps:
       - uses: actions/checkout@v5
-      # Gentoo's container FROMs a GHCR image that's built by a
-      # separate workflow. Until that image exists / for the brief
-      # window between Qt6 upstream bumps and the next monthly base
-      # rebuild, treat a Gentoo failure as a warning rather than a
-      # red X — every other distro still gates the merge.
-      #
-      # arch-kdeunstable tracks Arch's [kde-unstable] staging repo, which
-      # can ship a transiently half-migrated Plasma that breaks the build
-      # through no fault of ours. It's a forward-looking signal, not a
-      # merge gate, so it's non-blocking too.
-      - name: Build and run ${{ matrix.distro }} container
-        continue-on-error: ${{ matrix.distro == 'gentoo' || matrix.distro == 'arch-kdeunstable' }}
+      - name: Build and run CachyOS container
         run: |
           # Retry the build: pulling the base image from Docker Hub can
           # transiently time out / rate-limit from GitHub runners, which
           # has nothing to do with our code. 3 attempts, 15s backoff.
           for attempt in 1 2 3; do
             if docker build \
-                -f tests/containers/Dockerfile.${{ matrix.distro }} \
-                -t mttkde-test-${{ matrix.distro }}:ci \
+                -f tests/containers/Dockerfile.cachyos \
+                -t tajsdesktop-test-cachyos:ci \
                 .; then
               break
             fi
@@ -113,4 +77,4 @@ jobs:
             echo "build attempt $attempt failed — retrying in 15s"
             sleep 15
           done
-          docker run --rm mttkde-test-${{ matrix.distro }}:ci
+          docker run --rm tajsdesktop-test-cachyos:ci

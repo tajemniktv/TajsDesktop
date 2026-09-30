@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OLED care pixel-shift: `mac-tahoe-oled-care {shift|restore|status}`.
+"""OLED care pixel-shift: `tajsdesktop-oled-care {shift|restore|status}`.
 Fill-length panels cycle height (Plasma clamps their offset); others
 cycle offset. When a panel's geometry != base + last delta the user
 moved it — re-capture the base, never fight a deliberate change."""
@@ -62,7 +62,7 @@ def _state_dir() -> Path:
     a different XDG root, so this path deliberately matches the documented
     fixed location below the user's home.
     """
-    return Path.home() / ".local/state/mac-tahoe-liquid-kde"
+    return Path.home() / ".local/state/tajsdesktop"
 
 
 def _state_file() -> Path:
@@ -561,7 +561,7 @@ def _legacy_state_candidate() -> tuple[Path, bool]:
     default_home = Path.home() / ".local/state"
     state_home = Path(os.environ.get("XDG_STATE_HOME") or default_home)
     known = session_found or (before is not None and state_home != default_home)
-    return state_home / "mac-tahoe-liquid-kde/oled-care.json", known
+    return state_home / "tajsdesktop/oled-care.json", known
 
 
 def recovery_state_signature() -> tuple[bytes, ...] | None:
@@ -1145,7 +1145,7 @@ def status() -> int:
     return 0
 
 
-USAGE = "Usage: mac-tahoe-oled-care {shift [--max-px N]|restore|status}"
+USAGE = "Usage: tajsdesktop-oled-care {shift [--max-px N]|restore|status}"
 
 
 def _parse_max_px(args: list[str]) -> int:

@@ -1,0 +1,86 @@
+// MacTahoe Liquid KDE — macOS Tahoe-style layout
+// Top menu bar (flush) + bottom dock (floating, large icons)
+
+// ── remove existing panels ──────────────────────
+var old = panels();
+for (var i = 0; i < old.length; i++) {
+    old[i].remove();
+}
+
+// ── top menu bar ────────────────────────────────
+// top bar, flush panel with applets-only floating
+// (floatingApplets=1 is set via plasmashellrc after layout apply)
+var bar = new Panel("org.kde.panel");
+bar.location = "top";
+bar.screen = 0;
+bar.lengthMode = "fill";
+bar.floating = false;
+bar.hiding = "none";
+bar.height = 32;
+
+// panel colorizer: transparent background
+var colorizer = bar.addWidget("luisbocanegra.panel.colorizer");
+if (colorizer) {
+    colorizer.currentConfigGroup = ["General"];
+    colorizer.writeConfig("globalSettings", JSON.stringify({
+        "nativePanel": {
+            "background": { "enabled": false, "opacity": 0, "shadow": false },
+            "floatingDialogs": true
+        }
+    }));
+    colorizer.currentConfigGroup = ["Configuration"];
+    colorizer.writeConfig("hideWidget", "true");
+}
+
+bar.addWidget("org.tajemniktv.tajsdesktop.globalmenu");
+bar.addWidget("org.kde.plasma.panelspacer");
+
+// system tray — macOS style: only bluetooth, wifi, brightness visible
+var tray = bar.addWidget("org.kde.plasma.systemtray");
+tray.currentConfigGroup = ["General"];
+
+// shown = always visible, hidden = inside arrow, auto = KDE decides
+tray.writeConfig("shownItems", "org.kde.plasma.bluetooth,org.kde.plasma.networkmanagement,org.kde.plasma.brightness,org.kde.plasma.volume");
+tray.writeConfig("hiddenItems", "org.kde.plasma.clipboard,org.kde.plasma.devicenotifier,org.kde.plasma.manage-inputmethod,org.kde.plasma.mediacontroller,org.kde.plasma.notifications,org.kde.plasma.keyboardindicator,org.kde.plasma.weather,org.kde.kscreen,org.kde.plasma.keyboardlayout,org.kde.plasma.printmanager,org.kde.plasma.cameraindicator,org.kde.plasma.vault,org.kde.kdeconnect,org.kde.plasma.battery,Arch-Update,chrome_status_icon_1,discord,plasmashell_microphone,steam,spotify,telegram,slack");
+tray.writeConfig("iconSpacing", 3);
+
+bar.addWidget("org.kde.plasma.marginsseparator");
+
+var clock = bar.addWidget("org.kde.plasma.digitalclock");
+clock.currentConfigGroup = ["Appearance"];
+clock.writeConfig("autoFontAndSize", "false");
+clock.writeConfig("fontFamily", "SF Pro Text");
+clock.writeConfig("fontSize", 10);
+clock.writeConfig("fontWeight", 500);
+clock.writeConfig("showDate", "true");
+clock.writeConfig("use24hFormat", 1);
+clock.writeConfig("showSeconds", 0);
+clock.writeConfig("dateDisplayFormat", "BesideTime");
+clock.writeConfig("dateFormat", "custom");
+clock.writeConfig("customDateFormat", "ddd d ' | '");
+
+// ── bottom dock ─────────────────────────────────
+// floating, centered, large icons like macOS
+var dock = new Panel("org.kde.panel");
+dock.location = "bottom";
+dock.screen = 0;
+dock.alignment = "center";
+dock.lengthMode = "fit";
+dock.floating = true;
+// Auto-hide avoids the stuck-visible dodge behavior reported in issue #87.
+dock.hiding = "autohide";
+dock.height = 68;
+// opacity is set to translucent via plasmashellrc after layout apply
+// (JS scripting API does not expose panelOpacity)
+
+var launcher = dock.addWidget("org.tajemniktv.tajsdesktop.launcher");
+launcher.currentConfigGroup = ["General"];
+launcher.writeConfig("icon", "view-app-grid");
+dock.addWidget("org.kde.plasma.marginsseparator");
+
+var tasks = dock.addWidget("org.tajemniktv.tajsdesktop.icontasks");
+tasks.currentConfigGroup = ["General"];
+tasks.writeConfig("launchers", "preferred://filemanager,preferred://terminal,preferred://browser,applications:systemsettings.desktop,applications:steam.desktop");
+
+dock.addWidget("org.kde.plasma.marginsseparator");
+dock.addWidget("org.tajemniktv.tajsdesktop.trashcan");

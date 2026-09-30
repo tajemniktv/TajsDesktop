@@ -909,7 +909,7 @@ def test_collect_os_is_non_empty_on_linux():
 # ── helper-binary integration ────────────────────────────────────────────
 
 def test_helper_emits_valid_json_to_stdout():
-    """``mac-tahoe-about-info`` (the executable shim QML calls) must
+    """``tajsdesktop-about-info`` (the executable shim QML calls) must
     exit 0 and produce parseable JSON with the full schema."""
     helper = SCRIPTS / "about_info.py"
     result = subprocess.run(
@@ -1203,7 +1203,7 @@ def test_installed_copy_reports_baked_version(tmp_path):
     """Outside the repo (no VERSION two parents up) the helper falls
     back to the version _install_about_info() baked in."""
     source = (SCRIPTS / "about_info.py").read_text(encoding="utf-8")
-    helper = tmp_path / "mac-tahoe-about-info"
+    helper = tmp_path / "tajsdesktop-about-info"
     helper.write_text(source.replace("@THEME_VERSION@", "9.9.9"),
                       encoding="utf-8")
     res = subprocess.run(
@@ -1215,7 +1215,7 @@ def test_installed_copy_reports_baked_version(tmp_path):
 
 def test_unbaked_copy_outside_repo_reports_empty(tmp_path):
     source = (SCRIPTS / "about_info.py").read_text(encoding="utf-8")
-    helper = tmp_path / "mac-tahoe-about-info"
+    helper = tmp_path / "tajsdesktop-about-info"
     helper.write_text(source, encoding="utf-8")
     res = subprocess.run(
         [sys.executable, str(helper), "--mock"],

@@ -63,8 +63,8 @@ def deps():
 
 def build_artifacts() -> list[Path]:
     return [
-        BUILD / "src/liquidglass.so",
-        BUILD / "src/kcm/kwin_liquidglass_config.so",
+        BUILD / "src/tajsdesktopglass.so",
+        BUILD / "src/kcm/kwin_tajsdesktopglass_config.so",
     ]
 
 
@@ -77,17 +77,7 @@ def _plugin_dir() -> Path:
 def build() -> None:
     if not (SRC / "CMakeLists.txt").is_file():
         return
-    # Disable conflicting blur effects before build so the kwin plugin
-    # loader doesn't keep the .so mapped while we replace it.
-    kw_write("--file", "kwinrc", "--group", "Plugins",
-             "--key", "glassEnabled", "false")
-    kw_write("--file", "kwinrc", "--group", "Plugins",
-             "--key", "blurEnabled", "false")
-    qdbus_call("org.kde.KWin", "/Effects",
-               "org.kde.kwin.Effects.unloadEffect", "glass")
-    qdbus_call("org.kde.KWin", "/Effects",
-               "org.kde.kwin.Effects.unloadEffect", "blur")
-
+    # Compilation only stages artefacts; it must not alter the live session.
     cmake_build(SRC, BUILD, "Acrylic Glass")
 
 
@@ -137,7 +127,7 @@ def _install_corner_defaults() -> None:
         try:
             result = run_user(
                 ["kreadconfig6", "--file", "kwinrc", "--group",
-                 "Effect-liquidglass", "--key", key, "--default", sentinel],
+                 "Effect-tajsdesktopglass", "--key", key, "--default", sentinel],
                 check=False, capture_output=True, text=True, timeout=5,
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
@@ -147,33 +137,56 @@ def _install_corner_defaults() -> None:
             warn(f"Acrylic Glass {key} preserved — kreadconfig6 failed")
             continue
         if (result.stdout or "").removesuffix("\n").removesuffix("\r") == sentinel:
-            if not kw_write("--file", "kwinrc", "--group", "Effect-liquidglass",
+            if not kw_write("--file", "kwinrc", "--group", "Effect-tajsdesktopglass",
                             "--key", key, default):
                 warn(f"Acrylic Glass {key} default not applied — kwriteconfig6 failed")
 
 
+def update_assets() -> None:
+    """Replace compiled payloads without cycling or reconfiguring live KWin.
+
+    KWin may keep the old loaded inode until the next session. A routine
+    update must not disable the effect or rewrite its user-tuned preset.
+    """
+    system_dir = _plugin_dir()
+    effect_so = BUILD / "src/tajsdesktopglass.so"
+    config_so = BUILD / "src/kcm/kwin_tajsdesktopglass_config.so"
+    if not effect_so.is_file() or not config_so.is_file():
+        fail("Acrylic Glass update artefacts missing")
+        return
+    if not sudo_install_file(
+            effect_so, system_dir / "kwin/effects/plugins/tajsdesktopglass.so",
+            "Acrylic Glass payload updated"):
+        return
+    if not sudo_install_file(
+            config_so, system_dir / "kwin/effects/configs/kwin_tajsdesktopglass_config.so",
+            "Acrylic Glass KCM updated"):
+        return
+    ok("Acrylic Glass update staged; reload at next login")
+
+
 def install() -> None:
     system_dir = _plugin_dir()
-    effect_so = BUILD / "src/liquidglass.so"
-    config_so = BUILD / "src/kcm/kwin_liquidglass_config.so"
-    dest_effect = system_dir / "kwin/effects/plugins/liquidglass.so"
-    dest_config = system_dir / "kwin/effects/configs/kwin_liquidglass_config.so"
+    effect_so = BUILD / "src/tajsdesktopglass.so"
+    config_so = BUILD / "src/kcm/kwin_tajsdesktopglass_config.so"
+    dest_effect = system_dir / "kwin/effects/plugins/tajsdesktopglass.so"
+    dest_config = system_dir / "kwin/effects/configs/kwin_tajsdesktopglass_config.so"
 
     if not effect_so.is_file():
         return
 
     # Unload before replacing the .so so kwin doesn't hold the file.
     kw_write("--file", "kwinrc", "--group", "Plugins",
-             "--key", "liquidglassEnabled", "false")
+             "--key", "tajsdesktopglassEnabled", "false")
     qdbus_call("org.kde.KWin", "/Effects",
-               "org.kde.kwin.Effects.unloadEffect", "liquidglass")
+               "org.kde.kwin.Effects.unloadEffect", "tajsdesktopglass")
     qdbus_call("org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure")
     time.sleep(2)
     ok("Acrylic Glass unloaded for safe upgrade")
 
     # Drop user-path leftovers from old sudoless installs.
-    for so in (LEGACY_USER_PLUGIN_DIR / "kwin/effects/plugins/liquidglass.so",
-               LEGACY_USER_PLUGIN_DIR / "kwin/effects/configs/kwin_liquidglass_config.so"):
+    for so in (LEGACY_USER_PLUGIN_DIR / "kwin/effects/plugins/tajsdesktopglass.so",
+               LEGACY_USER_PLUGIN_DIR / "kwin/effects/configs/kwin_tajsdesktopglass_config.so"):
         if so.is_file():
             try:
                 so.unlink()
@@ -187,20 +200,20 @@ def install() -> None:
         warn("Acrylic Glass KCM install failed")
 
     for key, value in _PRESET:
-        kw_write("--file", "kwinrc", "--group", "Effect-liquidglass",
+        kw_write("--file", "kwinrc", "--group", "Effect-tajsdesktopglass",
                  "--key", key, value)
     _install_corner_defaults()
     ok("Acrylic Glass preset installed")
     kw_write("--file", "kwinrc", "--group", "Plugins",
-             "--key", "liquidglassEnabled", "true")
+             "--key", "tajsdesktopglassEnabled", "true")
 
     # Order matters: unload stale handle → reconfigure → loadEffect. loadEffect
     # returns true even when nothing changed; only activeEffects proves it took.
     qdbus_call("org.kde.KWin", "/Effects",
-               "org.kde.kwin.Effects.unloadEffect", "liquidglass")
+               "org.kde.kwin.Effects.unloadEffect", "tajsdesktopglass")
     qdbus_call("org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure")
     qdbus_call("org.kde.KWin", "/Effects",
-               "org.kde.kwin.Effects.loadEffect", "liquidglass")
+               "org.kde.kwin.Effects.loadEffect", "tajsdesktopglass")
 
     q = qdbus_cmd()
     active = ""
@@ -213,7 +226,7 @@ def install() -> None:
             active = res.stdout or ""
         except subprocess.TimeoutExpired:
             pass
-    if "liquidglass" in active:
+    if "tajsdesktopglass" in active:
         ok("Acrylic Glass loaded")
     else:
         ok("Acrylic Glass installed (log out and back in to activate)")
@@ -226,11 +239,11 @@ def uninstall() -> None:
     # translucent until the user logs out even though the .so was removed.
     disabled = kw_write(
         "--file", "kwinrc", "--group", "Plugins",
-        "--key", "liquidglassEnabled", "false",
+        "--key", "tajsdesktopglassEnabled", "false",
     )
     unloaded = qdbus_call(
         "org.kde.KWin", "/Effects",
-        "org.kde.kwin.Effects.unloadEffect", "liquidglass",
+        "org.kde.kwin.Effects.unloadEffect", "tajsdesktopglass",
     )
     reconfigured = qdbus_call(
         "org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure",
@@ -238,21 +251,21 @@ def uninstall() -> None:
     if not disabled:
         warn("Acrylic Glass could not be disabled in kwinrc")
     if not unloaded and not reconfigured:
-        # A reconfigure with liquidglassEnabled=false is an equivalent live
+        # A reconfigure with tajsdesktopglassEnabled=false is an equivalent live
         # unload.  Only warn when neither live path reached KWin.
         warn("Acrylic Glass live unload was not confirmed — log out once if "
              "window transparency remains")
 
-    # Strip the whole [Effect-liquidglass] group — leaving it behind would
+    # Strip the whole [Effect-tajsdesktopglass] group — leaving it behind would
     # let a reinstall keep stale tuned values.
     kwinrc = Path.home() / ".config/kwinrc"
     if kwinrc.is_file():
         text = kwinrc.read_text()
-        if "[Effect-liquidglass]" in text:
+        if "[Effect-tajsdesktopglass]" in text:
             out: list[str] = []
             skip = False
             for line in text.splitlines():
-                if line.startswith("[Effect-liquidglass]"):
+                if line.startswith("[Effect-tajsdesktopglass]"):
                     skip = True
                     continue
                 if skip and line.startswith("["):
@@ -262,12 +275,12 @@ def uninstall() -> None:
             kwinrc.write_text("\n".join(out) + "\n")
 
     system_dir = _plugin_dir()
-    for so in (system_dir / "kwin/effects/plugins/liquidglass.so",
-               system_dir / "kwin/effects/configs/kwin_liquidglass_config.so"):
+    for so in (system_dir / "kwin/effects/plugins/tajsdesktopglass.so",
+               system_dir / "kwin/effects/configs/kwin_tajsdesktopglass_config.so"):
         sudo_remove(so, so.name)
     # Drop user-path leftovers from old sudoless installs.
-    for so in (LEGACY_USER_PLUGIN_DIR / "kwin/effects/plugins/liquidglass.so",
-               LEGACY_USER_PLUGIN_DIR / "kwin/effects/configs/kwin_liquidglass_config.so"):
+    for so in (LEGACY_USER_PLUGIN_DIR / "kwin/effects/plugins/tajsdesktopglass.so",
+               LEGACY_USER_PLUGIN_DIR / "kwin/effects/configs/kwin_tajsdesktopglass_config.so"):
         if so.is_file():
             try:
                 so.unlink()

@@ -149,7 +149,7 @@ def _wallpaper_is_usable(candidate: Path) -> bool:
 
 def _is_project_wallpaper(candidate: Path) -> bool:
     return any(
-        part.casefold().startswith(("mactahoe", "mac-tahoe"))
+        part.casefold().startswith(("tajsdesktop-", "mactahoe", "mac-tahoe"))
         for part in candidate.parts
     )
 
@@ -329,7 +329,7 @@ def install() -> None:
 
     _flush_caches()
 
-    switch = HOME / ".local/bin/mac-tahoe-theme-switch"
+    switch = HOME / ".local/bin/tajsdesktop-theme-switch"
     if switch.is_file() and (switch.stat().st_mode & 0o111):
         # "install" context skips live plasmashell mutation (first-session and
         # QML teardown races); the final Plasma restart loads theme from config.
@@ -350,7 +350,7 @@ def install() -> None:
     print("  …  Reconfiguring KWin", end="\r", flush=True)
     if feat_enabled("ACRYLIC_GLASS"):
         qdbus_call("org.kde.KWin", "/Effects",
-                   "org.kde.kwin.Effects.loadEffect", "liquidglass")
+                   "org.kde.kwin.Effects.loadEffect", "tajsdesktopglass")
         time.sleep(1)
     # The switcher already protects foreign effects during its own
     # reconfigure. Protect this install-tail reconfigure as well; otherwise a
@@ -495,14 +495,6 @@ def restart_plasma() -> None:
     else:
         warn("Plasma restart did not produce a running shell")
 
-def _scrub_kdedefaults() -> None:
-    # The scrub lives in a bundled kconf_update helper; run just
-    # that one here — uninstall must not touch appletsrc or install anything.
-    from steps.kconf_update import run_migration
-    run_migration("mac-tahoe-scrub-kdedefaults.sh")
-    ok("kdedefaults cleaned")
-
-
 def _reset_wallpaper(*, live_ready: bool, native_reset: bool) -> None:
     """Restore a system wallpaper through every safe KDE path available."""
     declared = _lookandfeel_default_wallpaper(_BREEZE_LOOK_AND_FEEL)
@@ -566,7 +558,6 @@ def uninstall() -> None:
         kw_write("--file", "kdeglobals", "--group", "KDE",
                  "--key", "LookAndFeelPackage", _BREEZE_LOOK_AND_FEEL)
 
-    _scrub_kdedefaults()
     live_ready = _live_plasma_ready_quick()
 
     plasmarc = HOME / ".config/plasmarc"
@@ -602,7 +593,7 @@ def uninstall() -> None:
             else:
                 warn("Cursor reset failed")
         # Reset icons UNCONDITIONALLY (not gated on the ICONS feature): the
-        # MacTahoe icon dirs are deleted later, so point config at breeze first.
+        # TajsDesktop-Tahoe icon dirs are deleted later, so point config at breeze first.
         changeicons = kde_libexec_binary("plasma-changeicons")
         icons_reset = (
             changeicons is not None

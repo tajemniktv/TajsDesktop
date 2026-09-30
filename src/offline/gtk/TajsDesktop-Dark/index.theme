@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=TajsDesktop-Dark
+Comment=A MacOS Tahoe like Gtk+ theme based on Elegant Design
+Encoding=UTF-8
+
+[X-GNOME-Metatheme]
+GtkTheme=TajsDesktop-Dark
+MetacityTheme=TajsDesktop-Dark
+IconTheme=TajsDesktop-Icons-dark
+CursorTheme=TajsDesktop-Dark
+ButtonLayout=close,minimize,maximize:menu
+

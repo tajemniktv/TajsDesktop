@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 def test_bundled_sound_theme_is_freedesktop_compatible(offline):
-    theme = offline / "sounds/MacTahoeLiquidKde"
+    theme = offline / "sounds/TajsDesktop"
     index = (theme / "index.theme").read_text(encoding="utf-8")
     notice = (theme / "NOTICE").read_text(encoding="utf-8")
     stereo = theme / "stereo"
@@ -51,7 +51,7 @@ def _wire_step(monkeypatch, tmp_path):
     from steps import sounds
 
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    source = tmp_path / "offline/MacTahoeLiquidKde"
+    source = tmp_path / "offline/TajsDesktop"
     stereo = source / "stereo"
     stereo.mkdir(parents=True)
     (source / "index.theme").write_text(
@@ -59,7 +59,7 @@ def _wire_step(monkeypatch, tmp_path):
     )
     (stereo / "bell.oga").write_bytes(b"OggS-test")
 
-    destination = tmp_path / "data/sounds/MacTahoeLiquidKde"
+    destination = tmp_path / "data/sounds/TajsDesktop"
     monkeypatch.setattr(sounds, "OFFLINE_DIR", source)
     monkeypatch.setattr(sounds, "DEST_DIR", destination)
     monkeypatch.setattr(sounds, "ok", lambda _message: None)

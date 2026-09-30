@@ -22,7 +22,7 @@ def test_acrylic_decoration_region_is_not_overwritten(repo):
 
 def test_taskmanager_global_rect_checks_detached_items(repo):
     source = (repo / (
-        "src/offline/plasmoids/org.kde.mac.tahoe.liquid.taskmanager/backend.cpp"
+        "src/offline/plasmoids/org.tajemniktv.tajsdesktop.taskmanager/backend.cpp"
     )).read_text()
     body = source.split("QRect Backend::globalRect", 1)[1].split("\n}\n", 1)[0]
 
@@ -33,7 +33,7 @@ def test_taskmanager_global_rect_checks_detached_items(repo):
 
 def test_taskmanager_hover_timer_guards_destroyed_delegate(repo):
     source = (repo / (
-        "src/offline/plasmoids/org.kde.mac.tahoe.liquid.taskmanager/"
+        "src/offline/plasmoids/org.tajemniktv.tajsdesktop.taskmanager/"
         "contents/ui/MouseHandler.qml"
     )).read_text()
     timer = source.split("id: activationTimer", 1)[1].split(
@@ -46,7 +46,7 @@ def test_taskmanager_hover_timer_guards_destroyed_delegate(repo):
 
 def test_trash_rejects_non_file_drag_targets(repo):
     source = (repo / (
-        "src/offline/plasmoids/org.kde.mac-tahoe-liquid-kde.trashcan/"
+        "src/offline/plasmoids/org.tajemniktv.tajsdesktop.trashcan/"
         "contents/ui/main.qml"
     )).read_text()
     entered = source.split("onDragEnter: event => {", 1)[1].split(
@@ -59,7 +59,7 @@ def test_trash_rejects_non_file_drag_targets(repo):
 
 def test_smartlauncher_count_is_assigned_once_after_full_range_check(repo):
     source = (repo / (
-        "src/offline/plasmoids/org.kde.mac.tahoe.liquid.taskmanager/"
+        "src/offline/plasmoids/org.tajemniktv.tajsdesktop.taskmanager/"
         "smartlauncherbackend.cpp"
     )).read_text()
     update = source.split("void Backend::update(", 1)[1].split(

@@ -172,7 +172,7 @@ def test_cli_recovers_env_before_oled_and_theme_service_operations(
     monkeypatch.setenv("SUDO_USER", "test-user")
     for key in ("HOME", "USER", "LOGNAME"):
         monkeypatch.setenv(key, "before-sudo-recovery")
-    monkeypatch.setenv("MTTKDE_INIT", "systemd")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "systemd")
     monkeypatch.setattr(pwd, "getpwuid",
                         lambda uid: SimpleNamespace(pw_dir=str(tmp_path)))
     monkeypatch.setattr(os, "geteuid", lambda: 0)
@@ -195,5 +195,5 @@ def test_cli_recovers_env_before_oled_and_theme_service_operations(
     assert cli._require_root_and_drop_to_user()
     assert oled_care._user_service("disable", "--now", oled_care.TIMER_UNIT)
     assert theme_switch._user_service(
-        "enable", "--now", "mac-tahoe-liquid-kde-theme.timer")
+        "enable", "--now", "tajsdesktop-theme.timer")
     assert len(calls) == 2

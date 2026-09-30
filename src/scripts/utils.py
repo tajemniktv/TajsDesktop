@@ -21,7 +21,7 @@ class CancellationRequested(KeyboardInterrupt):
     """A GUI-requested cooperative cancellation at a safe boundary."""
 
 
-_CANCEL_FILE_ENV = "MTTKDE_CANCEL_FILE"
+_CANCEL_FILE_ENV = "TAJSDESKTOP_CANCEL_FILE"
 _cancel_signal_requested = False
 
 
@@ -354,7 +354,7 @@ def restore_desktop_session_env(uid: int | None = None) -> None:
 
 _USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "MacTahoeLiquidKDE/installer"
+    "TajsDesktop/installer"
 )
 
 
@@ -415,7 +415,7 @@ def _staging_root() -> Path:
         os.environ.get("XDG_CACHE_HOME")
         or os.path.expanduser("~/.cache")
     )
-    return Path(cache_home) / "mac-tahoe-liquid-kde-staging"
+    return Path(cache_home) / "tajsdesktop-staging"
 
 
 def safe_copy(src: Path | str, dest: Path | str) -> bool:

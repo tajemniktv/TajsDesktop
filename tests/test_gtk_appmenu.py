@@ -142,7 +142,7 @@ def test_login_hook_uses_custom_xdg_config_home(gtk_environment, monkeypatch, sa
     config = sandbox / "custom-config"
     monkeypatch.setenv("XDG_CONFIG_HOME", str(config))
     globalmenu._install_gtk_appmenu_environment()
-    assert (config / "plasma-workspace/env/mac-tahoe-gtk-appmenu.sh").is_file()
+    assert (config / "plasma-workspace/env/tajsdesktop-gtk-appmenu.sh").is_file()
     assert not (sandbox / ".config/plasma-workspace").exists()
 
 

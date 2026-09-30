@@ -9,16 +9,16 @@ DEST_DIR = DATA_HOME / "aurorae/themes"
 VARIANTS = ("Dark", "Light")
 
 
-def install() -> None:
+def _copy_assets() -> tuple[int, int] | None:
     src = offline("aurorae")
     if not src.is_dir():
         fail(f"Aurorae source not found at {src}")
-        return
+        return None
 
     DEST_DIR.mkdir(parents=True, exist_ok=True)
     n_inst = n_re = 0
     for mode in VARIANTS:
-        name = f"MacTahoeLiquidKde-{mode}"
+        name = f"TajsDesktop-{mode}"
         dest = DEST_DIR / name
         existed = dest.is_dir()
         dest.mkdir(parents=True, exist_ok=True)
@@ -44,7 +44,23 @@ def install() -> None:
         else:
             ok(f"{name} (installed)"); n_inst += 1
 
-    chosen = "MacTahoeLiquidKde-Light" if theme_mode() == "light" else "MacTahoeLiquidKde-Dark"
+    return n_inst, n_re
+
+
+def update_assets() -> None:
+    counts = _copy_assets()
+    if counts is not None:
+        n_inst, n_re = counts
+        info(f"{n_inst + n_re} Aurorae themes — {n_inst} installed, {n_re} reinstalled")
+
+
+def install() -> None:
+    counts = _copy_assets()
+    if counts is None:
+        return
+    n_inst, n_re = counts
+
+    chosen = "TajsDesktop-Light" if theme_mode() == "light" else "TajsDesktop-Dark"
     write_failures = 0
     for key, value in (
         ("library", "org.kde.kwin.aurorae"),
@@ -71,10 +87,10 @@ def install() -> None:
 def uninstall() -> None:
     n = 0
     for mode in VARIANTS:
-        d = DEST_DIR / f"MacTahoeLiquidKde-{mode}"
+        d = DEST_DIR / f"TajsDesktop-{mode}"
         if d.is_dir():
             shutil.rmtree(d, ignore_errors=True)
-            ok(f"MacTahoeLiquidKde-{mode} removed")
+            ok(f"TajsDesktop-{mode} removed")
             n += 1
     for key, value in (
         ("library", "org.kde.breeze"),

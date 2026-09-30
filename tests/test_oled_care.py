@@ -89,7 +89,7 @@ def _state_env(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("XDG_STATE_HOME", str(state_home))
     monkeypatch.setattr(oled_care, "_PROC_ROOT", tmp_path / "no-proc")
-    return state_home / "mac-tahoe-liquid-kde" / "oled-care.json"
+    return state_home / "tajsdesktop" / "oled-care.json"
 
 
 def test_custom_xdg_state_is_migrated_to_canonical_location(
@@ -102,7 +102,7 @@ def test_custom_xdg_state_is_migrated_to_canonical_location(
     (process / "comm").write_text("plasmashell\n")
     (process / "environ").write_bytes(
         os.fsencode(f"XDG_STATE_HOME={custom}") + b"\0")
-    legacy = custom / "mac-tahoe-liquid-kde/oled-care.json"
+    legacy = custom / "tajsdesktop/oled-care.json"
     legacy.parent.mkdir(parents=True)
     legacy.write_text(json.dumps({
         "index": 1, "last_off": 2, "last_h": 2,
@@ -114,7 +114,7 @@ def test_custom_xdg_state_is_migrated_to_canonical_location(
     monkeypatch.setattr(oled_care, "_PROC_ROOT", proc)
     monkeypatch.setattr(oled_care, "_sync_session_env_runtime_dir", lambda: None)
 
-    expected = home / ".local/state/mac-tahoe-liquid-kde/oled-care.json"
+    expected = home / ".local/state/tajsdesktop/oled-care.json"
     assert oled_care.prepare_recovery_state() is True
     assert oled_care._state_file() == expected
     assert json.loads(expected.read_text())["index"] == 1
@@ -813,12 +813,12 @@ def test_main_passes_max_px_to_shift(monkeypatch):
 
 
 def test_offline_units_ship_and_point_at_the_binary(offline):
-    service = (offline / "mac-tahoe-liquid-kde-oled.service").read_text()
-    timer = (offline / "mac-tahoe-liquid-kde-oled.timer").read_text()
-    assert "ExecStart=%h/.local/bin/mac-tahoe-oled-care shift" in service
+    service = (offline / "tajsdesktop-oled.service").read_text()
+    timer = (offline / "tajsdesktop-oled.timer").read_text()
+    assert "ExecStart=%h/.local/bin/tajsdesktop-oled-care shift" in service
     assert "Type=oneshot" in service
     assert "OnCalendar=*:0/5" in timer
-    assert "Unit=mac-tahoe-liquid-kde-oled.service" in timer
+    assert "Unit=tajsdesktop-oled.service" in timer
     assert "WantedBy=timers.target" in timer
 
 
@@ -832,12 +832,12 @@ def _wire_step(tmp_path, monkeypatch):
     # calls. Pin the init to systemd so they exercise that path regardless of
     # the CI host, which resolves to OpenRC (no /run/systemd/system) and would
     # otherwise take the crontab branch. The OpenRC branch has its own tests.
-    monkeypatch.setenv("MTTKDE_INIT", "systemd")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "systemd")
 
     home = tmp_path / "home"
-    bin_dest = home / ".local/bin/mac-tahoe-oled-care"
+    bin_dest = home / ".local/bin/tajsdesktop-oled-care"
     svc_dir = home / ".config/systemd/user"
-    state = home / ".local/state/mac-tahoe-liquid-kde/oled-care.json"
+    state = home / ".local/state/tajsdesktop/oled-care.json"
     calls: list[list[str]] = []
 
     monkeypatch.setattr(step, "BIN_DEST", bin_dest)
@@ -882,10 +882,10 @@ def test_step_install_enabled_copies_and_enables(tmp_path, monkeypatch):
     assert step.BIN_DEST.stat().st_mode & 0o111
     for unit in step.UNITS:
         assert (step.SVC_DIR / unit).is_file()
-    timer = (step.SVC_DIR / "mac-tahoe-liquid-kde-oled.timer").read_text()
-    service = (step.SVC_DIR / "mac-tahoe-liquid-kde-oled.service").read_text()
+    timer = (step.SVC_DIR / "tajsdesktop-oled.timer").read_text()
+    service = (step.SVC_DIR / "tajsdesktop-oled.service").read_text()
     assert "OnCalendar=*:0/5" in timer
-    assert "mac-tahoe-oled-care shift --max-px 8" in service
+    assert "tajsdesktop-oled-care shift --max-px 8" in service
     flat = [" ".join(c) for c in calls]
     assert any("enable" in c for c in flat)
     assert any("restart" in c and "timer" in c for c in flat)
@@ -900,10 +900,10 @@ def test_step_install_stamps_custom_interval_and_amplitude(tmp_path, monkeypatch
 
     step.install()
 
-    timer = (step.SVC_DIR / "mac-tahoe-liquid-kde-oled.timer").read_text()
-    service = (step.SVC_DIR / "mac-tahoe-liquid-kde-oled.service").read_text()
+    timer = (step.SVC_DIR / "tajsdesktop-oled.timer").read_text()
+    service = (step.SVC_DIR / "tajsdesktop-oled.service").read_text()
     assert "OnCalendar=*:0/3" in timer
-    assert "mac-tahoe-oled-care shift --max-px 4" in service
+    assert "tajsdesktop-oled-care shift --max-px 4" in service
 
 
 def test_step_install_clamps_garbage_settings(tmp_path, monkeypatch):
@@ -914,8 +914,8 @@ def test_step_install_clamps_garbage_settings(tmp_path, monkeypatch):
 
     step.install()
 
-    timer = (step.SVC_DIR / "mac-tahoe-liquid-kde-oled.timer").read_text()
-    service = (step.SVC_DIR / "mac-tahoe-liquid-kde-oled.service").read_text()
+    timer = (step.SVC_DIR / "tajsdesktop-oled.timer").read_text()
+    service = (step.SVC_DIR / "tajsdesktop-oled.service").read_text()
     assert "OnCalendar=*:0/5" in timer
     assert f"--max-px {oled_care.MAX_SHIFT_CEILING_PX}" in service
 
@@ -1003,7 +1003,7 @@ def test_step_uninstall_retains_recovery_when_panels_cannot_restore(
 def test_step_uninstall_retains_helper_and_state_when_cron_removal_fails(
         tmp_path, monkeypatch):
     step, _home, _calls = _wire_step(tmp_path, monkeypatch)
-    monkeypatch.setenv("MTTKDE_INIT", "openrc")
+    monkeypatch.setenv("TAJSDESKTOP_INIT", "openrc")
     step.BIN_DEST.parent.mkdir(parents=True)
     step.BIN_DEST.write_text("#!stub")
     restored: list[bool] = []
@@ -1406,7 +1406,11 @@ def test_cli_parses_interval_and_max_shift_both_forms():
 def test_cli_settings_survive_save_load_roundtrip(tmp_path, monkeypatch):
     import cli
 
-    monkeypatch.setattr(cli, "CONFIG_FILE", tmp_path / "features.json")
+    baseline = tmp_path / "repo-features.json"
+    baseline.write_text('{"oled_care": false}\n')
+    monkeypatch.setattr(cli, "CONFIG_FILE", baseline)
+    monkeypatch.setattr(cli, "user_features_file",
+                        lambda: tmp_path / "user-features.json")
     feat = dict(cli.DEFAULT_FEATURES)
     feat["oled_care"] = True
     feat["oled_interval"] = 7
@@ -1417,6 +1421,7 @@ def test_cli_settings_survive_save_load_roundtrip(tmp_path, monkeypatch):
     assert loaded["oled_care"] is True
     assert loaded["oled_interval"] == 7
     assert loaded["oled_max_shift"] == 3
+    assert baseline.read_text() == '{"oled_care": false}\n'
 
 
 def test_cli_export_env_publishes_oled_settings(monkeypatch):
@@ -1430,8 +1435,8 @@ def test_cli_export_env_publishes_oled_settings(monkeypatch):
     assert os.environ["FEAT_OLED_CARE"] == "true"
     assert os.environ["OLED_INTERVAL"] == "9"
     assert os.environ["OLED_MAX_SHIFT"] == "8"
-    assert os.environ["MTTKDE_EXISTING_INSTALL"] == "false"
-    assert os.environ["MTTKDE_RESET_WALLPAPERS"] == "false"
+    assert os.environ["TAJSDESKTOP_EXISTING_INSTALL"] == "false"
+    assert os.environ["TAJSDESKTOP_RESET_WALLPAPERS"] == "false"
 
 
 def test_cli_export_env_publishes_one_shot_update_actions(monkeypatch):
@@ -1440,5 +1445,5 @@ def test_cli_export_env_publishes_one_shot_update_actions(monkeypatch):
     monkeypatch.setattr(os, "environ", dict(os.environ))
     cli.export_env({"_existing_install": True,
                     "_reset_wallpapers": True})
-    assert os.environ["MTTKDE_EXISTING_INSTALL"] == "true"
-    assert os.environ["MTTKDE_RESET_WALLPAPERS"] == "true"
+    assert os.environ["TAJSDESKTOP_EXISTING_INSTALL"] == "true"
+    assert os.environ["TAJSDESKTOP_RESET_WALLPAPERS"] == "true"

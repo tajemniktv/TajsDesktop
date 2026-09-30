@@ -43,7 +43,7 @@ def _inner_path(svgz: Path) -> Path:
     """Path under the variant dir, e.g. ``widgets/button.svgz``."""
     parts = svgz.parts
     for i, p in enumerate(parts):
-        if p.startswith("MacTahoeLiquidKde-"):
+        if p.startswith("TajsDesktop-"):
             return Path(*parts[i + 1:])
     return Path(svgz.name)
 
@@ -52,8 +52,8 @@ def _svg_to_svgz(svg: Path) -> Path | None:
     rel = svg.relative_to(EDIT_DIR)
     variant, *inner = rel.parts
     full_variant = {
-        "Dark": "MacTahoeLiquidKde-Dark",
-        "Light": "MacTahoeLiquidKde-Light",
+        "Dark": "TajsDesktop-Dark",
+        "Light": "TajsDesktop-Light",
     }.get(variant)
     if full_variant is None:
         print(f"  skip (unknown variant {variant}): {svg}")

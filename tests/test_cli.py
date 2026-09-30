@@ -115,7 +115,7 @@ def test_parse_args_recognizes_one_shot_wallpaper_reset(cli_module):
 def test_existing_install_detects_current_state_marker(
         cli_module, monkeypatch, tmp_path):
     home = tmp_path / "home"
-    marker = home / ".local/state/mac-tahoe-liquid-kde/wallpapers.json"
+    marker = home / ".local/state/tajsdesktop/wallpapers.json"
     marker.parent.mkdir(parents=True)
     marker.write_text("{}\n")
     monkeypatch.setenv("HOME", str(home))
@@ -129,7 +129,7 @@ def test_existing_install_detects_legacy_applet_without_state(
     config = home / ".config"
     config.mkdir(parents=True)
     (config / "plasma-org.kde.plasma.desktop-appletsrc").write_text(
-        "plugin=org.kde.mac-tahoe-liquid-kde.launcher\n")
+        "plugin=org.tajemniktv.tajsdesktop.launcher\n")
     monkeypatch.setenv("HOME", str(home))
 
     assert cli_module._theme_is_already_installed() is True
@@ -144,20 +144,20 @@ def test_config_verifier_honors_xdg_config_home(
     (xdg / "kdedefaults").mkdir(parents=True)
     (home / ".config").mkdir(parents=True)
     (xdg / "kdedefaults/kdeglobals").write_text(
-        "[Icons]\nTheme=MacTahoeLiquidKde-Icons\n")
+        "[Icons]\nTheme=TajsDesktop-Icons\n")
     (home / ".config/kdeglobals").write_text(
         "[Icons]\nTheme=breeze-dark\n")
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
 
     assert cli_module._read_config_cascade(
-        "kdeglobals", "Icons", "Theme") == "MacTahoeLiquidKde-Icons"
+        "kdeglobals", "Icons", "Theme") == "TajsDesktop-Icons"
 
 
 @pytest.mark.parametrize("user_value,default_value", [
-    ("MacTahoeLiquidKde-Icons-dark", "breeze-dark"),
-    ("breeze-dark", "MacTahoeLiquidKde-Icons-dark"),
-    ("", "MacTahoeLiquidKde-Icons-dark"),
+    ("TajsDesktop-Icons-dark", "breeze-dark"),
+    ("breeze-dark", "TajsDesktop-Icons-dark"),
+    ("", "TajsDesktop-Icons-dark"),
 ])
 def test_config_verifier_user_value_overrides_kdedefaults(
         cli_module, sandbox, user_value, default_value):
@@ -177,14 +177,14 @@ def test_config_verifier_falls_back_for_missing_key_in_existing_user_file(
     (config / "kdedefaults").mkdir()
     (config / "kdeglobals").write_text("[Icons]\nOtherSetting=keep\n")
     (config / "kdedefaults/kdeglobals").write_text(
-        "[Icons]\nTheme=MacTahoeLiquidKde-Icons-dark\n")
+        "[Icons]\nTheme=TajsDesktop-Icons-dark\n")
 
     assert cli_module._read_config_cascade(
-        "kdeglobals", "Icons", "Theme") == "MacTahoeLiquidKde-Icons-dark"
+        "kdeglobals", "Icons", "Theme") == "TajsDesktop-Icons-dark"
 
 
 @pytest.mark.parametrize("user_value,passes", [
-    ("MacTahoeLiquidKde-Icons-dark", True),
+    ("TajsDesktop-Icons-dark", True),
     ("breeze-dark", False),
     ("", False),
 ])
@@ -194,7 +194,7 @@ def test_verify_config_uses_live_user_value(
     (config / "kdedefaults").mkdir()
     (config / "kdeglobals").write_text(f"[Icons]\nTheme={user_value}\n")
     (config / "kdedefaults/kdeglobals").write_text(
-        "[Icons]\nTheme=MacTahoeLiquidKde-Icons-light\n")
+        "[Icons]\nTheme=TajsDesktop-Icons-light\n")
     monkeypatch.setattr(cli_module, "kw_read", lambda *args: pytest.fail(
         "An explicit user value, including empty, must not fall back"))
     failures = []
@@ -216,7 +216,7 @@ def test_verify_config_reads_other_layers_when_key_is_absent(
 
     def read(file, group, prop):
         reads.append((file, group, prop))
-        return "MacTahoeLiquidKde-Icons-dark"
+        return "TajsDesktop-Icons-dark"
 
     monkeypatch.setattr(cli_module, "kw_read", read)
     monkeypatch.setattr(cli_module, "fail", pytest.fail)
@@ -418,6 +418,8 @@ def test_run_install_requires_root(monkeypatch, cli_module):
         "Parsed", (), {
             "help": False,
             "check_update": False,
+            "plan_only": False,
+            "plan_profile_reset": False,
             "preflight_only": False,
             "do_save": False,
             "do_reset": False,
@@ -434,86 +436,28 @@ def test_run_install_requires_root(monkeypatch, cli_module):
     assert apply_overrides_called == []
 
 
-# ── auto-update on install (pull newer release, re-exec) ──────────────
+# ── fork update source and no implicit pull ──────────────────────────
 
 
-def test_auto_update_skips_when_recursion_guard_set(cli_module, monkeypatch):
-    """After a successful pull we re-exec with MAC_TAHOE_UPDATED=1; that
-    second run must NOT pull/re-exec again — it just installs."""
-    monkeypatch.setenv("MAC_TAHOE_UPDATED", "1")
-    execv_called: list = []
+def test_fork_update_source_and_no_automatic_git_execution(cli_module, monkeypatch):
+    assert cli_module.GITHUB_RELEASES_URL.endswith(
+        "/tajemniktv/TajsDesktop/releases/latest")
     monkeypatch.setattr(cli_module.os, "execv",
-                        lambda *a: execv_called.append(a))
-    # _git must never be consulted on the guarded run.
-    monkeypatch.setattr(cli_module, "_git",
-                        lambda *a, **k: pytest.fail("git touched on guarded run"))
-
-    cli_module.auto_update_and_reexec([])
-    assert execv_called == []
+                        lambda *a: pytest.fail("installer re-executed"))
+    assert not hasattr(cli_module, "auto_update_and_reexec")
 
 
-def test_auto_update_bails_when_not_a_clean_git_checkout(cli_module, monkeypatch):
-    """A tarball install / dirty tree must fall back to installing the
-    current version, never pull."""
-    monkeypatch.delenv("MAC_TAHOE_UPDATED", raising=False)
-    monkeypatch.setattr(cli_module, "_repo_is_clean_git_checkout", lambda: False)
-    pull_calls: list = []
-    monkeypatch.setattr(cli_module, "_git",
-                        lambda *a, **k: pull_calls.append(a))
-    execv_called: list = []
-    monkeypatch.setattr(cli_module.os, "execv",
-                        lambda *a: execv_called.append(a))
-
-    cli_module.auto_update_and_reexec([])
-    assert pull_calls == []      # never pulled
-    assert execv_called == []    # never re-exec'd
-
-
-def test_auto_update_bails_when_pull_fails(cli_module, monkeypatch):
-    """If git pull fails (conflict, offline, detached), install the
-    current version instead of re-exec'ing into a half-updated tree."""
-    monkeypatch.delenv("MAC_TAHOE_UPDATED", raising=False)
-    monkeypatch.setattr(cli_module, "_repo_is_clean_git_checkout", lambda: True)
-
-    class _Fail:
-        returncode = 1
-        stderr = "fatal: could not fast-forward"
-
-    monkeypatch.setattr(cli_module, "_git", lambda *a, **k: _Fail())
-    execv_called: list = []
-    monkeypatch.setattr(cli_module.os, "execv",
-                        lambda *a: execv_called.append(a))
-
-    cli_module.auto_update_and_reexec([])
-    assert execv_called == []
-    assert os.environ.get("MAC_TAHOE_UPDATED") != "1"  # guard not leaked
-
-
-def test_auto_update_pulls_and_reexecs_install(cli_module, monkeypatch):
-    """Happy path: clean checkout + successful pull → set the recursion
-    guard and re-exec ./install with the same argv."""
-    monkeypatch.delenv("MAC_TAHOE_UPDATED", raising=False)
-    monkeypatch.setattr(cli_module, "_repo_is_clean_git_checkout", lambda: True)
-
-    class _Ok:
-        returncode = 0
-        stdout = ""
-        stderr = ""
-
-    monkeypatch.setattr(cli_module, "_git", lambda *a, **k: _Ok())
-
-    execv_args: list = []
-    monkeypatch.setattr(cli_module.os, "execv",
-                        lambda path, argv: execv_args.append((path, argv)))
-
-    cli_module.auto_update_and_reexec(["--dark", "--no-gtk"])
-
-    assert os.environ.get("MAC_TAHOE_UPDATED") == "1"  # guard set before exec
-    assert len(execv_args) == 1
-    path, argv = execv_args[0]
-    assert path.endswith("/install")
-    # argv[0] is the program, the install flags follow verbatim.
-    assert argv[1:] == ["--dark", "--no-gtk"]
+@pytest.mark.parametrize("entrypoint", ["run_install", "run_uninstall"])
+def test_staged_fork_cannot_mutate_live_desktop(
+        cli_module, monkeypatch, entrypoint):
+    monkeypatch.setattr(cli_module, "_require_root_and_drop_to_user",
+                        lambda _prog: True)
+    monkeypatch.setattr(cli_module, "apply_overrides",
+                        lambda *_: pytest.fail("feature file modified"))
+    monkeypatch.setattr(cli_module, "run_phase",
+                        lambda *_: pytest.fail("live step executed"))
+    monkeypatch.setattr(cli_module, "fail", lambda *_: None)
+    assert getattr(cli_module, entrypoint)([]) == 1
 
 
 # ── _check_deps: probe each package, install ONLY the missing ones ──────

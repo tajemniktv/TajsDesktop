@@ -30,7 +30,7 @@ def test_language_preference_round_trip(sandbox):
     assert localization.get_language() == "auto"
     assert localization.set_language("es")
     assert localization.get_language() == "es"
-    saved = json.loads((sandbox / ".config/mac-tahoe-liquid-kde/language.json").read_text())
+    saved = json.loads((sandbox / ".config/tajsdesktop/language.json").read_text())
     assert saved == {"language": "es"}
     assert not localization.set_language("unsupported")
     assert localization.get_language() == "es"
@@ -49,9 +49,9 @@ def _catalog(path: Path) -> gettext.GNUTranslations:
 
 def test_plasmoid_catalogs_ship_for_spanish_and_simplified_chinese(repo):
     widgets = {
-        "org.kde.mac-tahoe-liquid-kde.launcher": ("Apps", "Aplicaciones", "应用"),
-        "org.kde.mac-tahoe-liquid-kde.trashcan": ("Trash", "Papelera", "回收站"),
-        "org.kde.mac.tahoe.liquid.taskmanager": (
+        "org.tajemniktv.tajsdesktop.launcher": ("Apps", "Aplicaciones", "应用"),
+        "org.tajemniktv.tajsdesktop.trashcan": ("Trash", "Papelera", "回收站"),
+        "org.tajemniktv.tajsdesktop.taskmanager": (
             "Hover magnification:", "Ampliación al pasar el cursor:", "悬停放大："),
     }
     base = repo / "src/offline/plasmoids"
@@ -62,8 +62,8 @@ def test_plasmoid_catalogs_ship_for_spanish_and_simplified_chinese(repo):
             assert mo.is_file(), mo
             assert _catalog(mo).gettext(source) == expected
 
-    globalmenu = base / "org.kde.mac.tahoe.liquid.globalmenu"
-    domain = "plasma_applet_org.kde.mac.tahoe.liquid.globalmenu.mo"
+    globalmenu = base / "org.tajemniktv.tajsdesktop.globalmenu"
+    domain = "plasma_applet_org.tajemniktv.tajsdesktop.globalmenu.mo"
     assert _catalog(globalmenu / "locale/es/LC_MESSAGES" / domain).gettext(
         "About This Computer") == "Acerca de este equipo"
     assert _catalog(globalmenu / "locale/zh_CN/LC_MESSAGES" / domain).gettext(
@@ -83,7 +83,7 @@ def test_installer_qml_has_live_language_selector(repo):
 
 def test_dock_reuses_complete_upstream_taskmanager_catalog(repo):
     root = (repo / "src/offline/plasmoids"
-            / "org.kde.mac.tahoe.liquid.taskmanager/contents")
+            / "org.tajemniktv.tajsdesktop.taskmanager/contents")
     source = "\n".join(path.read_text() for path in root.rglob("*.qml"))
     # Bare i18n()/i18nc() would resolve against the fork's intentionally tiny
     # custom catalog and turn the inherited configuration UI back to English.
