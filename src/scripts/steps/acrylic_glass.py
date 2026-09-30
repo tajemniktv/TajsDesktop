@@ -76,17 +76,7 @@ def _plugin_dir() -> Path:
 def build() -> None:
     if not (SRC / "CMakeLists.txt").is_file():
         return
-    # Disable conflicting blur effects before build so the kwin plugin
-    # loader doesn't keep the .so mapped while we replace it.
-    kw_write("--file", "kwinrc", "--group", "Plugins",
-             "--key", "glassEnabled", "false")
-    kw_write("--file", "kwinrc", "--group", "Plugins",
-             "--key", "blurEnabled", "false")
-    qdbus_call("org.kde.KWin", "/Effects",
-               "org.kde.kwin.Effects.unloadEffect", "glass")
-    qdbus_call("org.kde.KWin", "/Effects",
-               "org.kde.kwin.Effects.unloadEffect", "blur")
-
+    # Compilation only stages artefacts; it must not alter the live session.
     cmake_build(SRC, BUILD, "Acrylic Glass")
 
 
