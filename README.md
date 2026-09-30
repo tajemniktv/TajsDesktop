@@ -1,6 +1,6 @@
 # TajsDesktop (staging fork)
 
-[![tests](https://img.shields.io/badge/tests-1420_passing-brightgreen)](https://github.com/tajemniktv/TajsDesktop/actions/workflows/test.yml) [![plasma](https://img.shields.io/badge/Plasma-6.6%2B-1d99f3?logo=kde)](https://kde.org/plasma-desktop/) [![license](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE) [![report a bug](https://img.shields.io/badge/report-a%20bug-red?logo=github)](https://github.com/tajemniktv/TajsDesktop/issues/new)
+[![tests](https://img.shields.io/badge/tests-1450_passing-brightgreen)](https://github.com/tajemniktv/TajsDesktop/actions/workflows/test.yml) [![plasma](https://img.shields.io/badge/Plasma-6.6%2B-1d99f3?logo=kde)](https://kde.org/plasma-desktop/) [![license](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE) [![report a bug](https://img.shields.io/badge/report-a%20bug-red?logo=github)](https://github.com/tajemniktv/TajsDesktop/issues/new)
 
 > [!WARNING]
 > This fork is **not install-ready**. The installer and uninstaller are blocked
@@ -176,6 +176,26 @@ Useful maintenance options:
 - Theme changes keep any wallpaper you've chosen for each monitor.
 - `--reset-wallpapers` returns all monitors to the bundled light/dark wallpapers.
 - `./legacy-install` and `./legacy-uninstall` use the classic prompt instead of the terminal wizard.
+
+</details>
+
+<details>
+<summary><b>Glass and rounded-corner troubleshooting</b></summary>
+
+VirtualBox VM surfaces are excluded from Acrylic Glass in v0.53.0 to prevent
+glass from filling fullscreen or seamless windows. The VirtualBox manager
+keeps its normal appearance ([#90](https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/issues/90)).
+
+If small triangles appear at window corners with both effects enabled, open
+**System Settings → Window Management → Desktop Effects → Acrylic Glass**
+and adjust the window, dock, and popup corner radii. Setting them to `28`
+resolved the reported case. Starting with v0.53.0, reinstall preserves these
+adjustments. The effects retain independent defaults; this release does not
+automatically change existing radii ([#89](https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/issues/89)).
+
+The desktop-edit overlay reported with ShapeCorners remains under investigation.
+Disabling **KDE Rounded Corners** in Desktop Effects was the reporter's
+workaround ([#77](https://github.com/lestercorderomurillo/macos-tahoe-liquid-kde/issues/77)).
 
 </details>
 

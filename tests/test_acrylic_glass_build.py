@@ -22,6 +22,8 @@ def build_context(tmp_path, monkeypatch):
         side_effect=AssertionError("build must not write KDE settings")))
     monkeypatch.setattr(acrylic_glass, "qdbus_call", Mock(
         side_effect=AssertionError("build must not contact live D-Bus")))
+    monkeypatch.setattr(acrylic_glass, "_install_corner_defaults", Mock(
+        side_effect=AssertionError("build must not initialize live settings")))
     return src, build, compile_effect
 
 

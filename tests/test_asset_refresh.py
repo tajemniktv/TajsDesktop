@@ -66,6 +66,7 @@ def test_acrylic_asset_refresh_does_not_cycle_live_effect(monkeypatch, tmp_path)
                         lambda src, dest, label: installed.append(dest.name) or True)
     monkeypatch.setattr(acrylic_glass, "kw_write", _unexpected)
     monkeypatch.setattr(acrylic_glass, "qdbus_call", _unexpected)
+    monkeypatch.setattr(acrylic_glass, "_install_corner_defaults", _unexpected)
 
     acrylic_glass.update_assets()
 
