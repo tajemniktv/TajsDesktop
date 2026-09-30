@@ -32,11 +32,11 @@ install a systemd user timer under systemd and a per-user `crontab`
 line under OpenRC, chosen by `init_system()` in the distro layer.
 OpenRC is supported generically across distros; it is verified by hand
 in a Gentoo OpenRC VM (`./vm`), not in the container matrix. The
-container matrix covers Arch, CachyOS, Manjaro, EndeavourOS, Garuda,
-Gentoo, Fedora, Nobara, openSUSE Tumbleweed, and KDE neon on their default
-(systemd) profiles; of these only **Arch and CachyOS are marked
-*tested* in the README — every other distro is *testing* / work in
-progress**. Immutable rpm-ostree distros
+automatic container coverage targets **CachyOS only**, with the full core
+pytest suite plus package/path/native-build probes. Other distro Dockerfiles
+and VM definitions are retained for optional manual use, not CI coverage.
+Containers do not exercise a running init system or live KDE session.
+Immutable rpm-ostree distros
 (Silverblue, Kinoite) are explicitly out of scope: the installer
 writes into `/usr/lib*` and `/usr/share`, which are read-only on those
 systems and need either an rpm/Flatpak-extension wrapper or an
@@ -479,15 +479,15 @@ invoking it and surfaces a `warn()` when it doesn't:
 the fc-cache missing path; `tests/test_plymouth_step.py` covers the
 bootloader probe.
 
-## Architecture — Container CI Matrix
+## Architecture — CachyOS Container CI
 
 | File                         | Role |
 | ---------------------------- | ---- |
-| `tests/containers/Dockerfile.<distro>` | One per supported distro. CachyOS pulls both `archlinux-keyring` and `cachyos-keyring` after `pacman-key --init && pacman-key --populate archlinux cachyos`. |
-| `tests/containers/Dockerfile.arch-kdeunstable` | Canary against Arch's `[kde-unstable]` staging repo — catches the next Plasma release early. `continue-on-error` in CI (like Gentoo). |
-| `tests/containers/Dockerfile.gentoo-base` | Builds the GHCR base image `ghcr.io/lestercorderomurillo/mttkde-gentoo-base` so qtbase doesn't compile from source on every PR. |
+| `tests/containers/Dockerfile.<distro>` | CachyOS is the automatic CI target; other fixtures are manual-only. CachyOS pulls both `archlinux-keyring` and `cachyos-keyring` after `pacman-key --init && pacman-key --populate archlinux cachyos`. |
+| `tests/containers/Dockerfile.arch-kdeunstable` | Optional manual canary against Arch's `[kde-unstable]` staging repo; not run by CI. |
+| `tests/containers/Dockerfile.gentoo-base` | Optional Gentoo base-image fixture; its workflow is manual-only and is not part of CachyOS CI. |
 | `tests/containers/run_in_container.py` | Per-distro probe: qmake6 resolves, the distro layer agrees with what qmake6 reports, every `package_for()` token resolves in the distro's repo (with a "transient network" skip so flaky upstream CDN edges don't tank CI), preflight destination checks, pytest. |
-| `tests/containers/run_matrix.sh` | Local runner. CI runs the same workflow via `.github/workflows/test.yml`. |
+| `tests/containers/run_matrix.sh` | Optional local runner; pass `cachyos` to match the CI distro target. |
 
 When a probe fails, the script scans stderr for transient-network
 markers (`"Failed to retrieve"`, `"Could not resolve host"`, repo
@@ -645,7 +645,8 @@ Highlights:
 - `tests/test_rounded_corners_step.py` — immutable upstream pin, checksum
   and traversal rejection, best-effort orchestration, enabled state,
   v0.38 preset cleanup without effect-state changes, and lifecycle.
-- `tests/containers/run_matrix.sh` — full per-distro probe.
+- `tests/containers/run_matrix.sh cachyos` — the CI package/path/native probes.
+  Other distro arguments are optional manual checks.
 
 ## What NOT to Do
 

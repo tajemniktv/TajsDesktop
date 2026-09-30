@@ -1,7 +1,7 @@
 # CachyOS — the maintainer's daily-driver. Arch-derived, same
-# /usr/lib/qt6 libdir, same pacman package names. Existing Arch
-# coverage already exercises this in practice, but a dedicated row
-# makes the CI matrix reflect the README claim.
+# /usr/lib/qt6 libdir, same pacman package names. This is the sole
+# automatic distro target; package and SDK checks do not prove a
+# live Plasma session or the guarded installer lifecycle.
 FROM cachyos/cachyos:latest
 
 # Base image ships pacman keyrings that drift out of date — pacman -Sy

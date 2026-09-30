@@ -1,12 +1,17 @@
 # TajsDesktop (staging fork)
 
-[![tests](https://img.shields.io/badge/tests-1450_passing-brightgreen)](https://github.com/tajemniktv/TajsDesktop/actions/workflows/test.yml) [![plasma](https://img.shields.io/badge/Plasma-6.6%2B-1d99f3?logo=kde)](https://kde.org/plasma-desktop/) [![license](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE) [![report a bug](https://img.shields.io/badge/report-a%20bug-red?logo=github)](https://github.com/tajemniktv/TajsDesktop/issues/new)
+[![tests](https://img.shields.io/badge/tests-1453_passing-brightgreen)](https://github.com/tajemniktv/TajsDesktop/actions/workflows/test.yml) [![plasma](https://img.shields.io/badge/Plasma-6.6%2B-1d99f3?logo=kde)](https://kde.org/plasma-desktop/) [![license](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE) [![report a bug](https://img.shields.io/badge/report-a%20bug-red?logo=github)](https://github.com/tajemniktv/TajsDesktop/issues/new)
 
 > [!WARNING]
 > This fork is **not install-ready**. The installer and uninstaller are blocked
 > while configuration-preserving lifecycle and migration work is incomplete.
 > No live desktop deployment has been performed. The instructions below still
 > describe the upstream theme and must not be used to deploy this staging branch.
+
+Automated distro coverage targets **CachyOS only**. CI keeps the full core
+pytest suite plus Qt/KDE package, path, and native-build checks. Containers do
+not validate a live KDE session, installation, migration, or rollback. Other
+distro fixtures remain available for optional manual testing.
 
 <br>
 

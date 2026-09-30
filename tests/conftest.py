@@ -9,21 +9,19 @@ What is actually covered:
    drift before it ships. They cannot prove the install works on a
    live KDE session.
 
-2. **Per-distro container matrix** at ``tests/containers/``. One
-   Dockerfile per supported distro (arch, cachyos, manjaro, garuda,
-   endeavouros, gentoo, fedora, nobara, opensuse). Inside
-   each container, ``run_in_container.py`` runs the pytest suite
-   against that distro's real Python + Qt6 layout, then probes
-   ``distro.package_for(token)`` against the distro's real repo
-   metadata. Run with ``./tests/containers/run_matrix.sh``.
+2. **CachyOS container checks** at ``tests/containers/``. CI runs the full
+   core pytest suite and the CachyOS package/path/native-build probes.
+   ``run_in_container.py`` checks real Python + Qt6 paths, package repo
+   metadata, CMake configuration for the three native components, and
+   compilation of Acrylic Glass. Run locally with
+   ``./tests/containers/run_matrix.sh cachyos``. Other distro Dockerfiles
+   remain optional manual fixtures, not automatic CI coverage.
 
 What is NOT covered by any layer in this tree:
 
 - The full ``sudo ./install`` → preflight → step loop → uninstall
   pipeline. That needs a live Plasma 6 session, KWin running, KDED
   alive, and is only exercised by the maintainer on bare metal.
-- ``find_package(KF6 ...)`` for the C++ plugins (would require
-  pulling the full Plasma 6 dev SDK into every container image).
 - Live theme-switch DBus calls — preflight has a sudo-hop probe
   but the actual ``plasma-apply-lookandfeel`` step is mocked.
 - Journal scans for crash signatures use ``--since "24 hours
